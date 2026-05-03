@@ -332,6 +332,8 @@ fn describe(event: &Event) -> String {
         }
         Event::GoldEarned { amount } => format!("🪙 You earn {amount} gold."),
         Event::Healed { amount } => format!("❤️‍🩹 You heal for {amount} HP."),
+        Event::PlayerSelfDamaged { amount } => format!("🩸 You lose {amount} HP."),
+        Event::EnergyGained { amount } => format!("⚡ You gain {amount} energy."),
         Event::CardAdded { card } => format!("✨ {} added to your deck.", card.name()),
         Event::CardExhausted { card } => format!("🔥 {} was exhausted.", card.name()),
         Event::CardUpgraded { from, to } => format!("⬆️  {} upgraded to {}.", from.name(), to.name()),

@@ -139,6 +139,8 @@ pub enum Event {
     EnemyPoisoned { damage: i32 },
     EnemyDied,
     PlayerDied,
+    PlayerSelfDamaged { amount: i32 },
+    EnergyGained { amount: i32 },
     GoldEarned { amount: i32 },
     Healed { amount: i32 },
     CardAdded { card: Card },
@@ -193,6 +195,10 @@ pub(crate) fn apply_combat_command(
                 state.player.exhaust_pile.push(card.clone());
             } else if card.card_type() != crate::cards::CardType::Power {
                 state.player.discard_pile.push(card.clone());
+            }
+            if state.player.hp <= Hp(0) {
+                state.phase = CombatPhase::Defeat;
+                return Ok((state, events));
             }
             if state.enemies[actual_target].hp <= Hp(0) {
                 events.push(Event::EnemyDied);
@@ -300,6 +306,11 @@ pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
     let remainder = amount - absorbed;
     hp.0 = (hp.0 - remainder).max(0);
     remainder
+}
+
+pub(crate) fn damage_player(state: &mut CombatState, events: &mut Vec<Event>, amount: i32) {
+    state.player.hp.0 = (state.player.hp.0 - amount).max(0);
+    events.push(Event::PlayerSelfDamaged { amount });
 }
 
 #[cfg(test)]

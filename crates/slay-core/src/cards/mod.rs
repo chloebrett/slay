@@ -1,9 +1,13 @@
 mod bash;
+mod blood_wall;
+mod bloodletting;
+mod breakthrough;
 mod cleave;
 mod clothesline;
 mod deadly_poison;
 mod defend;
 mod disarm;
+mod hemokinesis;
 mod inflame;
 mod iron_wave;
 mod mangle;
@@ -55,6 +59,14 @@ pub enum Card {
     TauntPlus,
     Thunderclap,
     ThunderclapPlus,
+    Breakthrough,
+    BreakthroughPlus,
+    BloodWall,
+    BloodWallPlus,
+    Bloodletting,
+    BloodlettingPlus,
+    Hemokinesis,
+    HemokinesisPlus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -291,6 +303,54 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Attack,
             },
+            Card::Breakthrough => CardDef {
+                name: "Breakthrough",
+                description: CardDescription::WithDamage { template: "Lose 1 HP. Deal {damage} damage to ALL enemies.", base: 9 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::BreakthroughPlus => CardDef {
+                name: "Breakthrough+",
+                description: CardDescription::WithDamage { template: "Lose 1 HP. Deal {damage} damage to ALL enemies.", base: 13 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::BloodWall => CardDef {
+                name: "Blood Wall",
+                description: CardDescription::Static("Lose 2 HP. Gain 16 Block."),
+                energy_cost: Energy(2),
+                card_type: CardType::Skill,
+            },
+            Card::BloodWallPlus => CardDef {
+                name: "Blood Wall+",
+                description: CardDescription::Static("Lose 2 HP. Gain 20 Block."),
+                energy_cost: Energy(2),
+                card_type: CardType::Skill,
+            },
+            Card::Bloodletting => CardDef {
+                name: "Bloodletting",
+                description: CardDescription::Static("Lose 3 HP. Gain 2 Energy."),
+                energy_cost: Energy(0),
+                card_type: CardType::Skill,
+            },
+            Card::BloodlettingPlus => CardDef {
+                name: "Bloodletting+",
+                description: CardDescription::Static("Lose 3 HP. Gain 3 Energy."),
+                energy_cost: Energy(0),
+                card_type: CardType::Skill,
+            },
+            Card::Hemokinesis => CardDef {
+                name: "Hemokinesis",
+                description: CardDescription::WithDamage { template: "Lose 2 HP. Deal {damage} damage.", base: 15 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::HemokinesisPlus => CardDef {
+                name: "Hemokinesis+",
+                description: CardDescription::WithDamage { template: "Lose 2 HP. Deal {damage} damage.", base: 20 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
         }
     }
 
@@ -316,7 +376,11 @@ impl Card {
             Card::Mangle      => Some(Card::ManglePlus),
             Card::Uppercut    => Some(Card::UppercutPlus),
             Card::Taunt       => Some(Card::TauntPlus),
-            Card::Thunderclap => Some(Card::ThunderclapPlus),
+            Card::Thunderclap  => Some(Card::ThunderclapPlus),
+            Card::Breakthrough => Some(Card::BreakthroughPlus),
+            Card::BloodWall    => Some(Card::BloodWallPlus),
+            Card::Bloodletting => Some(Card::BloodlettingPlus),
+            Card::Hemokinesis  => Some(Card::HemokinesisPlus),
             _ => None,
         }
     }
@@ -950,6 +1014,127 @@ mod tests {
     fn upgrading_cleave_gives_cleave_plus() {
         assert_eq!(Card::Cleave.upgrade(), Some(Card::CleavePlus));
     }
+
+    // --- Breakthrough ---
+
+    #[test]
+    fn breakthrough_deals_9_damage_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Breakthrough]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(11));
+        assert_eq!(state.enemies[1].hp, Hp(11));
+    }
+
+    #[test]
+    fn breakthrough_costs_1_hp() {
+        let state = combat_with_hand(vec![Card::Breakthrough]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(79));
+    }
+
+    #[test]
+    fn breakthrough_emits_player_self_damaged_event() {
+        let state = combat_with_hand(vec![Card::Breakthrough]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::PlayerSelfDamaged { amount: 1 }));
+    }
+
+    #[test]
+    fn breakthrough_plus_deals_13_damage_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::BreakthroughPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(7));
+        assert_eq!(state.enemies[1].hp, Hp(7));
+    }
+
+    // --- Blood Wall ---
+
+    #[test]
+    fn blood_wall_grants_16_block() {
+        let state = combat_with_hand(vec![Card::BloodWall]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(16));
+    }
+
+    #[test]
+    fn blood_wall_costs_2_hp() {
+        let state = combat_with_hand(vec![Card::BloodWall]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78));
+    }
+
+    #[test]
+    fn blood_wall_plus_grants_20_block() {
+        let state = combat_with_hand(vec![Card::BloodWallPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(20));
+    }
+
+    // --- Bloodletting ---
+
+    #[test]
+    fn bloodletting_gains_2_energy() {
+        let mut state = combat_with_hand(vec![Card::Bloodletting]);
+        state.player.energy = Energy(0); // drain energy so we can measure the gain
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(2));
+    }
+
+    #[test]
+    fn bloodletting_costs_3_hp() {
+        let state = combat_with_hand(vec![Card::Bloodletting]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(77));
+    }
+
+    #[test]
+    fn bloodletting_emits_energy_gained_event() {
+        let state = combat_with_hand(vec![Card::Bloodletting]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnergyGained { amount: 2 }));
+    }
+
+    #[test]
+    fn bloodletting_plus_gains_3_energy() {
+        let mut state = combat_with_hand(vec![Card::BloodlettingPlus]);
+        state.player.energy = Energy(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(3));
+    }
+
+    // --- Hemokinesis ---
+
+    #[test]
+    fn hemokinesis_deals_15_damage() {
+        let state = combat_with_hand(vec![Card::Hemokinesis]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(5));
+    }
+
+    #[test]
+    fn hemokinesis_costs_2_hp() {
+        let state = combat_with_hand(vec![Card::Hemokinesis]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78));
+    }
+
+    #[test]
+    fn hemokinesis_plus_deals_20_damage() {
+        let mut state = combat_with_hand(vec![Card::HemokinesisPlus]);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(30));
+    }
+
+    // --- Self-damage defeat ---
+
+    #[test]
+    fn self_damage_killing_player_yields_defeat() {
+        let mut state = combat_with_hand(vec![Card::Bloodletting]);
+        state.player.hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Defeat);
+    }
 }
 
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize) {
@@ -989,5 +1174,13 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::TauntPlus => taunt::apply(state, events, 8, 2, target),
         Card::Thunderclap    => thunderclap::apply(state, events, 4, 1),
         Card::ThunderclapPlus => thunderclap::apply(state, events, 7, 1),
+        Card::Breakthrough    => breakthrough::apply(state, events, 1, 9),
+        Card::BreakthroughPlus => breakthrough::apply(state, events, 1, 13),
+        Card::BloodWall    => blood_wall::apply(state, events, 2, 16),
+        Card::BloodWallPlus => blood_wall::apply(state, events, 2, 20),
+        Card::Bloodletting    => bloodletting::apply(state, events, 3, 2),
+        Card::BloodlettingPlus => bloodletting::apply(state, events, 3, 3),
+        Card::Hemokinesis    => hemokinesis::apply(state, events, 2, 15, target),
+        Card::HemokinesisPlus => hemokinesis::apply(state, events, 2, 20, target),
     }
 }
