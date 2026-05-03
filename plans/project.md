@@ -20,114 +20,92 @@ slay/
       Cargo.toml
       src/
         lib.rs
-        combat.rs
-        entities.rs
-        cards.rs
-        status.rs
-        map.rs
-        events.rs
+        combat.rs      ← CombatState, apply_combat_command, Command, Event
+        run.rs         ← GameState, apply_command, map/rest/reward logic
+        cards/         ← Card enum, CardDef, per-card effect modules
+        enemies/       ← EnemyKind, Intent, per-enemy AI modules
+        status.rs      ← StatusEffect, StatusMap, damage pipeline
+        types.rs       ← Hp, Block, Energy newtypes
+        rng.rs         ← Rng trait, ThreadRng, NoOpRng
     slay-tui/          ← terminal frontend
       Cargo.toml
       src/
-        main.rs        ← entry point, event loop
-        command.rs     ← text → Command parsing
-        render.rs      ← GameState → terminal output
+        main.rs        ← entry point, event loop, rendering
+        command.rs     ← text + GameState context → Command
       tests/
-        integration.rs ← command sequence → state assertions
+        integration.rs ← command sequence → GameState assertions
 ```
 
-**Hard constraint on `slay-core`:** It must contain zero terminal, I/O, or display concepts. No `println!`. No `crossterm`. No string rendering. A hypothetical `slay-gui` crate could depend on `slay-core` and build a 2D graphical game using the exact same engine. The core speaks only in game types.
+**Hard constraint on `slay-core`:** No terminal, I/O, or display concepts. No `println!`. No `crossterm`. A hypothetical `slay-gui` could depend on `slay-core` and build a graphical game using the same engine. The core speaks only in game types.
 
-**Hard constraint on `slay-tui`:** It must contain zero game logic. It only translates: text → `Command`, `Command` → `slay-core`, `GameState` → terminal output. All branching on game state belongs in `slay-core`.
+**Hard constraint on `slay-tui`:** No game logic. It only translates: text → `Command`, `Command` → `slay-core`, `GameState` → terminal output.
 
 ---
 
-### The Command Interface (Central Design Decision)
-
-The core exposes a single entry point:
+### The Command Interface
 
 ```rust
-// slay-core
-pub fn apply_command(state: GameState, command: Command) -> Result<(GameState, Vec<Event>), CommandError>
+// slay-core/run.rs — top-level entry point
+pub fn apply_command(state: GameState, command: Command, rng: &mut impl Rng)
+    -> Result<(GameState, Vec<Event>), CommandError>
 ```
 
-`GameState` is the complete, owned snapshot of the game at a point in time. It is immutable from the outside — `apply_command` returns a new state. This makes the game fully replayable from any point (replay a command log) and trivially testable.
-
-`Command` is a semantic enum, not text:
+`GameState` is the complete, owned snapshot. `apply_command` returns a new state — fully replayable, trivially testable.
 
 ```rust
 pub enum Command {
-    Attack,             // Phase 1: hardcoded
-    Block,              // Phase 1: hardcoded
+    PlayCard(usize),
     EndTurn,
-    PlayCard(usize),    // Phase 2+: index into hand
-    ChooseCardReward(usize), // Phase 5+
-    Rest,               // Phase 5+
-    Smith(usize),       // Phase 5+
+    EndEnemyTurn,          // internal: TUI auto-drains EnemyTurn phase
+    ChooseNode(usize),
+    Rest,
+    ChooseCardReward(usize),
+    SkipReward,
 }
 ```
-
-`slay-tui` parses text into `Command`. The LLM or human types `attack`, `block`, `end`, `play 2` — `slay-tui` maps these to `Command` variants and calls `apply_command`. The game logic never knows whether a human or an agent issued the command.
-
-`Vec<Event>` is the log of what happened (damage dealt, block gained, enemy died, etc.). `slay-tui` uses this to produce human-readable output. An LLM integration could consume these events directly as structured data.
 
 ---
 
 ### Randomness Abstraction
 
-All randomness is injected, never global:
-
 ```rust
-// slay-core
 pub trait Rng {
-    fn next_u32(&mut self) -> u32;
     fn shuffle<T>(&mut self, slice: &mut [T]);
-    fn choose_index(&mut self, len: usize) -> usize {
-        (self.next_u32() as usize) % len
-    }
 }
 
-pub struct ThreadRng(rand::rngs::ThreadRng);
-pub struct SeededRng(rand::rngs::StdRng);
-pub struct FixedRng(Vec<u32>, usize); // deterministic, for tests
+pub struct ThreadRng(rand::rngs::ThreadRng); // production
+pub struct NoOpRng;                           // identity shuffle, for tests
 ```
 
-Functions that need randomness take `&mut dyn Rng`. Tests pass a `FixedRng` or `SeededRng`. The production game passes `ThreadRng`.
+All randomness is injected. Tests use `NoOpRng`. Production uses `ThreadRng`.
 
 ---
 
 ### Core Data Model
 
 ```rust
-// Phase 1 subset — grows without structural changes
 pub struct Player {
     pub hp: Hp,
     pub max_hp: Hp,
     pub block: Block,
-    // Phase 2+
     pub energy: Energy,
     pub max_energy: Energy,
     pub hand: Vec<Card>,
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
-    pub deck: Vec<Card>,      // master deck, persists between combats
-    // Phase 4+
-    pub statuses: HashMap<StatusEffect, i32>,
-    // Phase 5+
+    pub deck: Vec<Card>,        // master deck, persists between combats
+    pub statuses: StatusMap,    // IndexMap<StatusEffect, i32>, insertion-ordered
     pub gold: i32,
-    pub relics: Vec<Relic>,
 }
 
 pub struct Enemy {
-    pub name: String,
-    pub hp: Hp,
-    pub max_hp: Hp,
-    pub block: Block,
+    pub kind: EnemyKind,
+    pub hp: Hp,  pub max_hp: Hp,  pub block: Block,
     pub intent: Intent,
-    pub statuses: HashMap<StatusEffect, i32>,
+    pub statuses: StatusMap,
 }
 
-pub enum Intent { Attack(i32), Defend(i32), Buff, Unknown }
+pub enum Intent { Attack(i32), Defend(i32) }
 
 pub struct CombatState {
     pub player: Player,
@@ -139,79 +117,48 @@ pub struct CombatState {
 pub enum CombatPhase { PlayerTurn, EnemyTurn, Victory, Defeat }
 
 pub enum GameState {
-    Combat(CombatState),
-    // Phase 5+
-    MapView(MapState),
-    CardReward(CardRewardState),
+    Map(MapState),
+    Combat { state: CombatState, floor: usize },
     RestSite(RestSiteState),
+    CardReward(CardRewardState),
     GameOver { victory: bool },
 }
 ```
 
 ### Integer Types and Newtypes
 
-Use `i32` as the base type for all numeric game values. Avoid `u32`/`u8` etc. — unsigned arithmetic underflows/panics, and mixing signed/unsigned forces noisy casts throughout game math.
-
-Three newtypes are introduced from day one because they appear together in function signatures where confusion is a real risk:
+Use `i32` for all numeric game values. Three newtypes guard the damage pipeline, where transposing HP and Block is a real bug risk:
 
 ```rust
-pub struct Hp(pub i32);      // health on Player and Enemy
-pub struct Block(pub i32);   // block on Player and Enemy
-pub struct Energy(pub i32);  // player energy; card cost comparisons are very common
+pub struct Hp(pub i32);
+pub struct Block(pub i32);
+pub struct Energy(pub i32);
 ```
 
-The damage pipeline is the main footgun these prevent:
-
-```rust
-// Without newtypes — easy to swap hp and block accidentally:
-fn deal_damage(damage: i32, hp: &mut i32, block: &mut i32)
-
-// With newtypes — compiler catches transposition:
-fn deal_damage(damage: i32, hp: &mut Hp, block: &mut Block)
-```
-
-Everything else stays plain `i32`: damage amounts (ephemeral, not stored), gold (only on Player, no multi-arg confusion), status stacks, turn count.
-
-Exception: `usize` where Rust APIs require it (Vec indices, lengths).
+Everything else stays plain `i32`: damage amounts, gold, status stacks, turn count.
 
 ### Card Representation
 
-Closed enum — idiomatic Rust for a finite, known set. Exhaustive matching catches missing cases at compile time:
+Closed enum with per-card effect modules in `cards/`:
 
 ```rust
-pub enum Card {
-    Strike, Defend, Bash, // ...
-}
-
-impl Card {
-    pub fn energy_cost(&self) -> i32 { ... }
-    pub fn apply(&self, state: &mut CombatState, rng: &mut dyn Rng) { ... }
-    pub fn name(&self) -> &str { ... }
-    pub fn description(&self) -> &str { ... }
-}
+pub enum Card { Strike, Defend, Bash, Clothesline, Inflame, DeadlyPoison }
 ```
 
-### Damage Pipeline (Phase 4 forward)
+`CardDef` holds static data (name, description template, energy cost, base damage). `effective_description()` substitutes live values with `*N*` emphasis when modified by statuses.
 
-Never apply damage directly. Always route through the pipeline:
+### Damage Pipeline
 
 ```rust
-pub fn resolve_damage(base: i32, attacker: &Player, defender: &Enemy) -> i32 {
-    let dmg = base;
-    let dmg = apply_strength(dmg, &attacker.statuses);
-    let dmg = apply_weak(dmg, &attacker.statuses);
-    let dmg = apply_vulnerable(dmg, &defender.statuses);
+pub fn resolve_damage(base: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
+    let dmg = base + strength(attacker);
+    let dmg = if weak(attacker)       { dmg * 3 / 4 } else { dmg };
+    let dmg = if vulnerable(defender) { dmg * 3 / 2 } else { dmg };
     dmg.max(0)
 }
-
-pub fn deal_damage(damage: i32, target: &mut Enemy) -> i32 {
-    let absorbed = damage.min(target.block);
-    target.block -= absorbed;
-    let remainder = damage - absorbed;
-    target.hp -= remainder;
-    remainder  // actual HP damage dealt (for events)
-}
 ```
+
+All damage routes through this. No raw HP subtraction anywhere.
 
 ---
 
@@ -219,249 +166,181 @@ pub fn deal_damage(damage: i32, target: &mut Enemy) -> i32 {
 
 ### slay-core: Unit Tests
 
-All game logic lives here and is tested with `#[cfg(test)]` modules directly in each source file. No terminal, no I/O. Tests are fast, deterministic (using `FixedRng`), and exhaustive.
+In-file `#[cfg(test)]` modules. Fast, deterministic via `NoOpRng`.
 
 ```rust
-// combat.rs
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn player_attack_reduces_enemy_hp() {
-        let state = CombatState::new_test();
-        let (state, _) = apply_command(state, Command::Attack, &mut FixedRng::default()).unwrap();
-        assert_eq!(state.enemy.hp, state.enemy.max_hp - 6);
-    }
+#[test]
+fn strike_deals_6_damage_to_enemy() {
+    let state = combat_with_hand(vec![Card::Strike]);
+    let (state, _) = apply_command(state, Command::PlayCard(0), &mut NoOpRng).unwrap();
+    assert_eq!(state.enemy.hp, Hp(14));
 }
 ```
 
 ### slay-tui: Integration Tests
 
-`slay-tui/tests/integration.rs` issues text command sequences and asserts on resulting `GameState`. This tests the full pipeline: text parsing → `apply_command` → state. These are the tests an LLM harness would also exercise.
+`slay-tui/tests/integration.rs` — `TestHarness` wraps `GameState`, issues text commands, asserts on resulting state.
 
 ```rust
-// slay-tui/tests/integration.rs
 #[test]
-fn player_can_kill_enemy_with_attacks() {
-    let mut game = TestHarness::new(); // starts a fresh combat
-    while !game.is_over() {
-        game.send("attack");
-        if !game.is_player_turn() { game.send("end"); }
-    }
-    assert!(game.state().is_victory());
-}
-
-#[test]
-fn block_reduces_incoming_damage() {
-    let mut game = TestHarness::new();
-    game.send("block");
-    game.send("end");  // enemy attacks on its turn
-    assert!(game.player_hp() > game.player_max_hp() - 8);
+fn play_strike_reduces_enemy_hp() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]);
+    game.send("play 1").unwrap();
+    assert_eq!(game.enemy_hp(), 14);
 }
 ```
-
-`TestHarness` wraps `slay-tui`'s command parser + `apply_command`, with a fixed/seeded `Rng`.
 
 ---
 
 ## Phase Breakdown
 
-### Phase 1: The Raw Combat Loop
+### Phase 1 ✅ — Raw Combat Loop
 
-**Goal:** A complete, playable (if tiny) game. Win and lose conditions. No cards. Validates the full architecture end-to-end.
+**Goal:** Playable game with win/lose. No cards. Validates the full architecture end-to-end.
 
-**slay-core mechanics:**
-
-- `Player`: 80 HP, 0 block.
-- `Enemy`: `Louse`, 20 HP, attacks for 8 each turn.
-- Commands: `Attack` (deal 6 damage to enemy), `Block` (gain 5 block), `EndTurn`.
-- Block resets to 0 at start of player's turn.
-- Combat ends when either HP reaches zero.
-
-**slay-tui:**
-
-- Parses: `"attack"`, `"block"`, `"end"` (and aliases `"end turn"`, `"pass"`).
-- Renders: player HP/block, enemy HP/intent, available commands, event log.
-- No `crossterm` raw mode yet — line-buffered stdin (simpler, correct for command orientation).
-
-**slay-core tests (RED first):**
-
-- `attack_deals_6_damage_to_enemy`
-- `block_grants_5_block_to_player`
-- `end_turn_triggers_enemy_attack`
-- `enemy_attack_reduced_by_block`
-- `enemy_attack_excess_damages_hp`
-- `block_resets_at_start_of_player_turn`
-- `player_death_yields_defeat_state`
-- `enemy_death_yields_victory_state`
-- `commands_rejected_when_not_player_turn`
-- `commands_rejected_after_combat_ends`
-
-**slay-tui integration tests (RED first):**
-
-- `attack_command_parses_and_reduces_enemy_hp`
-- `unknown_command_returns_error_not_crash`
-- `player_wins_by_attacking_until_enemy_dead`
-- `block_then_end_turn_reduces_damage_taken`
-
-**Crates added:** `rand` (in slay-core, for future use), `crossterm` (in slay-tui, for later)
+- 80 HP player vs 20 HP Louse (attacks 8/turn)
+- Hardcoded `Attack` (6 dmg) and `Block` (5 block); `EndTurn`
+- Block resets at start of player's turn
+- Line-buffered stdin; no raw mode
 
 ---
 
-### Phase 2: The Deck
+### Phase 2 ✅ — The Deck
 
-**Goal:** Real card mechanics. The game now feels like a card game.
+**Goal:** Real card mechanics.
 
-**Additions:**
-
-- `Card` enum: `Strike` (1 energy, 6 damage), `Defend` (1 energy, 5 block).
-- Starting deck: 5× Strike, 4× Defend, 1× Bash (preview; Bash implemented in Phase 4).
-- Piles: draw pile (shuffled from deck), hand (max 10), discard pile.
-- 3 energy per turn. Draw 5 at turn start. Discard hand at turn end.
-- Draw pile empty → shuffle discard into draw pile.
-- `Command::PlayCard(usize)` replaces `Attack`/`Block`.
-- `Command::EndTurn` still exists.
-- TUI parses: `"play 1"`, `"play 2"`, etc.
+- `Card` enum: `Strike` (1 energy, 6 dmg), `Defend` (1 energy, 5 block)
+- Starting deck: 5× Strike, 3× Defend, 1× Bash, 1× Inflame, 1× Deadly Poison
+- 3 energy/turn; draw 5 at turn start; discard hand at turn end
+- Draw pile empty → shuffle discard into draw pile
+- `Command::PlayCard(usize)` replaces hardcoded attack/block
 
 ---
 
-### Phase 3: Enemy Intents
+### Phase 3 ✅ — Enemy Intents
 
 **Goal:** Telegraphed enemies.
 
-**Additions:**
-
-- `Intent` on `Enemy`. Computed at start of player turn, displayed, executed on enemy turn.
-- Simple `Louse` AI: alternates `Attack(8)` and `Defend(5)`.
-- Enemy block works symmetrically to player block.
+- `Intent` on `Enemy`; computed at start of player turn, executed on enemy turn
+- Louse alternates `Attack(8)` and `Defend(5)`
+- Enemy block works symmetrically to player block
 
 ---
 
-### Phase 4: Status Effects & Damage Pipeline
+### Phase 4 ✅ — Status Effects & Damage Pipeline
 
-**Goal:** The modifier system. Architecture stress test.
+**Goal:** The modifier system.
 
-**Additions:**
-
-- `StatusEffect`: `Strength`, `Vulnerable`, `Weak`, `Poison`.
-- `HashMap<StatusEffect, i32>` on Player and Enemy.
-- All damage via pipeline. No raw HP subtraction anywhere.
-- Status durations tick at end of turn.
-- New card: `Bash` (2 energy, 8 damage + 2× Vulnerable).
-- Note: split this into two phases (4 and 4.5). First phase: just 'vulnerable' and 'weak'. Add 'bash', and 'clothesline'. Clothesline costs 2 energy, deals 12 damage, and applies 2 weak. Put one of each clothesline and bash into the player draw pile (but not straight away into hand).
-- Are we drawing 5 cards per turn yet? We should be if not.
-- For 4.5: add "deadly poison" (applies 5 poison to enemy). Also add "inflame" (gain 2 strength). Poison damage occurs at the start of the enemy turn (before it attacks). If poison kills the enemy, then the enemy action doesn't happen. Poison damage is unaffected by weak or vulnerable. Enemy poison decreases by 1 at the start of the player's turn. Strength can be positive or negative. It increases the base damage, and then modifiers like vulnerable etc are added on top. Strength does not decrease between turns like other status effects. Strength is capped at -999 and +999.
+- `StatusEffect`: `Vulnerable`, `Weak`, `Poison`, `Strength`
+- `StatusMap = IndexMap<StatusEffect, i32>` (insertion-ordered)
+- Damage formula: `(base + strength) × weak × vulnerable`
+- `Vulnerable`/`Weak` tick down at end of enemy turn; `Poison` drains before enemy acts; `Strength` is permanent
+- Cards: `Bash` (2 energy, 8 dmg + 2 Vulnerable), `Clothesline` (2 energy, 12 dmg + 2 Weak), `Inflame` (1 energy, +2 Strength), `Deadly Poison` (1 energy, +5 Poison)
 
 ---
 
-### Phase 5: Map & Run Progression (infrastructure)
+### Phase 5 ✅ — Map & Run Progression
 
-**Goal:** A full run loop with persistence between encounters. No card rewards yet — just the skeleton.
+**Goal:** Full run loop with persistence between encounters.
 
-**Additions:**
-
-- `GameState` enum: `Map(MapState)`, `Combat { state, floor }`, `RestSite(RestSiteState)`, `GameOver { victory }`.
-- `MapNode`: `Combat`, `RestSite`, `Boss`. Linear map: 3× Combat → RestSite → Boss (all Louse for now).
-- `Player` gains `deck: Vec<Card>` (master deck, persists across combats) and `gold: i32`.
-- `CombatState::from_player(player, enemy_kind, rng)` creates a combat from run state.
-- Player earns 50 gold on combat victory. Displayed on map, not during combat.
-- Rest site: `Command::Rest` heals 30% max HP. No upgrades yet.
-- Map navigation: `Command::ChooseNode(usize)` (always 0 in Phase 5 — one choice per floor).
-- Top-level `apply_command(GameState, Command, rng)` in `run.rs` replaces combat-level export.
-- Combat-level `apply_command` renamed to `pub(crate) apply_combat_command`.
-
-### Phase 5.1: Second Enemy & Card Rewards
-
-**Goal:** Variety in encounters. Real incentive to progress the map.
-
-**Additions:**
-
-- `Fungibeast` enemy: 22 HP, alternates Attack(6) and Attack(10).
-- Floor-based enemies: floor 0 = Louse, floor 1 = Fungibeast, floor 2 = Louse, floor 4 = Louse (boss).
-- `CardRewardState { player, floor, options: Vec<Card> }` and `GameState::CardReward(...)`.
-- Post-combat: generate 3 card reward options (shuffled from reward pool), go to `CardReward`.
-- `Command::ChooseCardReward(usize)` adds chosen card to `player.deck`, returns to map.
-- Reward pool: Bash, Clothesline, Inflame, DeadlyPoison, Strike, Defend.
-
-### 5.5
-
-- Introduce card upgrades. Attack: 6 -> 9 damage. Defend: 5 -> 8. Bash: 8 -> 10 damage, 2 -> 3 vuln. Clothesline: 12->14 and 2->3.
-- Allow the player to upgrade a card at the rest site.
-- Add some debugging commands:
-- `skip` to skip the current room and move to the next.
-- `win` to set the enemy HP to zero.
-- these should be enabled via a `--debug` (or similar if that's reserved) flag in the TUI. Add tests to ensure they don't work if this flag is not enabled.
+- `GameState` enum: `Map`, `Combat`, `RestSite`, `CardReward`, `GameOver`
+- Linear map: Combat → Combat → Combat → Rest Site → Boss (all Louse)
+- `Player` gains `deck` (master, persists across combats) and `gold`
+- 50 gold per combat victory; displayed on map, not in combat
+- Rest site: `Rest` heals 30% max HP
+- Post-combat card reward: choose 1 of 3 shuffled options, or skip
+- Top-level `apply_command(GameState, ...)` in `run.rs`; combat engine is `pub(crate)`
 
 ---
 
-### 5.6 - multiple enemies
+### Phase 6 — Second Enemy
 
-- Make the boss battle two lice instead of one.
-- Support targeting which enemy the player wants to attack.
-- Make it possible for the player to view their draw pile (z) or discard pile (x) at any time.
+**Goal:** Variety in encounters.
 
-### 5.7 - more cards!
-
-- Cleave - 8 damage to ALL enemies. Upgraded: 11 damage. Cost 1
-- Pommel strike - deal 9 damage, then draw 1 card. Upgraded: 10 dam/2 draw. Cost 1
+- `Fungibeast` enemy: 22 HP, alternates `Attack(6)` and `Attack(10)`
+- Floor-based enemy selection: floor 0 = Louse, floor 1 = Fungibeast, floor 2 = Louse, floor 4 = Louse (boss)
 
 ---
 
-### 5.8 - integration tests for tui
+### Phase 7 — Card Upgrades & Debug Mode
 
-<Start by replacing this with a plan>
+**Goal:** Deeper card strategy; developer tooling.
 
-### Phase 6: Relic System
+- Upgraded cards: Strike 6→9, Defend 5→8, Bash 8→10 (+ 2→3 Vuln), Clothesline 12→14 (+ 2→3 Weak), Deadly Poison unchanged, Inflame unchanged
+- Rest site gains an `upgrade` option alongside `rest`
+- Debug flag (`--debug`): `skip` advances to next floor; `win` sets enemy HP to 0
+- Tests verify debug commands are rejected without the flag
+
+---
+
+### Phase 8 — Multiple Enemies & Targeting
+
+**Goal:** Boss fights with real stakes; pile inspection.
+
+- Boss battle: two Lice instead of one
+- `Command::PlayCard(card_idx, target_idx)` — player specifies which enemy to target
+- View draw pile (`z`) or discard pile (`x`) at any time during combat
+
+---
+
+### Phase 9 — More Cards
+
+- `Cleave` (1 energy): 8 damage to ALL enemies. Upgraded: 11 damage.
+- `Pommel Strike` (1 energy): 9 damage + draw 1 card. Upgraded: 10 damage + draw 2.
+
+---
+
+### Phase 10 — Relic System
 
 **Goal:** Rule-breaking relics via event hooks.
 
-**Additions:**
-
-- `GameEvent` enum emitted alongside every state transition.
-- `RelicEffect` trait: `fn on_event(&self, event: &GameEvent, state: &mut CombatState)`.
-- `BurningBlood` (heal 6 after combat), `Vajra` (+1 Strength on combat start).
-- Relics as run rewards.
+- `RelicEffect` trait: `fn on_event(&self, event: &Event, state: &mut CombatState)`
+- `BurningBlood` (heal 6 after combat), `Vajra` (+1 Strength on combat start)
+- Relics offered as post-combat rewards alongside card rewards
 
 ---
 
-### Phase 7: TUI Polish
+### Phase 11 — TUI Polish
 
-**Goal:** `ratatui` layout replacing raw `println!`. The engine is unchanged.
+**Goal:** `ratatui` layout replacing raw `println!`.
 
-- Top panel: enemy name, HP bar, intent, statuses.
-- Centre: scrollable combat log.
-- Bottom: hand (card name, cost, description boxes).
-- Left panel: player HP, block, energy, statuses, relics.
-- Command input line at bottom.
+- Top panel: enemy name, HP bar, intent, statuses
+- Left panel: player HP, block, energy, statuses, relics, gold
+- Centre: scrollable combat log
+- Bottom: hand with card boxes and cost
+- Input line at bottom
 
-**Crates added:** `ratatui`
+**Crates added:** `ratatui`, `crossterm`
 
 ---
 
-### Phase 8: Content Expansion
+### Phase 12 — Content Expansion
 
 - Full Ironclad card set
 - Elite encounters
-- Curse cards, Merchant node
+- Curse cards
+- Merchant node
 - Branching map
 
 ---
 
 ## Crate Plan
 
-| Crate       | Belongs to | Purpose                               | Added in |
-| ----------- | ---------- | ------------------------------------- | -------- |
-| `rand`      | slay-core  | Shuffling, card rewards, AI variation | Phase 1  |
-| `crossterm` | slay-tui   | Terminal input, cursor                | Phase 1  |
-| `ratatui`   | slay-tui   | Full TUI layout                       | Phase 7  |
+| Crate       | Belongs to | Purpose                             | Added in  |
+| ----------- | ---------- | ----------------------------------- | --------- |
+| `rand`      | slay-core  | Shuffling, card rewards             | Phase 1   |
+| `indexmap`  | slay-core  | Insertion-ordered status tracking   | Phase 4   |
+| `crossterm` | slay-tui   | Terminal input, cursor              | Phase 11  |
+| `ratatui`   | slay-tui   | Full TUI layout                     | Phase 11  |
 
-No async. Minimal dependencies until Phase 7.
+No async. Minimal dependencies until Phase 11.
 
 ---
 
 ## TDD Notes
 
-- All `slay-core` logic: `#[cfg(test)]` modules, tested directly, deterministic via `FixedRng`.
-- `slay-tui` integration tests: issue text commands, assert on `GameState`.
-- Mutation testing (`cargo-mutants`) after each phase.
-- One failing test before every production code change.
-- Commit after each RED→GREEN→REFACTOR cycle.
+- All `slay-core` logic: `#[cfg(test)]` modules, deterministic via `NoOpRng`
+- `slay-tui` integration tests: issue text commands, assert on `GameState`
+- Mutation testing (`cargo-mutants`) after each phase
+- One failing test before every production code change
+- Commit after each RED→GREEN→REFACTOR cycle
