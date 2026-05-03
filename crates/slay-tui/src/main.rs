@@ -263,6 +263,16 @@ fn print_events(events: &[Event]) {
     }
 }
 
+fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
+    match status {
+        StatusEffect::Vulnerable => ("🎯", "Vulnerable"),
+        StatusEffect::Weak       => ("🪫", "Weak"),
+        StatusEffect::Poison     => ("🟢", "Poison"),
+        StatusEffect::Strength   => ("💪", "Strength"),
+        StatusEffect::Ritual     => ("🔮", "Ritual"),
+    }
+}
+
 fn statuses_inline(statuses: &StatusMap) -> String {
     if statuses.is_empty() {
         return String::new();
@@ -270,13 +280,7 @@ fn statuses_inline(statuses: &StatusMap) -> String {
     let parts: Vec<String> = statuses
         .iter()
         .map(|(s, n)| {
-            let icon = match s {
-                StatusEffect::Vulnerable => "🎯",
-                StatusEffect::Weak => "🪫",
-                StatusEffect::Poison => "🟢",
-                StatusEffect::Strength => "💪",
-                StatusEffect::Ritual => "🔮",
-            };
+            let (icon, _) = status_display(*s);
             format!("{icon}{n}")
         })
         .collect();
@@ -319,17 +323,11 @@ fn describe(event: &Event) -> String {
         Event::PlayerBlockExpired { amount } => format!("🛡️  Your {amount} block expired."),
         Event::EnemyDied => "💀 Enemy slain!".into(),
         Event::PlayerDied => "💀 You have been slain.".into(),
-        Event::EnemyPoisoned { damage } => format!("🟢 Poison deals {damage} to enemy."),
+        Event::EnemyPoisoned { damage } => format!("{} Poison deals {damage} to enemy.", status_display(StatusEffect::Poison).0),
         Event::TurnEnded => String::new(),
         Event::TurnStarted { turn } => format!("─── Turn {turn} ───"),
         Event::StatusApplied { target, status, stacks } => {
-            let (icon, name) = match status {
-                StatusEffect::Vulnerable => ("🎯", "Vulnerable"),
-                StatusEffect::Weak => ("🪫", "Weak"),
-                StatusEffect::Poison => ("🟢", "Poison"),
-                StatusEffect::Strength => ("💪", "Strength"),
-                StatusEffect::Ritual => ("🔮", "Ritual"),
-            };
+            let (icon, name) = status_display(*status);
             match target {
                 Target::Player => format!("{icon} You gain {stacks} {name}."),
                 Target::Enemy => format!("{icon} Enemy gains {stacks} {name}."),
