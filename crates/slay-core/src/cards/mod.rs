@@ -1,8 +1,8 @@
 mod bash;
 mod clothesline;
+mod deadly_poison;
 mod defend;
 mod inflame;
-mod deadly_poison;
 mod strike;
 
 use crate::status::{StatusMap, resolve_damage};
@@ -21,6 +21,7 @@ pub enum Card {
 #[derive(Debug, Clone, Copy)]
 pub struct CardDef {
     pub name: &'static str,
+    /// Description template: use `{damage}` as a placeholder where the damage number goes.
     pub description: &'static str,
     pub energy_cost: Energy,
     pub base_damage: Option<i32>,
@@ -31,7 +32,7 @@ impl Card {
         match self {
             Card::Strike => CardDef {
                 name: "Strike",
-                description: "Deal 6 damage.",
+                description: "Deal {damage} damage.",
                 energy_cost: Energy(1),
                 base_damage: Some(6),
             },
@@ -43,13 +44,13 @@ impl Card {
             },
             Card::Bash => CardDef {
                 name: "Bash",
-                description: "Deal 8 damage. Apply 2 Vulnerable.",
+                description: "Deal {damage} damage. Apply 2 Vulnerable.",
                 energy_cost: Energy(2),
                 base_damage: Some(8),
             },
             Card::Clothesline => CardDef {
                 name: "Clothesline",
-                description: "Deal 12 damage. Apply 2 Weak.",
+                description: "Deal {damage} damage. Apply 2 Weak.",
                 energy_cost: Energy(2),
                 base_damage: Some(12),
             },
@@ -69,8 +70,27 @@ impl Card {
     }
 
     pub fn name(&self) -> &'static str { self.def().name }
-    pub fn description(&self) -> &'static str { self.def().description }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
+
+    /// Description with base damage values substituted (no emphasis).
+    pub fn description(&self) -> String {
+        let def = self.def();
+        match def.base_damage {
+            None => def.description.to_string(),
+            Some(base) => def.description.replace("{damage}", &base.to_string()),
+        }
+    }
+
+    /// Description with effective damage substituted; uses `*N*` emphasis when modified by statuses.
+    pub fn effective_description(&self, attacker: &StatusMap, defender: &StatusMap) -> String {
+        let def = self.def();
+        let Some(base) = def.base_damage else {
+            return def.description.to_string();
+        };
+        let eff = resolve_damage(base, attacker, defender);
+        let num = if eff != base { format!("*{eff}*") } else { eff.to_string() };
+        def.description.replace("{damage}", &num)
+    }
 
     pub fn effective_damage(&self, attacker: &StatusMap, defender: &StatusMap) -> Option<i32> {
         self.def().base_damage.map(|base| resolve_damage(base, attacker, defender))

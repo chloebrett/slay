@@ -386,6 +386,7 @@ Notes from chloe:
 
 - Make the boss battle two lice instead of one.
 - Support targeting which enemy the player wants to attack.
+- Make it possible for the player to view their draw pile (z) or discard pile (x) at any time.
 
 ### 5.7 - more cards!
 

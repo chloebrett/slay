@@ -91,21 +91,14 @@ fn render(state: &CombatState) {
         for (i, card) in state.player.hand.iter().enumerate() {
             let affordable = card.energy_cost() <= state.player.energy;
             let prefix = if affordable { " " } else { "×" };
-            let eff = card.effective_damage(&state.player.statuses, &state.enemy.statuses);
-            let damage_hint = match (card.def().base_damage, eff) {
-                (Some(base), Some(eff)) if eff != base => {
-                    format!("  →{eff} vs {}", state.enemy.name())
-                }
-                _ => String::new(),
-            };
+            let desc = card.effective_description(&state.player.statuses, &state.enemy.statuses);
             println!(
-                "  {}[{}] {} ({}) — {}{}",
+                "  {}[{}] {} ({}) — {}",
                 prefix,
                 i + 1,
                 card.name(),
                 card.energy_cost().0,
-                card.description(),
-                damage_hint,
+                desc,
             );
         }
     }
