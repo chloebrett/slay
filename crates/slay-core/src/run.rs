@@ -100,6 +100,8 @@ fn generate_rewards(rng: &mut impl Rng) -> Vec<Card> {
 }
 
 fn player_after_combat(player: Player, gold_gain: i32) -> Player {
+    let mut deck = player.deck;
+    deck.extend(player.exhaust_pile);
     Player {
         block: Block(0),
         energy: player.max_energy,
@@ -107,8 +109,10 @@ fn player_after_combat(player: Player, gold_gain: i32) -> Player {
         hand: Vec::new(),
         draw_pile: Vec::new(),
         discard_pile: Vec::new(),
+        exhaust_pile: Vec::new(),
         statuses: StatusMap::new(),
         gold: player.gold + gold_gain,
+        deck,
         ..player
     }
 }
@@ -618,6 +622,44 @@ mod tests {
         } else {
             panic!("expected Map");
         }
+    }
+
+    // --- exhaust pile ---
+
+    #[test]
+    fn exhausted_cards_return_to_deck_after_combat() {
+        let player = Player {
+            deck: vec![Card::Strike, Card::Disarm],
+            hand: vec![Card::Strike],
+            exhaust_pile: vec![Card::Disarm], // Disarm was played and exhausted
+            ..make_player()
+        };
+        let cs = CombatState {
+            player,
+            enemy: Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(1),
+                max_hp: Hp(20),
+                block: Block(0),
+                intent: Intent::Attack(8),
+                statuses: StatusMap::new(),
+            },
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+        };
+        let state = GameState::Combat { state: cs, floor: 0 };
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert!(cr.player.deck.contains(&Card::Disarm), "Disarm should be back in deck");
+        assert!(cr.player.exhaust_pile.is_empty(), "exhaust pile should be cleared");
+    }
+
+    #[test]
+    fn exhaust_pile_is_empty_at_combat_start() {
+        let state = new_run(&mut rng());
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert!(cs.player.exhaust_pile.is_empty());
     }
 
     #[test]
