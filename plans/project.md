@@ -262,11 +262,17 @@ fn play_strike_reduces_enemy_hp() {
 
 ---
 
+### Phase 6.1 - power cards
+
+We already have power cards - inflame is the only one.
+
+Once used, it is "absorbed" into the player. This is kind of like exhaust, but it doesn't go in the exhaust pile. We don't need an explicit "absorbed" pile; the card can just disappear.
+
 ### Phase 7 — Card Upgrades & Debug Mode
 
 **Goal:** Deeper card strategy; developer tooling.
 
-- Upgraded cards: Strike 6→9, Defend 5→8, Bash 8→10 (+ 2→3 Vuln), Clothesline 12→14 (+ 2→3 Weak), Deadly Poison unchanged, Inflame unchanged
+- Upgraded cards: Strike 6→9, Defend 5→8, Bash 8→10 (+ 2→3 Vuln), Clothesline 12→14 (+ 2→3 Weak), Deadly Poison 5->7, Inflame 2->3
 - Rest site gains an `upgrade` option alongside `rest`
 - Debug flag (`--debug`): `skip` advances to next floor; `win` sets enemy HP to 0
 - Tests verify debug commands are rejected without the flag
@@ -279,7 +285,6 @@ fn play_strike_reduces_enemy_hp() {
 
 - Boss battle: two Lice instead of one
 - `Command::PlayCard(card_idx, target_idx)` — player specifies which enemy to target
-- View draw pile (`z`) or discard pile (`x`) at any time during combat
 
 ---
 
@@ -326,12 +331,12 @@ fn play_strike_reduces_enemy_hp() {
 
 ## Crate Plan
 
-| Crate       | Belongs to | Purpose                             | Added in  |
-| ----------- | ---------- | ----------------------------------- | --------- |
-| `rand`      | slay-core  | Shuffling, card rewards             | Phase 1   |
-| `indexmap`  | slay-core  | Insertion-ordered status tracking   | Phase 4   |
-| `crossterm` | slay-tui   | Terminal input, cursor              | Phase 11  |
-| `ratatui`   | slay-tui   | Full TUI layout                     | Phase 11  |
+| Crate       | Belongs to | Purpose                           | Added in |
+| ----------- | ---------- | --------------------------------- | -------- |
+| `rand`      | slay-core  | Shuffling, card rewards           | Phase 1  |
+| `indexmap`  | slay-core  | Insertion-ordered status tracking | Phase 4  |
+| `crossterm` | slay-tui   | Terminal input, cursor            | Phase 11 |
+| `ratatui`   | slay-tui   | Full TUI layout                   | Phase 11 |
 
 No async. Minimal dependencies until Phase 11.
 

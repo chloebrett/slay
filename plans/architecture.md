@@ -445,7 +445,7 @@ All `slay-core` tests use `NoOpRng`. No mocks — tests exercise real code paths
 
 ### Flexible / designed to change
 
-- **`enemy_for_floor(floor)`** is a stub returning `EnemyKind::Louse` for all floors. Replace the `match` body when Phase 6 (Fungibeast) lands.
+- **`enemy_for_floor(floor)`** maps floor index to `EnemyKind`: floor 1 → `Fungibeast`, all others → `Louse`. Extend this `match` as new floors or enemies are added.
 - **`Card::exhausts()` covers only self-exhaust.** Random exhaust ("exhaust a random card in hand") or player-choice exhaust require a different mechanism — likely a return value from `cards::apply` or a flag set on `CombatState` during card execution.
 - **`Rng` trait only exposes `shuffle`.** Extend with `next_u32` or similar when proc chances or random damage ranges are needed.
 - **`MAP_NODES` is a fixed slice.** Phase 8 (branching map) will require replacing this with a graph structure on `MapState`.

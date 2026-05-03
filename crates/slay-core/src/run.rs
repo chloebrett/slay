@@ -89,6 +89,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
 
 fn enemy_for_floor(floor: usize) -> EnemyKind {
     match floor {
+        1 => EnemyKind::Fungibeast,
         _ => EnemyKind::Louse,
     }
 }
@@ -522,6 +523,28 @@ mod tests {
             apply_command(state, Command::EndTurn, &mut rng()),
             Err(CommandError::CombatOver)
         );
+    }
+
+    // --- enemy selection by floor ---
+
+    #[test]
+    fn floor_0_spawns_louse() {
+        assert_eq!(enemy_for_floor(0), EnemyKind::Louse);
+    }
+
+    #[test]
+    fn floor_1_spawns_fungibeast() {
+        assert_eq!(enemy_for_floor(1), EnemyKind::Fungibeast);
+    }
+
+    #[test]
+    fn floor_2_spawns_louse() {
+        assert_eq!(enemy_for_floor(2), EnemyKind::Louse);
+    }
+
+    #[test]
+    fn floor_4_boss_spawns_louse() {
+        assert_eq!(enemy_for_floor(4), EnemyKind::Louse);
     }
 
     // --- player state persists across combat ---
