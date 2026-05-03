@@ -1,11 +1,11 @@
-use crate::cards::{Card, CardType};
+use crate::cards::CardType;
 use crate::combat::{
     apply_status, deal_damage, draw_cards,
     CombatPhase, CombatState, Event, Player, Target,
 };
 use crate::rng::Rng;
 use crate::status::StatusEffect;
-use crate::types::{Block, Energy, Hp};
+use crate::types::{Block, Hp};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Relic {

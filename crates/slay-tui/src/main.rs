@@ -179,6 +179,8 @@ fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::Fungibeast => "🍄",
         EnemyKind::Cultist => "🐦",
         EnemyKind::JawWorm => "🪱",
+        EnemyKind::SmallSpikeSlime => "🫧",
+        EnemyKind::RedLouse => "🦟",
     }
 }
 
@@ -271,6 +273,7 @@ fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Poison     => ("🟢", "Poison"),
         StatusEffect::Strength   => ("💪", "Strength"),
         StatusEffect::Ritual     => ("🔮", "Ritual"),
+        StatusEffect::Dexterity  => ("🛡️", "Dexterity"),
     }
 }
 
@@ -342,5 +345,6 @@ fn describe(event: &Event) -> String {
         Event::CardAdded { card } => format!("✨ {} added to your deck.", card.name()),
         Event::CardExhausted { card } => format!("🔥 {} was exhausted.", card.name()),
         Event::CardUpgraded { from, to } => format!("⬆️  {} upgraded to {}.", from.name(), to.name()),
+        Event::StatusCardAddedToDiscard { card } => format!("🃏 {} added to your discard.", card.name()),
     }
 }

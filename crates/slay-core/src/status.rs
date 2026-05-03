@@ -7,6 +7,7 @@ pub enum StatusEffect {
     Poison,
     Strength,
     Ritual,
+    Dexterity,
 }
 
 impl StatusEffect {
@@ -16,6 +17,10 @@ impl StatusEffect {
 }
 
 pub type StatusMap = IndexMap<StatusEffect, i32>;
+
+pub fn resolve_block(base: i32, statuses: &StatusMap) -> i32 {
+    (base + statuses.get(&StatusEffect::Dexterity).copied().unwrap_or(0)).max(0)
+}
 
 pub fn resolve_damage(base: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
     let dmg = base + attacker.get(&StatusEffect::Strength).copied().unwrap_or(0);
@@ -88,6 +93,23 @@ mod tests {
     fn strength_adds_flat_bonus_to_damage() {
         let attacker = map_with(StatusEffect::Strength, 2);
         assert_eq!(resolve_damage(6, &attacker, &empty()), 8); // 6 + 2
+    }
+
+    #[test]
+    fn resolve_block_base_with_no_dexterity() {
+        assert_eq!(resolve_block(5, &empty()), 5);
+    }
+
+    #[test]
+    fn dexterity_adds_to_block() {
+        let statuses = map_with(StatusEffect::Dexterity, 2);
+        assert_eq!(resolve_block(5, &statuses), 7);
+    }
+
+    #[test]
+    fn resolve_block_cannot_go_negative() {
+        let statuses = map_with(StatusEffect::Dexterity, -10);
+        assert_eq!(resolve_block(5, &statuses), 0);
     }
 
     #[test]

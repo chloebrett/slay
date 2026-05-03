@@ -79,6 +79,7 @@ pub enum Card {
     BodySlamPlus,
     Anger,
     AngerPlus,
+    Dazed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -411,11 +412,21 @@ impl Card {
                 energy_cost: Energy(0),
                 card_type: CardType::Attack,
             },
+            Card::Dazed => CardDef {
+                name: "Dazed",
+                description: CardDescription::Static("Unplayable. Exhaust."),
+                energy_cost: Energy(0),
+                card_type: CardType::Skill,
+            },
         }
     }
 
+    pub fn is_playable(&self) -> bool {
+        !matches!(self, Card::Dazed)
+    }
+
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious | Card::ImperviousPlus)
+        matches!(self, Card::Disarm | Card::Impervious | Card::ImperviousPlus | Card::Dazed)
     }
 
     pub fn upgrade(&self) -> Option<Card> {
@@ -527,6 +538,7 @@ impl Card {
             Card::BodySlamPlus   => "body-slam-plus",
             Card::Anger          => "anger",
             Card::AngerPlus      => "anger-plus",
+            Card::Dazed          => "dazed",
         }
     }
 
@@ -549,6 +561,7 @@ impl Card {
             Card::Hemokinesis, Card::HemokinesisPlus,
             Card::BodySlam, Card::BodySlamPlus,
             Card::Anger, Card::AngerPlus,
+            Card::Dazed,
         ];
         all.into_iter().find(|c| c.id() == s)
     }
@@ -614,6 +627,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::BodySlamPlus => body_slam::apply(state, events, target),
         Card::Anger    => anger::apply(state, events, 6, Card::Anger, target),
         Card::AngerPlus => anger::apply(state, events, 8, Card::AngerPlus, target),
+        Card::Dazed => {} // unplayable — guarded before reaching apply()
     }
 }
 

@@ -153,6 +153,7 @@ pub enum Event {
     CardAdded { card: Card },
     CardExhausted { card: Card },
     CardUpgraded { from: Card, to: Card },
+    StatusCardAddedToDiscard { card: Card },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -181,6 +182,9 @@ pub(crate) fn apply_combat_command(
                 return Err(CommandError::InvalidCard);
             }
             let card = state.player.hand[index].clone();
+            if !card.is_playable() {
+                return Err(CommandError::InvalidCard);
+            }
             if state.player.energy < card.energy_cost() {
                 return Err(CommandError::NotEnoughEnergy);
             }
@@ -262,20 +266,24 @@ pub(crate) fn apply_combat_command(
                 for effect in current_move.def().effects {
                     match effect {
                         Effect::DealDamage(n) => {
-                            let effective = crate::status::resolve_damage(*n, &enemy_statuses, &state.player.statuses);
+                            let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
                             let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
                             events.push(Event::EnemyAttacked { raw: effective, damage });
                         }
                         Effect::GainBlock(n) => {
                             state.enemies[i].block.0 += n;
-                            events.push(Event::EnemyDefended { amount: *n });
+                            events.push(Event::EnemyDefended { amount: n });
                         }
                         Effect::GainStatus(status, stacks) => {
-                            *state.enemies[i].statuses.entry(*status).or_insert(0) += stacks;
-                            events.push(Event::StatusApplied { target: Target::Enemy, status: *status, stacks: *stacks });
+                            *state.enemies[i].statuses.entry(status).or_insert(0) += stacks;
+                            events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
                         }
                         Effect::ApplyStatus(status, stacks) => {
-                            apply_status(&mut state.player.statuses, Target::Player, *status, *stacks, &mut events);
+                            apply_status(&mut state.player.statuses, Target::Player, status, stacks, &mut events);
+                        }
+                        Effect::AddToDiscard(card) => {
+                            state.player.discard_pile.push(card.clone());
+                            events.push(Event::StatusCardAddedToDiscard { card });
                         }
                     }
                 }

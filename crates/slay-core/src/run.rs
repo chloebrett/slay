@@ -1,6 +1,6 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
-use crate::enemies::{EnemyKind, Move};
+use crate::enemies::EnemyKind;
 use crate::relics::{
     apply_combat_start_relics, apply_end_of_combat_relics, apply_rest_relics,
     apply_turn_end_relics, apply_turn_start_relics, Relic,
@@ -103,6 +103,8 @@ fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
         2 => vec![EnemyKind::Cultist],
         3 => vec![EnemyKind::JawWorm],
         4 => vec![EnemyKind::Louse, EnemyKind::Louse],
+        5 => vec![EnemyKind::SmallSpikeSlime],
+        6 => vec![EnemyKind::RedLouse],
         _ => vec![EnemyKind::Louse],
     }
 }
@@ -307,7 +309,7 @@ pub fn apply_command(
 mod tests {
     use super::*;
     use crate::combat::Enemy;
-    use crate::enemies::Intent;
+    use crate::enemies::{Intent, Move};
     use crate::relics::Relic;
     use crate::rng::NoOpRng;
 
@@ -646,6 +648,16 @@ mod tests {
     #[test]
     fn floor_4_boss_spawns_two_lice() {
         assert_eq!(enemies_for_floor(4), vec![EnemyKind::Louse, EnemyKind::Louse]);
+    }
+
+    #[test]
+    fn floor_5_spawns_small_spike_slime() {
+        assert_eq!(enemies_for_floor(5), vec![EnemyKind::SmallSpikeSlime]);
+    }
+
+    #[test]
+    fn floor_6_spawns_red_louse() {
+        assert_eq!(enemies_for_floor(6), vec![EnemyKind::RedLouse]);
     }
 
     // --- player state persists across combat ---
@@ -1290,6 +1302,58 @@ mod tests {
             state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
             Some(6)
         );
+    }
+
+    // --- Small Spike Slime ---
+
+    #[test]
+    fn flame_tackle_deals_5_damage_and_adds_dazed_to_discard() {
+        let mut player = make_player();
+        player.block = Block(0);
+        let mut state = CombatState::from_player(player, vec![EnemyKind::SmallSpikeSlime], &mut rng());
+        state.enemies[0].move_ = Move::FlameTackle;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp.0, state.player.max_hp.0 - 5);
+        assert!(state.player.discard_pile.contains(&Card::Dazed));
+    }
+
+    #[test]
+    fn dazed_card_is_not_playable() {
+        let player = make_player();
+        let mut state = CombatState::from_player(player, vec![EnemyKind::Louse], &mut rng());
+        state.player.hand = vec![Card::Dazed];
+        let result = apply_combat_command(state, Command::PlayCard(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    // --- Red Louse ---
+
+    #[test]
+    fn red_louse_grow_grants_strength() {
+        let player = make_player();
+        let mut state = CombatState::from_player(player, vec![EnemyKind::RedLouse], &mut rng());
+        state.enemies[0].move_ = Move::Grow;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(
+            state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
+            Some(3)
+        );
+        assert_eq!(state.player.hp.0, state.player.max_hp.0);
+    }
+
+    // --- Dexterity ---
+
+    #[test]
+    fn dexterity_increases_block_gained_from_defend() {
+        let player = make_player();
+        let mut state = CombatState::from_player(player, vec![EnemyKind::Louse], &mut rng());
+        state.player.hand = vec![Card::Defend];
+        state.player.statuses.insert(crate::status::StatusEffect::Dexterity, 2);
+        let (state, _) = apply_combat_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Defend gives 5 block + 2 Dexterity = 7
+        assert_eq!(state.player.block.0, 7);
     }
 
     #[test]

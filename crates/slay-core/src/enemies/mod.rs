@@ -2,7 +2,10 @@ mod cultist;
 mod fungibeast;
 mod jaw_worm;
 mod louse;
+mod red_louse;
+mod small_spike_slime;
 
+use crate::cards::Card;
 use crate::rng::Rng;
 use crate::status::StatusEffect;
 use crate::types::Hp;
@@ -13,6 +16,8 @@ pub enum EnemyKind {
     Fungibeast,
     Cultist,
     JawWorm,
+    SmallSpikeSlime,
+    RedLouse,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,33 +35,42 @@ pub enum Move {
     Chomp,
     Thrash,
     Bellow,
+    // Small Spike Slime
+    FlameTackle,
+    // Red Louse
+    RedLouseBite,
+    Grow,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Effect {
     DealDamage(i32),
     GainBlock(i32),
     GainStatus(StatusEffect, i32),  // applies to self
     ApplyStatus(StatusEffect, i32), // applies to player
+    AddToDiscard(Card),             // adds a card to the player's discard pile
 }
 
 pub struct MoveDef {
     pub name: &'static str,
-    pub effects: &'static [Effect],
+    pub effects: Vec<Effect>,
 }
 
 impl Move {
     pub fn def(self) -> MoveDef {
         match self {
-            Move::LouseBite    => MoveDef { name: "Bite",        effects: &[Effect::DealDamage(8)] },
-            Move::LouseBlock   => MoveDef { name: "Block",       effects: &[Effect::GainBlock(5)] },
-            Move::FungiLight   => MoveDef { name: "Chomp",       effects: &[Effect::DealDamage(6)] },
-            Move::FungiHeavy   => MoveDef { name: "Slam",        effects: &[Effect::DealDamage(10)] },
-            Move::Incantation  => MoveDef { name: "Incantation", effects: &[Effect::GainStatus(StatusEffect::Ritual, 3)] },
-            Move::DarkStrike   => MoveDef { name: "Dark Strike", effects: &[Effect::DealDamage(6)] },
-            Move::Chomp  => MoveDef { name: "Chomp",  effects: &[Effect::DealDamage(11)] },
-            Move::Thrash => MoveDef { name: "Thrash", effects: &[Effect::DealDamage(7), Effect::GainBlock(5)] },
-            Move::Bellow => MoveDef { name: "Bellow", effects: &[Effect::GainStatus(StatusEffect::Strength, 3), Effect::GainBlock(6)] },
+            Move::LouseBite    => MoveDef { name: "Bite",        effects: vec![Effect::DealDamage(8)] },
+            Move::LouseBlock   => MoveDef { name: "Block",       effects: vec![Effect::GainBlock(5)] },
+            Move::FungiLight   => MoveDef { name: "Chomp",       effects: vec![Effect::DealDamage(6)] },
+            Move::FungiHeavy   => MoveDef { name: "Slam",        effects: vec![Effect::DealDamage(10)] },
+            Move::Incantation  => MoveDef { name: "Incantation", effects: vec![Effect::GainStatus(StatusEffect::Ritual, 3)] },
+            Move::DarkStrike   => MoveDef { name: "Dark Strike", effects: vec![Effect::DealDamage(6)] },
+            Move::Chomp  => MoveDef { name: "Chomp",  effects: vec![Effect::DealDamage(11)] },
+            Move::Thrash => MoveDef { name: "Thrash", effects: vec![Effect::DealDamage(7), Effect::GainBlock(5)] },
+            Move::Bellow => MoveDef { name: "Bellow", effects: vec![Effect::GainStatus(StatusEffect::Strength, 3), Effect::GainBlock(6)] },
+            Move::FlameTackle      => MoveDef { name: "Flame Tackle",  effects: vec![Effect::DealDamage(5), Effect::AddToDiscard(Card::Dazed)] },
+            Move::RedLouseBite     => MoveDef { name: "Bite",          effects: vec![Effect::DealDamage(6)] },
+            Move::Grow             => MoveDef { name: "Grow",          effects: vec![Effect::GainStatus(StatusEffect::Strength, 3)] },
         }
     }
 
@@ -97,7 +111,9 @@ impl EnemyKind {
             EnemyKind::Louse      => louse::DEF,
             EnemyKind::Fungibeast => fungibeast::DEF,
             EnemyKind::Cultist    => cultist::DEF,
-            EnemyKind::JawWorm    => jaw_worm::DEF,
+            EnemyKind::JawWorm        => jaw_worm::DEF,
+            EnemyKind::SmallSpikeSlime => small_spike_slime::DEF,
+            EnemyKind::RedLouse        => red_louse::DEF,
         }
     }
 
@@ -110,7 +126,9 @@ pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Mo
         EnemyKind::Louse      => louse::next_move(last),
         EnemyKind::Fungibeast => fungibeast::next_move(last),
         EnemyKind::Cultist    => cultist::next_move(last),
-        EnemyKind::JawWorm    => jaw_worm::next_move(last, rng),
+        EnemyKind::JawWorm         => jaw_worm::next_move(last, rng),
+        EnemyKind::SmallSpikeSlime => small_spike_slime::next_move(last),
+        EnemyKind::RedLouse        => red_louse::next_move(last, rng),
     }
 }
 
@@ -212,6 +230,48 @@ mod tests {
     #[test]
     fn bellow_is_buff() {
         assert_eq!(Move::Bellow.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn small_spike_slime_has_10_hp() {
+        assert_eq!(EnemyKind::SmallSpikeSlime.max_hp(), Hp(10));
+    }
+
+    #[test]
+    fn small_spike_slime_always_flame_tackles() {
+        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, None, &mut rng()), Move::FlameTackle);
+        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, Some(Move::FlameTackle), &mut rng()), Move::FlameTackle);
+    }
+
+    #[test]
+    fn flame_tackle_intent_is_attack_5() {
+        assert_eq!(Move::FlameTackle.intent(), Intent::Attack(5));
+    }
+
+    #[test]
+    fn red_louse_has_12_hp() {
+        assert_eq!(EnemyKind::RedLouse.max_hp(), Hp(12));
+    }
+
+    #[test]
+    fn red_louse_bites_on_first_turn() {
+        assert_eq!(next_move(&EnemyKind::RedLouse, None, &mut rng()), Move::RedLouseBite);
+    }
+
+    #[test]
+    fn red_louse_bites_after_grow() {
+        assert_eq!(next_move(&EnemyKind::RedLouse, Some(Move::Grow), &mut rng()), Move::RedLouseBite);
+    }
+
+    #[test]
+    fn red_louse_never_repeats_grow() {
+        let next = next_move(&EnemyKind::RedLouse, Some(Move::Grow), &mut rng());
+        assert_ne!(next, Move::Grow);
+    }
+
+    #[test]
+    fn grow_intent_is_buff() {
+        assert_eq!(Move::Grow.intent(), Intent::Buff);
     }
 
     #[test]
