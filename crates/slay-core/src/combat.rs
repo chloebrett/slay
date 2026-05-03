@@ -164,24 +164,10 @@ pub fn apply_command(
 }
 
 fn apply_card(card: &Card, state: &mut CombatState, events: &mut Vec<Event>) {
-    match card {
-        Card::Strike => {
-            let damage = deal_damage(6, &mut state.enemy.hp, &mut state.enemy.block);
-            events.push(Event::PlayerAttacked { damage });
-            if state.enemy.hp.0 <= 0 {
-                state.phase = CombatPhase::Victory;
-                events.push(Event::EnemyDied);
-            }
-        }
-        Card::Defend => {
-            let amount = 5;
-            state.player.block = Block(state.player.block.0 + amount);
-            events.push(Event::PlayerBlocked { amount });
-        }
-    }
+    crate::cards::apply(card, state, events);
 }
 
-fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
+pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
     let absorbed = amount.min(block.0).max(0);
     block.0 -= absorbed;
     let remainder = amount - absorbed;
