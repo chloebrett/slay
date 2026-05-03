@@ -387,7 +387,7 @@ fn apply_potion(
             let dmg = resolve_damage(20, &StatusMap::new(), &state.enemies[target].statuses);
             let e = &mut state.enemies[target];
             let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-            events.push(Event::EnemyAttacked { raw: dmg, damage: dealt });
+            events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
             if state.enemies[target].hp <= Hp(0) {
                 events.push(Event::EnemyDied);
             }
@@ -398,7 +398,7 @@ fn apply_potion(
                 let dmg = resolve_damage(10, &StatusMap::new(), &state.enemies[i].statuses);
                 let e = &mut state.enemies[i];
                 let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-                events.push(Event::EnemyAttacked { raw: dmg, damage: dealt });
+                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
                 if state.enemies[i].hp <= Hp(0) {
                     events.push(Event::EnemyDied);
                 }
@@ -1123,6 +1123,24 @@ mod tests {
         let (state, events) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
         assert!(events.contains(&Event::EnemyDied));
+    }
+
+    #[test]
+    fn fire_potion_emits_player_attacked_not_enemy_attacked() {
+        let state = combat_with_potion_and_enemy_hp(Potion::FirePotion, 50);
+        let (_, events) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::PlayerAttacked { .. })));
+        assert!(!events.iter().any(|e| matches!(e, Event::EnemyAttacked { .. })));
+    }
+
+    #[test]
+    fn explosive_potion_emits_player_attacked_not_enemy_attacked() {
+        let mut state = combat_with_two_enemies(vec![]);
+        state.player.potions.push(Potion::ExplosivePotion);
+        for e in &mut state.enemies { e.hp = Hp(50); e.max_hp = Hp(50); }
+        let (_, events) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::PlayerAttacked { .. })));
+        assert!(!events.iter().any(|e| matches!(e, Event::EnemyAttacked { .. })));
     }
 
     #[test]

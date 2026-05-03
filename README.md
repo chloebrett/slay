@@ -13,7 +13,7 @@ Interactive TUI with:
 
 Falls back to plain text automatically if you pipe stdin or run it in a script.
 
-The demo you see above was built in just one day! This was an experiment for me to play around with Claude Code, including [citypaul's configuration](https://github.com/citypaul/.dotfiles/blob/main/claude) which pushes for TDD and good engineering practices.
+The demo you see above was built in just one day! This was an experiment for me to play around with Claude Code, including a modified version of [citypaul's configuration](https://github.com/citypaul/.dotfiles/blob/main/claude) which pushes for TDD and good engineering practices.
 
 ## What's in
 
