@@ -119,12 +119,13 @@ pub enum CommandError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
-    CardPlayed { index: usize },
+    CardPlayed { card: Card },
     PlayerAttacked { damage: i32 },
     PlayerBlocked { amount: i32 },
-    EnemyAttacked { damage: i32 },
+    EnemyAttacked { raw: i32, damage: i32 },
     EnemyDefended { amount: i32 },
     IntentRevealed { intent: Intent },
+    PlayerBlockExpired { amount: i32 },
     TurnEnded,
     TurnStarted { turn: u32 },
     EnemyDied,
@@ -157,7 +158,7 @@ pub fn apply_command(
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
             state.player.discard_pile.push(card.clone());
-            events.push(Event::CardPlayed { index });
+            events.push(Event::CardPlayed { card: card.clone() });
             apply_card(&card, &mut state, &mut events);
         }
         Command::EndTurn => {
@@ -174,10 +175,13 @@ pub fn apply_command(
             }
             state.enemy.block = Block(0);
             execute_intent(&mut state, &mut events);
-            if state.player.hp.0 <= 0 {
+            if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
             } else {
+                if state.player.block > Block(0) {
+                    events.push(Event::PlayerBlockExpired { amount: state.player.block.0 });
+                }
                 state.player.block = Block(0);
                 state.player.energy = state.player.max_energy;
                 state.turn += 1;
@@ -198,7 +202,7 @@ fn execute_intent(state: &mut CombatState, events: &mut Vec<Event>) {
     match state.enemy.intent {
         Intent::Attack(n) => {
             let damage = deal_damage(n, &mut state.player.hp, &mut state.player.block);
-            events.push(Event::EnemyAttacked { damage });
+            events.push(Event::EnemyAttacked { raw: n, damage });
         }
         Intent::Defend(n) => {
             state.enemy.block = Block(state.enemy.block.0 + n);
@@ -425,7 +429,7 @@ mod tests {
     fn full_turn_cycle_emits_enemy_attacked_event() {
         let state = combat_with_hand(Vec::new());
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
-        assert!(events.contains(&Event::EnemyAttacked { damage: 8 }));
+        assert!(events.contains(&Event::EnemyAttacked { raw: 8, damage: 8 }));
     }
 
     #[test]

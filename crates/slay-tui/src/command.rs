@@ -15,7 +15,7 @@ pub fn parse(input: &str) -> Option<Command> {
         }
     }
     match s.as_str() {
-        "end" | "end turn" | "pass" => Some(Command::EndTurn),
+        "end" | "end turn" | "pass" | "e" => Some(Command::EndTurn),
         _ => None,
     }
 }
