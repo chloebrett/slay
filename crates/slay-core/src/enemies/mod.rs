@@ -2,6 +2,8 @@ mod cultist;
 mod fungibeast;
 mod louse;
 
+use crate::rng::Rng;
+use crate::status::StatusEffect;
 use crate::types::Hp;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,24 +13,80 @@ pub enum EnemyKind {
     Cultist,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Move {
+    // Louse
+    LouseBite,
+    LouseBlock,
+    // Fungibeast
+    FungiLight,
+    FungiHeavy,
+    // Cultist
+    Incantation,
+    DarkStrike,
+}
+
 #[derive(Debug, Clone, Copy)]
-pub struct EnemyDef {
+pub enum Effect {
+    DealDamage(i32),
+    GainBlock(i32),
+    GainStatus(StatusEffect, i32),  // applies to self
+    ApplyStatus(StatusEffect, i32), // applies to player
+}
+
+pub struct MoveDef {
     pub name: &'static str,
-    pub max_hp: Hp,
+    pub effects: &'static [Effect],
+}
+
+impl Move {
+    pub fn def(self) -> MoveDef {
+        match self {
+            Move::LouseBite    => MoveDef { name: "Bite",        effects: &[Effect::DealDamage(8)] },
+            Move::LouseBlock   => MoveDef { name: "Block",       effects: &[Effect::GainBlock(5)] },
+            Move::FungiLight   => MoveDef { name: "Chomp",       effects: &[Effect::DealDamage(6)] },
+            Move::FungiHeavy   => MoveDef { name: "Slam",        effects: &[Effect::DealDamage(10)] },
+            Move::Incantation  => MoveDef { name: "Incantation", effects: &[Effect::GainStatus(StatusEffect::Ritual, 3)] },
+            Move::DarkStrike   => MoveDef { name: "Dark Strike", effects: &[Effect::DealDamage(6)] },
+        }
+    }
+
+    pub fn intent(self) -> Intent {
+        let effects = self.def().effects;
+        let damage: i32 = effects.iter().filter_map(|e| {
+            if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+        }).sum();
+        let block: i32 = effects.iter().filter_map(|e| {
+            if let Effect::GainBlock(n) = e { Some(*n) } else { None }
+        }).sum();
+        match (damage, block) {
+            (d, b) if d > 0 && b > 0 => Intent::AttackDefend(d, b),
+            (d, _) if d > 0           => Intent::Attack(d),
+            (_, b) if b > 0           => Intent::Defend(b),
+            _                         => Intent::Buff,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Intent {
     Attack(i32),
     Defend(i32),
+    AttackDefend(i32, i32),
+    Buff,
+}
+
+pub struct EnemyDef {
+    pub name: &'static str,
+    pub max_hp: Hp,
 }
 
 impl EnemyKind {
     pub fn def(&self) -> EnemyDef {
         match self {
-            EnemyKind::Louse => louse::DEF,
+            EnemyKind::Louse     => louse::DEF,
             EnemyKind::Fungibeast => fungibeast::DEF,
-            EnemyKind::Cultist => cultist::DEF,
+            EnemyKind::Cultist   => cultist::DEF,
         }
     }
 
@@ -36,18 +94,20 @@ impl EnemyKind {
     pub fn max_hp(&self) -> Hp { self.def().max_hp }
 }
 
-pub fn next_intent(kind: &EnemyKind, turn: u32) -> Intent {
+pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Move {
     match kind {
-        EnemyKind::Louse => louse::next_intent(turn),
-        EnemyKind::Fungibeast => fungibeast::next_intent(turn),
-        EnemyKind::Cultist => cultist::next_intent(turn),
+        EnemyKind::Louse     => louse::next_move(last),
+        EnemyKind::Fungibeast => fungibeast::next_move(last),
+        EnemyKind::Cultist   => cultist::next_move(last),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::Hp;
+    use crate::rng::NoOpRng;
+
+    fn rng() -> NoOpRng { NoOpRng }
 
     #[test]
     fn louse_has_20_hp() {
@@ -55,15 +115,18 @@ mod tests {
     }
 
     #[test]
-    fn louse_attacks_8_on_odd_turns() {
-        assert_eq!(next_intent(&EnemyKind::Louse, 1), Intent::Attack(8));
-        assert_eq!(next_intent(&EnemyKind::Louse, 3), Intent::Attack(8));
+    fn louse_bites_first_turn() {
+        assert_eq!(next_move(&EnemyKind::Louse, None, &mut rng()), Move::LouseBite);
     }
 
     #[test]
-    fn louse_defends_5_on_even_turns() {
-        assert_eq!(next_intent(&EnemyKind::Louse, 2), Intent::Defend(5));
-        assert_eq!(next_intent(&EnemyKind::Louse, 4), Intent::Defend(5));
+    fn louse_blocks_after_biting() {
+        assert_eq!(next_move(&EnemyKind::Louse, Some(Move::LouseBite), &mut rng()), Move::LouseBlock);
+    }
+
+    #[test]
+    fn louse_bites_after_blocking() {
+        assert_eq!(next_move(&EnemyKind::Louse, Some(Move::LouseBlock), &mut rng()), Move::LouseBite);
     }
 
     #[test]
@@ -72,35 +135,57 @@ mod tests {
     }
 
     #[test]
+    fn fungibeast_light_first_turn() {
+        assert_eq!(next_move(&EnemyKind::Fungibeast, None, &mut rng()), Move::FungiLight);
+    }
+
+    #[test]
+    fn fungibeast_heavy_after_light() {
+        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiLight), &mut rng()), Move::FungiHeavy);
+    }
+
+    #[test]
+    fn fungibeast_light_after_heavy() {
+        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiHeavy), &mut rng()), Move::FungiLight);
+    }
+
+    #[test]
     fn cultist_has_50_hp() {
         assert_eq!(EnemyKind::Cultist.max_hp(), Hp(50));
     }
 
     #[test]
-    fn cultist_incantation_on_turn_1() {
-        assert_eq!(next_intent(&EnemyKind::Cultist, 1), Intent::Defend(0));
+    fn cultist_incantation_on_first_turn() {
+        assert_eq!(next_move(&EnemyKind::Cultist, None, &mut rng()), Move::Incantation);
     }
 
     #[test]
-    fn cultist_dark_strike_on_turn_2() {
-        assert_eq!(next_intent(&EnemyKind::Cultist, 2), Intent::Attack(6));
+    fn cultist_dark_strike_after_incantation() {
+        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::Incantation), &mut rng()), Move::DarkStrike);
     }
 
     #[test]
-    fn cultist_dark_strike_on_all_subsequent_turns() {
-        assert_eq!(next_intent(&EnemyKind::Cultist, 3), Intent::Attack(6));
-        assert_eq!(next_intent(&EnemyKind::Cultist, 10), Intent::Attack(6));
+    fn cultist_dark_strike_repeats() {
+        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::DarkStrike), &mut rng()), Move::DarkStrike);
     }
 
     #[test]
-    fn fungibeast_attacks_6_on_odd_turns() {
-        assert_eq!(next_intent(&EnemyKind::Fungibeast, 1), Intent::Attack(6));
-        assert_eq!(next_intent(&EnemyKind::Fungibeast, 3), Intent::Attack(6));
+    fn incantation_intent_is_buff() {
+        assert_eq!(Move::Incantation.intent(), Intent::Buff);
     }
 
     #[test]
-    fn fungibeast_attacks_10_on_even_turns() {
-        assert_eq!(next_intent(&EnemyKind::Fungibeast, 2), Intent::Attack(10));
-        assert_eq!(next_intent(&EnemyKind::Fungibeast, 4), Intent::Attack(10));
+    fn dark_strike_intent_is_attack_6() {
+        assert_eq!(Move::DarkStrike.intent(), Intent::Attack(6));
+    }
+
+    #[test]
+    fn louse_bite_intent_is_attack_8() {
+        assert_eq!(Move::LouseBite.intent(), Intent::Attack(8));
+    }
+
+    #[test]
+    fn louse_block_intent_is_defend_5() {
+        assert_eq!(Move::LouseBlock.intent(), Intent::Defend(5));
     }
 }

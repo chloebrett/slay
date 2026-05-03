@@ -194,7 +194,7 @@ fn render_combat(state: &CombatState) {
             enemy.hp.0,
             enemy.max_hp.0,
             enemy.block.0,
-            describe_intent(&enemy.intent),
+            describe_intent(&enemy.move_.intent()),
             status_str,
         );
     }
@@ -275,6 +275,7 @@ fn statuses_inline(statuses: &StatusMap) -> String {
                 StatusEffect::Weak => "🪫",
                 StatusEffect::Poison => "🟢",
                 StatusEffect::Strength => "💪",
+                StatusEffect::Ritual => "🔮",
             };
             format!("{icon}{n}")
         })
@@ -286,6 +287,8 @@ fn describe_intent(intent: &Intent) -> String {
     match intent {
         Intent::Attack(n) => format!("⚔️  Attack {n}"),
         Intent::Defend(n) => format!("🛡️  Defend {n}"),
+        Intent::AttackDefend(d, b) => format!("⚔️🛡️  Attack {d} + Defend {b}"),
+        Intent::Buff => "✨ Buff".into(),
     }
 }
 
@@ -325,6 +328,7 @@ fn describe(event: &Event) -> String {
                 StatusEffect::Weak => ("🪫", "Weak"),
                 StatusEffect::Poison => ("🟢", "Poison"),
                 StatusEffect::Strength => ("💪", "Strength"),
+                StatusEffect::Ritual => ("🔮", "Ritual"),
             };
             match target {
                 Target::Player => format!("{icon} You gain {stacks} {name}."),

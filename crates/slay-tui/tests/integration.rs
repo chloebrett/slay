@@ -1,6 +1,6 @@
 use slay_core::{
     apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
-    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, Relic, RestSiteState, StatusMap,
+    EnemyKind, Energy, GameState, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -42,7 +42,8 @@ impl TestHarness {
                     hp: Hp(20),
                     max_hp: Hp(20),
                     block: Block(0),
-                    intent: Intent::Attack(8),
+                    move_: Move::LouseBite,
+                    last_move: None,
                     statuses: StatusMap::new(),
                 }],
                 turn: 1,
@@ -164,21 +165,21 @@ fn enemy_alternates_attack_and_defend_intents() {
     }
     let intent_attack = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Attack(8)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Attack(8)
     );
     assert!(intent_attack);
 
     game.send("end").unwrap();
     let intent_defend = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Defend(5)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Defend(5)
     );
     assert!(intent_defend);
 
     game.send("end").unwrap();
     let intent_attack2 = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Attack(8)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Attack(8)
     );
     assert!(intent_attack2);
 }

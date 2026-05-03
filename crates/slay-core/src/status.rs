@@ -6,6 +6,7 @@ pub enum StatusEffect {
     Weak,
     Poison,
     Strength,
+    Ritual,
 }
 
 impl StatusEffect {
@@ -31,6 +32,15 @@ pub fn tick_statuses(statuses: &mut StatusMap) {
         *stacks -= 1;
         *stacks > 0
     });
+}
+
+/// Ticks ritual: returns Strength gained (= ritual stacks). Ritual does not decrement.
+pub fn tick_ritual(statuses: &mut StatusMap) -> i32 {
+    let ritual = statuses.get(&StatusEffect::Ritual).copied().unwrap_or(0);
+    if ritual > 0 {
+        *statuses.entry(StatusEffect::Strength).or_insert(0) += ritual;
+    }
+    ritual
 }
 
 /// Drains poison: returns damage dealt and decrements the stack.
@@ -78,6 +88,23 @@ mod tests {
     fn strength_adds_flat_bonus_to_damage() {
         let attacker = map_with(StatusEffect::Strength, 2);
         assert_eq!(resolve_damage(6, &attacker, &empty()), 8); // 6 + 2
+    }
+
+    #[test]
+    fn ritual_adds_strength_each_tick_without_decrementing() {
+        let mut statuses = map_with(StatusEffect::Ritual, 3);
+        assert_eq!(tick_ritual(&mut statuses), 3);
+        assert_eq!(statuses[&StatusEffect::Strength], 3);
+        assert_eq!(statuses[&StatusEffect::Ritual], 3); // ritual persists
+        assert_eq!(tick_ritual(&mut statuses), 3);
+        assert_eq!(statuses[&StatusEffect::Strength], 6);
+    }
+
+    #[test]
+    fn ritual_tick_with_no_ritual_returns_zero() {
+        let mut statuses = empty();
+        assert_eq!(tick_ritual(&mut statuses), 0);
+        assert!(statuses.is_empty());
     }
 
     #[test]

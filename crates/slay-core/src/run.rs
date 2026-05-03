@@ -1,6 +1,6 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
-use crate::enemies::EnemyKind;
+use crate::enemies::{EnemyKind, Move};
 use crate::relics::{
     apply_combat_start_relics, apply_end_of_combat_relics, apply_rest_relics,
     apply_turn_end_relics, apply_turn_start_relics, Relic,
@@ -345,7 +345,8 @@ mod tests {
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -513,7 +514,8 @@ mod tests {
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -656,7 +658,8 @@ mod tests {
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -757,7 +760,8 @@ mod tests {
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -927,7 +931,8 @@ mod tests {
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1046,7 +1051,8 @@ mod tests {
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1079,7 +1085,8 @@ mod tests {
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1106,7 +1113,8 @@ mod tests {
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
-                intent: Intent::Attack(8),
+                move_: Move::LouseBite,
+                last_move: None,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1188,6 +1196,70 @@ mod tests {
         let GameState::Map(map) = state else { panic!("expected Map") };
         // 30% of 80 = 24 HP from rest + 15 from RegalPillow, starting at 40 → 79
         assert_eq!(map.player.hp, Hp(79));
+    }
+
+    // --- Cultist / Ritual ---
+
+    fn cultist_combat() -> CombatState {
+        let player = make_player();
+        CombatState::from_player(player, vec![EnemyKind::Cultist], &mut rng())
+    }
+
+    #[test]
+    fn cultist_incantation_applies_ritual_to_self() {
+        let state = cultist_combat();
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // After turn 1: Cultist played Incantation → Ritual(3), then ticked → Strength(3)
+        assert_eq!(
+            state.enemies[0].statuses.get(&crate::status::StatusEffect::Ritual).copied(),
+            Some(3)
+        );
+        assert_eq!(
+            state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn cultist_dark_strike_deals_base_6_plus_accumulated_strength() {
+        let mut player = make_player();
+        player.block = Block(0);
+        let mut state = CombatState::from_player(player, vec![EnemyKind::Cultist], &mut rng());
+        state.player.hand.clear();
+        state.player.draw_pile = vec![Card::Defend; 10];
+
+        // Turn 1: end turn → Cultist plays Incantation (gains Ritual 3, ticks → Strength 3)
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (mut state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let hp_after_turn_1 = state.player.hp.0;
+        // Turn 1 Incantation deals no damage
+        assert_eq!(hp_after_turn_1, state.player.max_hp.0);
+
+        // Turn 2: end turn → Cultist plays Dark Strike (6 + 3 Strength = 9 damage)
+        state.player.hand.clear();
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp.0, hp_after_turn_1 - 9);
+    }
+
+    #[test]
+    fn ritual_stacks_strength_each_turn() {
+        let mut state = cultist_combat();
+        state.player.hand.clear();
+        state.player.draw_pile = vec![Card::Defend; 20];
+
+        // Three full turns: Incantation + 2× DarkStrike
+        for _ in 0..3 {
+            let (s, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+            let (s, _) = apply_combat_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
+            state = s;
+        }
+        // After 3 turns: Ritual ticked 3×: Strength = 3 + 3 + 3 = 9
+        assert_eq!(
+            state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
+            Some(9)
+        );
     }
 
     #[test]

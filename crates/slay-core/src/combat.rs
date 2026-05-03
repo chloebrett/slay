@@ -1,9 +1,9 @@
 use crate::cards::Card;
-use crate::enemies::{self, EnemyKind, Intent};
+use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
 use crate::relics::Relic;
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, drain_poison, tick_ritual, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +29,8 @@ pub struct Enemy {
     pub hp: Hp,
     pub max_hp: Hp,
     pub block: Block,
-    pub intent: Intent,
+    pub move_: Move,
+    pub last_move: Option<Move>,
     pub statuses: StatusMap,
 }
 
@@ -92,12 +93,14 @@ impl CombatState {
             .iter()
             .map(|kind| {
                 let max_hp = kind.max_hp();
+                let first_move = enemies::next_move(kind, None, rng);
                 Enemy {
                     kind: kind.clone(),
                     hp: max_hp,
                     max_hp,
                     block: Block(0),
-                    intent: enemies::next_intent(kind, 1),
+                    move_: first_move,
+                    last_move: None,
                     statuses: StatusMap::new(),
                 }
             })
@@ -253,21 +256,32 @@ pub(crate) fn apply_combat_command(
             for i in 0..state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { continue; }
                 state.enemies[i].block = Block(0);
-                // Clone to avoid borrowing state.enemies[i] and state.player simultaneously
-                let intent = state.enemies[i].intent;
+                let current_move = state.enemies[i].move_;
                 let enemy_statuses = state.enemies[i].statuses.clone();
-                match intent {
-                    Intent::Attack(n) => {
-                        let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
-                        let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
-                        events.push(Event::EnemyAttacked { raw: effective, damage });
-                    }
-                    Intent::Defend(n) => {
-                        state.enemies[i].block = Block(state.enemies[i].block.0 + n);
-                        events.push(Event::EnemyDefended { amount: n });
+                for effect in current_move.def().effects {
+                    match effect {
+                        Effect::DealDamage(n) => {
+                            let effective = crate::status::resolve_damage(*n, &enemy_statuses, &state.player.statuses);
+                            let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
+                            events.push(Event::EnemyAttacked { raw: effective, damage });
+                        }
+                        Effect::GainBlock(n) => {
+                            state.enemies[i].block.0 += n;
+                            events.push(Event::EnemyDefended { amount: *n });
+                        }
+                        Effect::GainStatus(status, stacks) => {
+                            *state.enemies[i].statuses.entry(*status).or_insert(0) += stacks;
+                            events.push(Event::StatusApplied { target: Target::Enemy, status: *status, stacks: *stacks });
+                        }
+                        Effect::ApplyStatus(status, stacks) => {
+                            apply_status(&mut state.player.statuses, Target::Player, *status, *stacks, &mut events);
+                        }
                     }
                 }
+                tick_ritual(&mut state.enemies[i].statuses);
                 tick_statuses(&mut state.enemies[i].statuses);
+                let last = state.enemies[i].move_;
+                state.enemies[i].last_move = Some(last);
             }
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
@@ -281,8 +295,8 @@ pub(crate) fn apply_combat_command(
                 state.turn += 1;
                 for enemy in state.enemies.iter_mut() {
                     if enemy.hp > Hp(0) {
-                        enemy.intent = enemies::next_intent(&enemy.kind, state.turn);
-                        events.push(Event::IntentRevealed { intent: enemy.intent });
+                        enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, rng);
+                        events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
                     }
                 }
                 draw_cards(&mut state.player, 5, rng);
@@ -342,7 +356,8 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             hp: Hp(20),
             max_hp: Hp(20),
             block: Block(0),
-            intent: Intent::Attack(8),
+            move_: Move::LouseBite,
+            last_move: None,
             statuses: StatusMap::new(),
         }],
         turn: 1,
@@ -357,7 +372,8 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         hp: Hp(20),
         max_hp: Hp(20),
         block: Block(0),
-        intent: Intent::Attack(8),
+        move_: Move::LouseBite,
+        last_move: None,
         statuses: StatusMap::new(),
     };
     CombatState {
@@ -609,7 +625,7 @@ mod tests {
     #[test]
     fn new_combat_sets_initial_attack_intent() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.enemies[0].intent, Intent::Attack(8));
+        assert_eq!(state.enemies[0].move_.intent(), Intent::Attack(8));
     }
 
     #[test]
@@ -639,7 +655,7 @@ mod tests {
         let state = combat_with_hand(Vec::new());
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.turn, 2);
-        assert_eq!(state.enemies[0].intent, Intent::Defend(5));
+        assert_eq!(state.enemies[0].move_.intent(), Intent::Defend(5));
     }
 
     #[test]
@@ -648,13 +664,13 @@ mod tests {
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.turn, 3);
-        assert_eq!(state.enemies[0].intent, Intent::Attack(8));
+        assert_eq!(state.enemies[0].move_.intent(), Intent::Attack(8));
     }
 
     #[test]
     fn defend_intent_grants_enemy_block() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemies[0].intent = Intent::Defend(5);
+        state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(5));
     }
@@ -662,7 +678,7 @@ mod tests {
     #[test]
     fn defend_intent_emits_enemy_defended_event() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemies[0].intent = Intent::Defend(5);
+        state.enemies[0].move_ = Move::LouseBlock;
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         assert!(events.contains(&Event::EnemyDefended { amount: 5 }));
     }
@@ -670,7 +686,7 @@ mod tests {
     #[test]
     fn defend_intent_does_not_damage_player() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemies[0].intent = Intent::Defend(5);
+        state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(80));
     }
@@ -696,7 +712,7 @@ mod tests {
     fn enemy_block_resets_when_enemy_acts() {
         let mut state = combat_with_hand(Vec::new());
         state.enemies[0].block = Block(5);
-        state.enemies[0].intent = Intent::Defend(5);
+        state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(5));
     }
@@ -704,7 +720,7 @@ mod tests {
     #[test]
     fn enemy_block_persists_through_player_turn() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemies[0].intent = Intent::Defend(5);
+        state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(5));
     }
