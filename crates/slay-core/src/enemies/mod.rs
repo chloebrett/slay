@@ -1,5 +1,6 @@
 mod cultist;
 mod fungibeast;
+mod jaw_worm;
 mod louse;
 
 use crate::rng::Rng;
@@ -11,6 +12,7 @@ pub enum EnemyKind {
     Louse,
     Fungibeast,
     Cultist,
+    JawWorm,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +26,10 @@ pub enum Move {
     // Cultist
     Incantation,
     DarkStrike,
+    // Jaw Worm
+    Chomp,
+    Thrash,
+    Bellow,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -48,6 +54,9 @@ impl Move {
             Move::FungiHeavy   => MoveDef { name: "Slam",        effects: &[Effect::DealDamage(10)] },
             Move::Incantation  => MoveDef { name: "Incantation", effects: &[Effect::GainStatus(StatusEffect::Ritual, 3)] },
             Move::DarkStrike   => MoveDef { name: "Dark Strike", effects: &[Effect::DealDamage(6)] },
+            Move::Chomp  => MoveDef { name: "Chomp",  effects: &[Effect::DealDamage(11)] },
+            Move::Thrash => MoveDef { name: "Thrash", effects: &[Effect::DealDamage(7), Effect::GainBlock(5)] },
+            Move::Bellow => MoveDef { name: "Bellow", effects: &[Effect::GainStatus(StatusEffect::Strength, 3), Effect::GainBlock(6)] },
         }
     }
 
@@ -59,11 +68,12 @@ impl Move {
         let block: i32 = effects.iter().filter_map(|e| {
             if let Effect::GainBlock(n) = e { Some(*n) } else { None }
         }).sum();
-        match (damage, block) {
-            (d, b) if d > 0 && b > 0 => Intent::AttackDefend(d, b),
-            (d, _) if d > 0           => Intent::Attack(d),
-            (_, b) if b > 0           => Intent::Defend(b),
-            _                         => Intent::Buff,
+        let buffs_self = effects.iter().any(|e| matches!(e, Effect::GainStatus(_, _)));
+        match (damage, block, buffs_self) {
+            (d, b, _)    if d > 0 && b > 0 => Intent::AttackDefend(d, b),
+            (d, _, _)    if d > 0           => Intent::Attack(d),
+            (_, b, false) if b > 0          => Intent::Defend(b),
+            _                               => Intent::Buff,
         }
     }
 }
@@ -84,9 +94,10 @@ pub struct EnemyDef {
 impl EnemyKind {
     pub fn def(&self) -> EnemyDef {
         match self {
-            EnemyKind::Louse     => louse::DEF,
+            EnemyKind::Louse      => louse::DEF,
             EnemyKind::Fungibeast => fungibeast::DEF,
-            EnemyKind::Cultist   => cultist::DEF,
+            EnemyKind::Cultist    => cultist::DEF,
+            EnemyKind::JawWorm    => jaw_worm::DEF,
         }
     }
 
@@ -96,9 +107,10 @@ impl EnemyKind {
 
 pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Move {
     match kind {
-        EnemyKind::Louse     => louse::next_move(last),
+        EnemyKind::Louse      => louse::next_move(last),
         EnemyKind::Fungibeast => fungibeast::next_move(last),
-        EnemyKind::Cultist   => cultist::next_move(last),
+        EnemyKind::Cultist    => cultist::next_move(last),
+        EnemyKind::JawWorm    => jaw_worm::next_move(last, rng),
     }
 }
 
@@ -167,6 +179,39 @@ mod tests {
     #[test]
     fn cultist_dark_strike_repeats() {
         assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::DarkStrike), &mut rng()), Move::DarkStrike);
+    }
+
+    #[test]
+    fn jaw_worm_has_40_hp() {
+        assert_eq!(EnemyKind::JawWorm.max_hp(), Hp(40));
+    }
+
+    #[test]
+    fn jaw_worm_chomps_on_first_turn() {
+        assert_eq!(next_move(&EnemyKind::JawWorm, None, &mut rng()), Move::Chomp);
+    }
+
+    #[test]
+    fn jaw_worm_never_repeats_last_move() {
+        for last in [Move::Chomp, Move::Thrash, Move::Bellow] {
+            let next = next_move(&EnemyKind::JawWorm, Some(last), &mut rng());
+            assert_ne!(next, last, "repeated {last:?}");
+        }
+    }
+
+    #[test]
+    fn chomp_is_attack_11() {
+        assert_eq!(Move::Chomp.intent(), Intent::Attack(11));
+    }
+
+    #[test]
+    fn thrash_is_attack_7_defend_5() {
+        assert_eq!(Move::Thrash.intent(), Intent::AttackDefend(7, 5));
+    }
+
+    #[test]
+    fn bellow_is_buff() {
+        assert_eq!(Move::Bellow.intent(), Intent::Buff);
     }
 
     #[test]

@@ -101,6 +101,7 @@ fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
     match floor {
         1 => vec![EnemyKind::Fungibeast],
         2 => vec![EnemyKind::Cultist],
+        3 => vec![EnemyKind::JawWorm],
         4 => vec![EnemyKind::Louse, EnemyKind::Louse],
         _ => vec![EnemyKind::Louse],
     }
@@ -635,6 +636,11 @@ mod tests {
     #[test]
     fn floor_2_spawns_cultist() {
         assert_eq!(enemies_for_floor(2), vec![EnemyKind::Cultist]);
+    }
+
+    #[test]
+    fn floor_3_spawns_jaw_worm() {
+        assert_eq!(enemies_for_floor(3), vec![EnemyKind::JawWorm]);
     }
 
     #[test]
@@ -1196,6 +1202,31 @@ mod tests {
         let GameState::Map(map) = state else { panic!("expected Map") };
         // 30% of 80 = 24 HP from rest + 15 from RegalPillow, starting at 40 → 79
         assert_eq!(map.player.hp, Hp(79));
+    }
+
+    // --- Jaw Worm ---
+
+    #[test]
+    fn jaw_worm_thrash_damages_player_and_gains_enemy_block() {
+        let player = make_player();
+        let mut state = CombatState::from_player(player, vec![EnemyKind::JawWorm], &mut rng());
+        state.enemies[0].move_ = Move::Thrash;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp.0, state.player.max_hp.0 - 7);
+        assert_eq!(state.enemies[0].block.0, 5);
+    }
+
+    #[test]
+    fn jaw_worm_bellow_grants_strength_and_block_without_damaging_player() {
+        let player = make_player();
+        let mut state = CombatState::from_player(player, vec![EnemyKind::JawWorm], &mut rng());
+        state.enemies[0].move_ = Move::Bellow;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp.0, state.player.max_hp.0);
+        assert_eq!(state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(), Some(3));
+        assert_eq!(state.enemies[0].block.0, 6);
     }
 
     // --- Cultist / Ritual ---
