@@ -166,7 +166,7 @@ If snapshots fail after an intentional output change, review and accept:
 INSTA_UPDATE=always cargo test -p slay-tui --test scripts
 ```
 
-To add a new scenario, create a `scripts/simple/<name>.slay` file and generate its snapshot:
+To add a new scenario, create a `crates/slay-tui/tests/scripts/<name>.slay` file and generate its snapshot:
 ```
 INSTA_UPDATE=new cargo test -p slay-tui --test scripts
 ```

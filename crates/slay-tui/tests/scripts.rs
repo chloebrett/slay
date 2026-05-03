@@ -12,7 +12,7 @@ fn run_script(script_content: &str) -> String {
 
 fn scripts_dir() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../scripts/simple")
+        .join("tests/scripts")
 }
 
 #[test]

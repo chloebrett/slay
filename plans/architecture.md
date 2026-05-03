@@ -9,11 +9,6 @@ This document describes the current implementation as a spec. Read it to underst
 ```
 slay/
   Cargo.toml                  ← workspace root
-  scripts/
-    simple/                   ← deterministic .slay scripts for snapshot tests
-      01-louse-end-turn.slay
-      02-add-strike-kill-louse.slay
-      ...
   crates/
     slay-core/                ← pure game engine; no I/O, no terminal
       src/
@@ -43,8 +38,12 @@ slay/
         lib.rs                ← re-exports command and game modules
       tests/
         integration.rs        ← TestHarness; command sequences → GameState assertions
-        scripts.rs            ← insta snapshot harness; discovers scripts/simple/*.slay
-      tests/snapshots/        ← committed insta snapshot files (auto-managed)
+        scripts.rs            ← insta snapshot harness; discovers tests/scripts/*.slay
+        scripts/              ← deterministic .slay scripts (test fixtures)
+          01-louse-end-turn.slay
+          02-add-strike-kill-louse.slay
+          ...
+        snapshots/            ← committed insta snapshot files (auto-managed)
 ```
 
 **Hard constraint on `slay-core`:** No terminal, I/O, or display code. No `println!`. A hypothetical `slay-gui` could depend on `slay-core` unchanged.
