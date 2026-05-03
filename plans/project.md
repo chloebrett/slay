@@ -101,12 +101,12 @@ Functions that need randomness take `&mut dyn Rng`. Tests pass a `FixedRng` or `
 ```rust
 // Phase 1 subset — grows without structural changes
 pub struct Player {
-    pub hp: i32,
-    pub max_hp: i32,
-    pub block: i32,
+    pub hp: Hp,
+    pub max_hp: Hp,
+    pub block: Block,
     // Phase 2+
-    pub energy: i32,
-    pub max_energy: i32,
+    pub energy: Energy,
+    pub max_energy: Energy,
     pub hand: Vec<Card>,
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
@@ -120,9 +120,9 @@ pub struct Player {
 
 pub struct Enemy {
     pub name: String,
-    pub hp: i32,
-    pub max_hp: i32,
-    pub block: i32,
+    pub hp: Hp,
+    pub max_hp: Hp,
+    pub block: Block,
     pub intent: Intent,
     pub statuses: HashMap<StatusEffect, i32>,
 }
@@ -148,15 +148,28 @@ pub enum GameState {
 }
 ```
 
-### Integer Types
+### Integer Types and Newtypes
 
-Use `i32` for all game values — HP, block, energy, damage, gold, status stacks — even when the business logic says the value must be non-negative. Reasons:
+Use `i32` as the base type for all numeric game values. Avoid `u32`/`u8` etc. — unsigned arithmetic underflows/panics, and mixing signed/unsigned forces noisy casts throughout game math.
 
-- Unsigned subtraction in Rust underflows or panics; `saturating_sub` everywhere is noisy
-- Damage math naturally produces intermediate negatives (e.g. over-block); `max(0)` at the end is cleaner than fighting the type system throughout
-- Mixing `u32` and `i32` forces casts that obscure the logic
+Three newtypes are introduced from day one because they appear together in function signatures where confusion is a real risk:
 
-Non-negativity invariants are enforced by the damage pipeline and game logic, not the type system. If the codebase grows large enough that passing `block` where `hp` is expected becomes a real risk, introduce newtypes (`struct Hp(i32)`) at that point — the refactor is mechanical.
+```rust
+pub struct Hp(pub i32);      // health on Player and Enemy
+pub struct Block(pub i32);   // block on Player and Enemy
+pub struct Energy(pub i32);  // player energy; card cost comparisons are very common
+```
+
+The damage pipeline is the main footgun these prevent:
+```rust
+// Without newtypes — easy to swap hp and block accidentally:
+fn deal_damage(damage: i32, hp: &mut i32, block: &mut i32)
+
+// With newtypes — compiler catches transposition:
+fn deal_damage(damage: i32, hp: &mut Hp, block: &mut Block)
+```
+
+Everything else stays plain `i32`: damage amounts (ephemeral, not stored), gold (only on Player, no multi-arg confusion), status stacks, turn count.
 
 Exception: `usize` where Rust APIs require it (Vec indices, lengths).
 
