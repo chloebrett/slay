@@ -353,23 +353,34 @@ fn block_reduces_incoming_damage() {
 
 ---
 
-### Phase 5: Map & Run Progression
+### Phase 5: Map & Run Progression (infrastructure)
 
-**Goal:** A full run with persistence between encounters.
+**Goal:** A full run loop with persistence between encounters. No card rewards yet — just the skeleton.
 
 **Additions:**
 
-- `MapNode`: `Combat(EnemyId)`, `RestSite`, `Boss(EnemyId)`.
-- Linear map: 3× combat → rest site → boss.
-- Post-combat card reward: choose 1 of 3 (`Command::ChooseCardReward(usize)`).
-- Rest site: `Command::Rest` (heal 30% max HP) or `Command::Smith(usize)` (upgrade a card).
-- Second enemy type.
-- `GameState` becomes an enum wrapping `CombatState`, `MapState`, etc.
+- `GameState` enum: `Map(MapState)`, `Combat { state, floor }`, `RestSite(RestSiteState)`, `GameOver { victory }`.
+- `MapNode`: `Combat`, `RestSite`, `Boss`. Linear map: 3× Combat → RestSite → Boss (all Louse for now).
+- `Player` gains `deck: Vec<Card>` (master deck, persists across combats) and `gold: i32`.
+- `CombatState::from_player(player, enemy_kind, rng)` creates a combat from run state.
+- Player earns 50 gold on combat victory. Displayed on map, not during combat.
+- Rest site: `Command::Rest` heals 30% max HP. No upgrades yet.
+- Map navigation: `Command::ChooseNode(usize)` (always 0 in Phase 5 — one choice per floor).
+- Top-level `apply_command(GameState, Command, rng)` in `run.rs` replaces combat-level export.
+- Combat-level `apply_command` renamed to `pub(crate) apply_combat_command`.
 
-Notes from chloe:
+### Phase 5.1: Second Enemy & Card Rewards
 
-- Let's make the only rest site option 'rest' right now, since we don't have card upgrades yet.
-- Let's make the boss just another louse, for simplicity, then we can do a phase 5.5 after.
+**Goal:** Variety in encounters. Real incentive to progress the map.
+
+**Additions:**
+
+- `Fungibeast` enemy: 22 HP, alternates Attack(6) and Attack(10).
+- Floor-based enemies: floor 0 = Louse, floor 1 = Fungibeast, floor 2 = Louse, floor 4 = Louse (boss).
+- `CardRewardState { player, floor, options: Vec<Card> }` and `GameState::CardReward(...)`.
+- Post-combat: generate 3 card reward options (shuffled from reward pool), go to `CardReward`.
+- `Command::ChooseCardReward(usize)` adds chosen card to `player.deck`, returns to map.
+- Reward pool: Bash, Clothesline, Inflame, DeadlyPoison, Strike, Defend.
 
 ### 5.5
 
@@ -394,6 +405,10 @@ Notes from chloe:
 - Pommel strike - deal 9 damage, then draw 1 card. Upgraded: 10 dam/2 draw. Cost 1
 
 ---
+
+### 5.8 - integration tests for tui
+
+<Start by replacing this with a plan>
 
 ### Phase 6: Relic System
 

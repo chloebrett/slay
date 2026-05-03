@@ -97,6 +97,20 @@ impl Card {
     }
 }
 
+pub fn starter_deck() -> Vec<Card> {
+    let mut deck = Vec::new();
+    for _ in 0..5 {
+        deck.push(Card::Strike);
+    }
+    for _ in 0..3 {
+        deck.push(Card::Defend);
+    }
+    deck.push(Card::Bash);
+    deck.push(Card::Inflame);
+    deck.push(Card::DeadlyPoison);
+    deck
+}
+
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>) {
     match card {
         Card::Strike => strike::apply(state, events),

@@ -1,12 +1,15 @@
-use slay_core::{apply_command, Command, CombatPhase, CombatState, Event, Intent, StatusEffect, StatusMap, Target, ThreadRng};
+use slay_core::{
+    apply_command, new_run, CardRewardState, CombatPhase, CombatState, Event, GameState, Intent,
+    MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
+};
 use std::io::{self, BufRead, Write};
 
 fn main() {
     let mut rng = ThreadRng::new();
-    let mut state = CombatState::new(&mut rng);
+    let mut state = new_run(&mut rng);
 
     println!("{}", slay_core::welcome());
-    println!("Commands: <n> to play card n, end (or e) to end turn\n");
+    println!();
 
     render(&state);
 
@@ -16,7 +19,7 @@ fn main() {
         io::stdout().flush().ok();
 
         let input = line.expect("failed to read input");
-        let Some(command) = slay_tui::command::parse(&input) else {
+        let Some(command) = slay_tui::command::parse(&input, &state) else {
             println!("Unknown command.\n");
             continue;
         };
@@ -25,12 +28,24 @@ fn main() {
             Ok((new_state, events)) => {
                 state = new_state;
                 print_events(&events);
-                // Auto-drain EnemyTurn — no player decisions during it
-                while state.phase == CombatPhase::EnemyTurn {
-                    match apply_command(state.clone(), Command::EndEnemyTurn, &mut rng) {
-                        Ok((new_state, events)) => {
-                            state = new_state;
-                            print_events(&events);
+
+                // Auto-drain EnemyTurn — no player decisions needed
+                loop {
+                    let is_enemy_turn = matches!(
+                        &state,
+                        GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::EnemyTurn
+                    );
+                    if !is_enemy_turn {
+                        break;
+                    }
+                    match apply_command(
+                        state.clone(),
+                        slay_core::Command::EndEnemyTurn,
+                        &mut rng,
+                    ) {
+                        Ok((ns, evts)) => {
+                            state = ns;
+                            print_events(&evts);
                         }
                         Err(e) => {
                             println!("Internal error advancing enemy turn: {e:?}");
@@ -38,13 +53,19 @@ fn main() {
                         }
                     }
                 }
-                if state.phase == CombatPhase::Victory {
-                    println!("You win!");
-                    break;
+
+                match &state {
+                    GameState::GameOver { victory: true } => {
+                        println!("\nYou conquered the Spire! Run complete.");
+                        break;
+                    }
+                    GameState::GameOver { victory: false } => {
+                        println!("\nYou have been slain. Game over.");
+                        break;
+                    }
+                    _ => {}
                 }
-                if state.phase == CombatPhase::Defeat {
-                    break;
-                }
+
                 println!();
                 render(&state);
             }
@@ -53,16 +74,60 @@ fn main() {
     }
 }
 
-fn print_events(events: &[Event]) {
-    for event in events {
-        let msg = describe(event);
-        if !msg.is_empty() {
-            println!("{msg}");
-        }
+fn render(state: &GameState) {
+    match state {
+        GameState::Map(map) => render_map(map),
+        GameState::Combat { state, .. } => render_combat(state),
+        GameState::RestSite(rs) => render_rest(rs),
+        GameState::CardReward(cr) => render_card_reward(cr),
+        GameState::GameOver { .. } => {}
     }
 }
 
-fn render(state: &CombatState) {
+fn render_map(map: &MapState) {
+    let floor = map.floor;
+    let total = slay_core::run::MAP_NODES.len();
+    println!("=== Map  (floor {}/{}) ===", floor + 1, total);
+    println!("Gold: {}", map.player.gold);
+    println!("HP:   {}/{}", map.player.hp.0, map.player.max_hp.0);
+    println!(
+        "Deck: {} cards",
+        map.player.deck.len()
+    );
+    println!();
+    let node_name = match &slay_core::run::MAP_NODES[floor] {
+        slay_core::MapNode::Combat => "Combat",
+        slay_core::MapNode::RestSite => "Rest Site",
+        slay_core::MapNode::Boss => "Boss Combat",
+    };
+    println!("[1] Enter: {node_name}");
+    println!("(type the number to proceed)");
+}
+
+fn render_rest(rs: &RestSiteState) {
+    let heal = (rs.player.max_hp.0 * 30 / 100).max(1);
+    let healed_to = (rs.player.hp.0 + heal).min(rs.player.max_hp.0);
+    println!("=== Rest Site ===");
+    println!("HP: {}/{}", rs.player.hp.0, rs.player.max_hp.0);
+    println!("[rest] Heal for {heal} HP  (to {healed_to})");
+}
+
+fn render_card_reward(cr: &CardRewardState) {
+    println!("=== Card Reward ===");
+    println!("Choose a card to add to your deck:");
+    for (i, card) in cr.options.iter().enumerate() {
+        println!(
+            "  [{}] {} ({}) — {}",
+            i + 1,
+            card.name(),
+            card.energy_cost().0,
+            card.description(),
+        );
+    }
+    println!("(type the number to pick)");
+}
+
+fn render_combat(state: &CombatState) {
     let enemy_status_str = statuses_inline(&state.enemy.statuses);
     println!(
         "[ {} ] HP: {}/{}  Block: {}  | Intent: {}{}",
@@ -100,6 +165,15 @@ fn render(state: &CombatState) {
                 card.energy_cost().0,
                 desc,
             );
+        }
+    }
+}
+
+fn print_events(events: &[Event]) {
+    for event in events {
+        let msg = describe(event);
+        if !msg.is_empty() {
+            println!("{msg}");
         }
     }
 }
@@ -173,5 +247,8 @@ fn describe(event: &Event) -> String {
             };
             format!("{who} gains {stacks} {name}.")
         }
+        Event::GoldEarned { amount } => format!("You earn {amount} gold."),
+        Event::Healed { amount } => format!("You heal for {amount} HP."),
+        Event::CardAdded { card } => format!("{} added to your deck.", card.name()),
     }
 }

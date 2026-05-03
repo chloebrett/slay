@@ -15,6 +15,8 @@ pub struct Player {
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
     pub statuses: StatusMap,
+    pub deck: Vec<Card>,
+    pub gold: i32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,23 +51,42 @@ pub struct CombatState {
 
 impl CombatState {
     pub fn new(rng: &mut impl Rng) -> Self {
-        let kind = EnemyKind::Louse;
-        let max_hp = kind.max_hp();
-        let intent = enemies::next_intent(&kind, 1);
-        let mut state = Self {
-            player: Player {
-                hp: Hp(80),
-                max_hp: Hp(80),
-                block: Block(0),
-                energy: Energy(3),
-                max_energy: Energy(3),
-                hand: Vec::new(),
-                draw_pile: starter_deck(),
-                discard_pile: Vec::new(),
-                statuses: StatusMap::new(),
-            },
+        let deck = crate::cards::starter_deck();
+        let player = Player {
+            hp: Hp(80),
+            max_hp: Hp(80),
+            block: Block(0),
+            energy: Energy(3),
+            max_energy: Energy(3),
+            hand: Vec::new(),
+            draw_pile: deck.clone(),
+            discard_pile: Vec::new(),
+            statuses: StatusMap::new(),
+            deck,
+            gold: 0,
+        };
+        Self::from_player(player, EnemyKind::Louse, rng)
+    }
+
+    pub fn from_player(player: Player, enemy_kind: EnemyKind, rng: &mut impl Rng) -> Self {
+        let max_hp = enemy_kind.max_hp();
+        let intent = enemies::next_intent(&enemy_kind, 1);
+        let mut draw_pile = player.deck.clone();
+        rng.shuffle(&mut draw_pile);
+        let mut p = Player {
+            draw_pile,
+            hand: Vec::new(),
+            discard_pile: Vec::new(),
+            block: Block(0),
+            energy: player.max_energy,
+            statuses: StatusMap::new(),
+            ..player
+        };
+        draw_cards(&mut p, 5, rng);
+        Self {
+            player: p,
             enemy: Enemy {
-                kind,
+                kind: enemy_kind,
                 hp: max_hp,
                 max_hp,
                 block: Block(0),
@@ -74,21 +95,8 @@ impl CombatState {
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
-        };
-        rng.shuffle(&mut state.player.draw_pile);
-        draw_cards(&mut state.player, 5, rng);
-        state
+        }
     }
-}
-
-fn starter_deck() -> Vec<Card> {
-    let mut deck = Vec::new();
-    for _ in 0..5 { deck.push(Card::Strike); }
-    for _ in 0..3 { deck.push(Card::Defend); }
-    deck.push(Card::Bash);
-    deck.push(Card::Inflame);
-    deck.push(Card::DeadlyPoison);
-    deck
 }
 
 fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
@@ -111,6 +119,9 @@ pub enum Command {
     PlayCard(usize),
     EndTurn,
     EndEnemyTurn,
+    ChooseNode(usize),
+    Rest,
+    ChooseCardReward(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -136,6 +147,9 @@ pub enum Event {
     EnemyPoisoned { damage: i32 },
     EnemyDied,
     PlayerDied,
+    GoldEarned { amount: i32 },
+    Healed { amount: i32 },
+    CardAdded { card: Card },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -144,7 +158,7 @@ pub enum Target {
     Enemy,
 }
 
-pub fn apply_command(
+pub(crate) fn apply_combat_command(
     mut state: CombatState,
     command: Command,
     rng: &mut impl Rng,
@@ -195,6 +209,9 @@ pub fn apply_command(
                 }
             }
             state.phase = CombatPhase::EnemyTurn;
+        }
+        Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_) => {
+            return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {
             if state.phase != CombatPhase::EnemyTurn {
@@ -261,6 +278,14 @@ mod tests {
         NoOpRng
     }
 
+    fn apply_command(
+        state: CombatState,
+        cmd: Command,
+        rng: &mut impl Rng,
+    ) -> Result<(CombatState, Vec<Event>), CommandError> {
+        super::apply_combat_command(state, cmd, rng)
+    }
+
     // Creates a state with a known hand, empty piles, full energy — no shuffle needed.
     // Default enemy intent is Attack(8) so legacy tests that bundle EndTurn keep working.
     fn combat_with_hand(hand: Vec<Card>) -> CombatState {
@@ -275,6 +300,8 @@ mod tests {
                 draw_pile: Vec::new(),
                 discard_pile: Vec::new(),
                 statuses: StatusMap::new(),
+                deck: Vec::new(),
+                gold: 0,
             },
             enemy: Enemy {
                 kind: EnemyKind::Louse,

@@ -2,15 +2,19 @@ mod cards;
 mod combat;
 mod enemies;
 mod rng;
+pub mod run;
 pub(crate) mod status;
 mod types;
 
-pub use cards::Card;
+pub use cards::{Card, starter_deck};
 pub use combat::{
-    apply_command, Command, CommandError, CombatPhase, CombatState, Enemy, Event, Player, Target,
+    Command, CommandError, CombatPhase, CombatState, Enemy, Event, Player, Target,
 };
 pub use enemies::{EnemyKind, Intent};
 pub use rng::{NoOpRng, Rng, ThreadRng};
+pub use run::{
+    apply_command, CardRewardState, GameState, MapNode, MapState, RestSiteState, new_run,
+};
 pub use status::{StatusEffect, StatusMap};
 pub use types::{Block, Energy, Hp};
 
