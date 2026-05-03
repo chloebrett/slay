@@ -21,6 +21,7 @@ impl TestHarness {
                     hand,
                     draw_pile: Vec::new(),
                     discard_pile: Vec::new(),
+                    exhaust_pile: Vec::new(),
                     statuses: StatusMap::new(),
                     deck: starter_deck(),
                     gold: 0,

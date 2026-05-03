@@ -14,6 +14,7 @@ pub struct Player {
     pub hand: Vec<Card>,
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
+    pub exhaust_pile: Vec<Card>,
     pub statuses: StatusMap,
     pub deck: Vec<Card>,
     pub gold: i32,
@@ -61,6 +62,7 @@ impl CombatState {
             hand: Vec::new(),
             draw_pile: deck.clone(),
             discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
             statuses: StatusMap::new(),
             deck,
             gold: 0,
@@ -77,6 +79,7 @@ impl CombatState {
             draw_pile,
             hand: Vec::new(),
             discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
             block: Block(0),
             energy: player.max_energy,
             statuses: StatusMap::new(),
@@ -151,6 +154,7 @@ pub enum Event {
     GoldEarned { amount: i32 },
     Healed { amount: i32 },
     CardAdded { card: Card },
+    CardExhausted { card: Card },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -184,9 +188,14 @@ pub(crate) fn apply_combat_command(
             }
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
-            state.player.discard_pile.push(card.clone());
             events.push(Event::CardPlayed { card: card.clone() });
             apply_card(&card, &mut state, &mut events);
+            if card.exhausts() {
+                events.push(Event::CardExhausted { card: card.clone() });
+                state.player.exhaust_pile.push(card.clone());
+            } else {
+                state.player.discard_pile.push(card.clone());
+            }
             if state.enemy.hp <= Hp(0) {
                 state.phase = CombatPhase::Victory;
                 events.push(Event::EnemyDied);
@@ -303,6 +312,7 @@ mod tests {
                 hand,
                 draw_pile: Vec::new(),
                 discard_pile: Vec::new(),
+                exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(),
                 deck: Vec::new(),
                 gold: 0,
@@ -344,9 +354,9 @@ mod tests {
     }
 
     #[test]
-    fn new_combat_leaves_6_cards_in_draw_pile() {
+    fn new_combat_leaves_7_cards_in_draw_pile() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.player.draw_pile.len(), 6);
+        assert_eq!(state.player.draw_pile.len(), 7);
     }
 
     #[test]
@@ -936,5 +946,38 @@ mod tests {
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         // After full cycle: turn 2's intent is Defend(5)
         assert!(events.contains(&Event::IntentRevealed { intent: Intent::Defend(5) }));
+    }
+
+    // --- Exhaust mechanic ---
+
+    #[test]
+    fn disarm_applies_minus_2_strength_to_enemy() {
+        use crate::status::StatusEffect;
+        let state = combat_with_hand(vec![Card::Disarm]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Strength), Some(&-2));
+    }
+
+    #[test]
+    fn disarm_goes_to_exhaust_pile_not_discard() {
+        let state = combat_with_hand(vec![Card::Disarm]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn disarm_emits_card_exhausted_event() {
+        let state = combat_with_hand(vec![Card::Disarm]);
+        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::CardExhausted { card: Card::Disarm }));
+    }
+
+    #[test]
+    fn strike_goes_to_discard_not_exhaust() {
+        let state = combat_with_hand(vec![Card::Strike]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.discard_pile, vec![Card::Strike]);
+        assert!(state.player.exhaust_pile.is_empty());
     }
 }

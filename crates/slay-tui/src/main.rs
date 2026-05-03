@@ -266,5 +266,6 @@ fn describe(event: &Event) -> String {
         Event::GoldEarned { amount } => format!("You earn {amount} gold."),
         Event::Healed { amount } => format!("You heal for {amount} HP."),
         Event::CardAdded { card } => format!("{} added to your deck.", card.name()),
+        Event::CardExhausted { card } => format!("{} was exhausted.", card.name()),
     }
 }

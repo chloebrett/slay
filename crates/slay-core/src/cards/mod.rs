@@ -2,6 +2,7 @@ mod bash;
 mod clothesline;
 mod deadly_poison;
 mod defend;
+mod disarm;
 mod inflame;
 mod strike;
 
@@ -16,6 +17,7 @@ pub enum Card {
     Clothesline,
     Inflame,
     DeadlyPoison,
+    Disarm,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -66,7 +68,17 @@ impl Card {
                 energy_cost: Energy(1),
                 base_damage: None,
             },
+            Card::Disarm => CardDef {
+                name: "Disarm",
+                description: "Enemy loses 2 Strength. Exhaust.",
+                energy_cost: Energy(1),
+                base_damage: None,
+            },
         }
+    }
+
+    pub fn exhausts(&self) -> bool {
+        matches!(self, Card::Disarm)
     }
 
     pub fn name(&self) -> &'static str { self.def().name }
@@ -108,6 +120,7 @@ pub fn starter_deck() -> Vec<Card> {
     deck.push(Card::Bash);
     deck.push(Card::Inflame);
     deck.push(Card::DeadlyPoison);
+    deck.push(Card::Disarm);
     deck
 }
 
@@ -119,5 +132,6 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Clothesline => clothesline::apply(state, events),
         Card::Inflame => inflame::apply(state, events),
         Card::DeadlyPoison => deadly_poison::apply(state, events),
+        Card::Disarm => disarm::apply(state, events),
     }
 }
