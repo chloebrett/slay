@@ -456,6 +456,8 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Cleave, Card::IronWave, Card::TwinStrike, Card::Bludgeon,
         Card::Impervious, Card::NotYet, Card::Mangle, Card::Uppercut,
         Card::Taunt, Card::Thunderclap,
+        Card::PommelStrike, Card::ShrugItOff,
+        Card::Breakthrough, Card::BloodWall, Card::Bloodletting, Card::Hemokinesis,
     ]
 }
 
