@@ -1,0 +1,19 @@
+# Rest site test: heal and upgrade a card
+# Verifies: rest heals 30% of max HP, upgrade changes card name/stats,
+#           can only upgrade once per rest, map advances after resting
+
+# Win fights 1-3 to reach rest site (floor 4)
+win
+skip
+win
+skip
+win
+skip
+
+# Now at floor 4 (Rest Site) — should show heal amount and upgradeable cards
+
+# Upgrade card 1 (first Strike → Strike+)
+upgrade 1
+
+# Rest to heal
+rest

@@ -1,0 +1,43 @@
+# Small Spike Slime test: observe Flame Tackle adding Dazed to discard
+# Verifies: FlameTackle deals 5 damage AND adds Dazed card to player discard
+#           Dazed card appears in discard pile (type 'x' to inspect)
+#           Dazed card cannot be played (should show error if attempted)
+
+# Skip to floor 6 (small spike slime) via debug
+skip
+win
+skip
+skip
+win
+skip
+skip
+win
+skip
+skip
+win
+skip
+skip
+win
+skip
+
+# Enter floor 6 (small spike slime)
+
+# Turn 1: end turn — Flame Tackle fires, deals 5 damage, Dazed added to discard
+e
+
+# Check discard pile — Dazed should be in there
+x
+
+# Turn 2: draw pile shuffles discard in, Dazed may appear in hand
+# If Dazed is in hand at position 1, try to play it — should fail
+# Play a strike to deal damage
+1
+e
+
+# Turn 3: finish off
+1
+1
+e
+
+# Skip reward
+skip

@@ -5,7 +5,12 @@ use slay_core::{
 use std::io::{self, BufRead, Write};
 
 fn main() {
-    let debug = std::env::args().any(|a| a == "--debug");
+    let args: Vec<String> = std::env::args().collect();
+    let debug = args.iter().any(|a| a == "--debug");
+    let script = args.windows(2)
+        .find(|w| w[0] == "--script")
+        .map(|w| w[1].clone());
+
     let mut rng = ThreadRng::new();
     let mut state = new_run(&mut rng);
 
@@ -15,12 +20,27 @@ fn main() {
 
     render(&state);
 
-    let stdin = io::stdin();
-    for line in stdin.lock().lines() {
-        print!("> ");
-        io::stdout().flush().ok();
+    let scripted = script.is_some();
+    let reader: Box<dyn BufRead> = match script {
+        Some(path) => {
+            let file = std::fs::File::open(&path)
+                .unwrap_or_else(|e| panic!("Cannot open script {path}: {e}"));
+            Box::new(io::BufReader::new(file))
+        }
+        None => Box::new(io::BufReader::new(io::stdin())),
+    };
 
-        let input = line.expect("failed to read input");
+    for input in reader.lines().map(|l| l.expect("read error")) {
+        if scripted && input.trim_start().starts_with('#') {
+            println!("{input}");
+            continue;
+        }
+        if scripted {
+            println!("> {input}");
+        } else {
+            print!("> ");
+            io::stdout().flush().ok();
+        }
         if let GameState::Combat { state: cs, .. } = &state {
             match input.trim() {
                 "z" => { render_pile("🎴 Draw pile", &cs.player.draw_pile); continue; }

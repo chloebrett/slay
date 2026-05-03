@@ -1,0 +1,23 @@
+# Basic combat: fight a louse with strike/defend, take some hits, win
+# Verifies: block reduces damage, block expires at end of turn, gold earned
+
+# Enter floor 1 (louse)
+
+# Turn 1: defend then strike
+1
+2
+e
+
+# Turn 2: bash + defend
+5
+1
+e
+
+# Turn 3: finish it off
+1
+1
+1
+e
+
+# Skip card reward
+skip

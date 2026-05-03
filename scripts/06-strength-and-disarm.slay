@@ -1,0 +1,26 @@
+# Strength mechanics: Inflame boosts player attacks, Disarm weakens enemies
+# Verifies: Strength adds flat bonus to each attack, asterisk shown on boosted cards,
+#           Disarm applies negative Strength to enemy, enemy attacks reduced accordingly
+
+# Enter floor 1 (louse)
+
+# Turn 1: play Inflame to gain 2 Strength, then strike
+# Strike should show *8* damage (6 + 2)
+4
+2
+e
+
+# Turn 2: Disarm the louse (negative strength), then strike
+# Enemy bite should now deal 6 instead of 8 (8 - 2 = 6)
+2
+1
+e
+
+# Turn 3: finish off the weakened louse
+1
+1
+1
+e
+
+# Skip reward
+skip
