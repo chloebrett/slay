@@ -1,16 +1,14 @@
 # Development Guidelines for Claude
 
-> **About this file (v3.0.0):** Lean version optimized for context efficiency. Core principles here; detailed patterns loaded on-demand via skills.
+> **About this file (v4.0.0):** Lean version optimized for context efficiency. Core principles here; detailed patterns loaded on-demand via skills.
 >
 > **Architecture:**
-> - **CLAUDE.md** (this file): Core philosophy + quick reference (~100 lines, always loaded)
-> - **Skills**: Detailed patterns loaded on-demand (tdd, testing, mutation-testing, test-design-reviewer, typescript-strict, functional, refactoring, expectations, planning, front-end-testing, react-testing, ci-debugging, hexagonal-architecture, domain-driven-design, twelve-factor, api-design, cli-design, finding-seams, characterisation-tests, storyboard, teach-me, diagrams, find-skills, find-gaps)
-> - **External skills**: Loaded on-demand from community repos (impeccable + 17 steering commands from [pbakaus/impeccable](https://github.com/pbakaus/impeccable), 6 web quality skills from [addyosmani/web-quality-skills](https://github.com/addyosmani/web-quality-skills), grill-me from [mattpocock/skills](https://skills.sh/mattpocock/skills/grill-me))
+> - **CLAUDE.md** (this file): Core philosophy + quick reference (~120 lines, always loaded)
+> - **Skills**: Detailed patterns loaded on-demand (tdd, testing, mutation-testing, test-design-reviewer, functional, refactoring, expectations, planning, cli-design, finding-seams, characterisation-tests, storyboard, teach-me, diagrams, find-skills, find-gaps, hexagonal-architecture, domain-driven-design, twelve-factor, api-design)
 > - **Agents**: Specialized subprocesses for verification and analysis
 >
 > **Previous versions:**
-> - v2.0.0: Modular with @docs/ imports (~3000+ lines always loaded)
-> - v1.0.0: Single monolithic file (1,818 lines)
+> - v3.0.0: TypeScript / Vitest stack
 
 ## Core Philosophy
 
@@ -24,58 +22,71 @@ I follow Test-Driven Development (TDD) with a strong emphasis on behavior-driven
 
 - Write tests first (TDD)
 - Test behavior, not implementation
-- No `any` types or type assertions
-- Immutable data only
+- No `unsafe` without documented invariants
+- No `.unwrap()` without justification
+- Immutable data by default (no `mut` unless necessary)
 - Small, pure functions
-- TypeScript strict mode always
-- Use real schemas/types in tests, never redefine them
+- `Result<T, E>` and `Option<T>` over panics
 
 **Preferred Tools:**
 
-- **Language**: TypeScript (strict mode)
-- **Testing**: Vitest (prefer Browser Mode for UI tests) + Testing Library
-- **State Management**: Prefer immutable patterns
+- **Language**: Rust (stable)
+- **Testing**: `cargo test` / `cargo-nextest` + `insta` for snapshots
+- **Mutation testing**: `cargo-mutants`
+- **Linting**: `cargo clippy` with strict config
+- **Coverage**: `cargo llvm-cov`
+
+## Rust Quality Gates
+
+The Rust compiler catches most type and safety violations automatically. These are the remaining rules that require discipline:
+
+**No `.unwrap()` or `.expect()` without justification**
+- If it can't fail by contract, document why: `// SAFETY: vec is non-empty, checked above`
+- Prefer `?` operator, pattern matching, or returning `Result`/`Option`
+
+**No `unsafe` without documented invariants**
+- Every `unsafe` block must have a `// SAFETY:` comment explaining why it upholds Rust's safety invariants
+
+**No gratuitous `.clone()`**
+- Reaching for `.clone()` to satisfy the borrow checker often signals a design problem — rethink ownership first
+
+**No `#[allow(clippy::...)]` without explanation**
+- If suppressing a lint, add a comment explaining why the lint doesn't apply here
+
+**Never silently discard a `Result`**
+- `let _ = fallible_fn();` is a smell — handle the error or explicitly document why it's safe to ignore
+
+**Clippy config** — projects should have a `clippy.toml` or deny attributes:
+```rust
+#![deny(clippy::all, clippy::pedantic)]
+#![allow(clippy::module_name_repetitions)] // example of justified suppression
+```
 
 ## Testing Principles
 
-**Core principle**: Test behavior, not implementation. 100% coverage through business behavior.
+**Core principle**: Test behavior, not implementation. Full coverage through business behavior.
 
 **Quick reference:**
 - Write tests first (TDD non-negotiable)
 - Test through public API exclusively
-- Use factory functions for test data (no `let`/`beforeEach`)
+- Use factory functions for test data (no `static mut`, no shared mutable state across tests)
 - Tests must document expected business behavior
 - No 1:1 mapping between test files and implementation files
 
 For detailed testing patterns and examples, load the `testing` skill.
 For verifying test effectiveness through mutation analysis, load the `mutation-testing` skill.
 
-## TypeScript Guidelines
-
-**Core principle**: Strict mode always. Schema-first at trust boundaries, types for internal logic.
-
-**Quick reference:**
-- No `any` types - ever (use `unknown` if type truly unknown)
-- No type assertions without justification
-- Prefer `type` over `interface` for data structures
-- Reserve `interface` for behavior contracts only
-- Define schemas first, derive types from them (Zod/Standard Schema)
-- Use schemas at trust boundaries, plain types for internal logic
-
-For detailed TypeScript patterns and rationale, load the `typescript-strict` skill.
-For API and interface design patterns, load the `api-design` skill.
-
 ## Code Style
 
 **Core principle**: Functional programming with immutable data. Self-documenting code.
 
 **Quick reference:**
-- No data mutation - immutable data structures only
+- No data mutation — prefer owned/immutable values, avoid `mut` bindings
 - Pure functions wherever possible
-- No nested if/else - use early returns or composition
-- No comments - code should be self-documenting
-- Prefer options objects over positional parameters
-- Use array methods (`map`, `filter`, `reduce`) over loops
+- No nested if/else — use early returns (`?`, `return`, `guard` patterns)
+- No comments — code should be self-documenting
+- Config structs or builder pattern over long positional parameter lists
+- Iterator chains (`.map()`, `.filter()`, `.fold()`) over loops
 
 For detailed patterns and examples, load the `functional` skill.
 
@@ -86,11 +97,12 @@ For detailed patterns and examples, load the `functional` skill.
 **Quick reference:**
 - RED: Write failing test first (NO production code without failing test)
 - GREEN: Write MINIMUM code to pass test
-- MUTATE: Run mutation testing to verify test effectiveness, produce a report
+- MUTATE: Run `cargo mutants` to verify test effectiveness, produce a report
 - KILL MUTANTS: Address surviving mutants (ask human when value is ambiguous)
 - REFACTOR: Assess improvement opportunities (only refactor if adds value)
 - **Wait for commit approval** before every commit
 - Each increment leaves codebase in working state
+
 For detailed TDD workflow, load the `tdd` skill.
 For refactoring methodology, load the `refactoring` skill.
 For significant work, load the `planning` skill. Plans live in `plans/` directory.
@@ -101,15 +113,15 @@ For 12-factor service projects, load the `twelve-factor` skill.
 For CLI tool design (stream separation, format flags, exit codes, composability), load the `cli-design` skill.
 For making untestable code testable, load the `finding-seams` skill.
 For documenting existing behavior before changes, load the `characterisation-tests` skill.
-For multi-surface design audits before code (embed every mock in a scope on one reviewable page with flow diagram + gap cards + per-mock audit checklists), load the `storyboard` skill.
+For multi-surface design audits before code, load the `storyboard` skill.
 For structured learning of any topic (interactive tutoring, courses, quizzes), use `/teach-me [topic]`.
 For discovering and installing agent skills from the open ecosystem (`npx skills`), load the `find-skills` skill.
-For adversarial review of plans, acceptance criteria, or design mocks — one question at a time, turning each answer into a new AC / plan paragraph / mock-state spec written back to the source of truth — load the `find-gaps` skill.
-For relentless plan or design interrogation before implementation — one question at a time, with recommended answers and codebase exploration where useful — load the `grill-me` skill.
+For adversarial review of plans, acceptance criteria, or design mocks, load the `find-gaps` skill.
+For relentless plan or design interrogation before implementation, load the `grill-me` skill.
 
-**Project onboarding:** Run `/setup` in any new project to detect its tech stack and generate project-level CLAUDE.md, hooks, commands, and PR review agent in one shot. This replaces the need for `/init`.
+**Project onboarding:** Run `/setup` in any new project to detect its tech stack and generate project-level CLAUDE.md, hooks, commands, and PR review agent in one shot.
 
-**Project-level hooks:** Projects should add a PostToolUse hook in `.claude/settings.json` to run typecheck after Write/Edit on .ts/.tsx files. Use `/setup` to generate this automatically, or see the global `settings.json` prettier/eslint hook as a template.
+**Project-level hooks:** Projects should add a PostToolUse hook in `.claude/settings.json` to run `cargo clippy` after Write/Edit on `.rs` files. Use `/setup` to generate this automatically.
 
 ## Output Guardrails
 
@@ -132,24 +144,13 @@ For detailed TDD workflow, load the `tdd` skill.
 For refactoring methodology, load the `refactoring` skill.
 For detailed guidance on expectations and documentation, load the `expectations` skill.
 
-## Browser Automation
-
-Prefer `agent-browser` for web automation. If it is not installed, fall back to other available tools (e.g. `WebFetch`, `curl`, or MCP browser tools). Always try `agent-browser` first.
-
-`agent-browser` core workflow:
-1. `agent-browser open <url>` - Navigate to page
-2. `agent-browser snapshot -i` - Get interactive elements with refs (@e1, @e2)
-3. `agent-browser click @e1` / `fill @e2 "text"` - Interact using refs
-4. Re-snapshot after page changes
-
-Run `agent-browser --help` for all commands.
-
 ## Resources and References
 
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
-- [Testing Library Principles](https://testing-library.com/docs/guiding-principles)
-- [Kent C. Dodds Testing JavaScript](https://testingjavascript.com/)
-- [Functional Programming in TypeScript](https://gcanti.github.io/fp-ts/)
+- [The Rust Programming Language](https://doc.rust-lang.org/book/)
+- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
+- [Rust Design Patterns](https://rust-unofficial.github.io/patterns/)
+- [cargo-nextest](https://nexte.st/)
+- [insta snapshot testing](https://insta.rs/)
 
 ## Summary
 

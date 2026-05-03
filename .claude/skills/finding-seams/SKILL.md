@@ -11,7 +11,7 @@ For writing tests that document existing behavior once you have seams, load the 
 
 | Resource | Load when... |
 |----------|-------------|
-| `seam-types.md` | Need detailed FP-first examples of each seam type in TypeScript |
+| `seam-types.md` | Need detailed FP-first examples of each seam type in Rust |
 | `creating-seams.md` | Need to introduce a seam where none exists, with before/after examples |
 | `oop-patterns.md` | Encountering legacy class-based code -- object seams, subclass and override, constructor injection |
 
@@ -31,16 +31,14 @@ Every seam has an **enabling point** -- the place where you choose which behavio
 - A function hard-codes a dependency instead of accepting it as a parameter
 - Global or static dependencies make isolation impossible
 - Singleton access patterns couple code to shared mutable state
-- React components fetch data internally instead of receiving it via props/context
-
-## Quick Reference: Seam Types for TypeScript/JS
+## Quick Reference: Seam Types for Rust
 
 | Seam Type | Mechanism | Enabling Point | Prefer When |
 |-----------|-----------|---------------|-------------|
 | **Function Parameter** | Pass dependency as argument | The argument list | **Default choice.** Functional code, pure functions, explicit contracts |
-| **Configuration** | Env vars, feature flags, config objects | The config source | Infrastructure-level concerns |
-| **Module** | `vi.mock()` / `jest.mock()` replaces imports | Test file mock configuration | **Last resort.** Quick scaffolding only -- bypasses type safety, implicit, requires cleanup |
-| **Object** | Subclass and override, or DI via constructor | Where the object is created | Legacy class-based code (see `resources/oop-patterns.md`) |
+| **Configuration** | Env vars, feature flags, config structs | The config source | Infrastructure-level concerns |
+| **Trait Object** | Accept `&dyn Trait` or `impl Trait` instead of concrete type | Where the value is constructed | The standard Rust seam — use for any collaborator |
+| **Generic Parameter** | `fn foo<R: Repository>(repo: &R)` | The type parameter at call site | Zero-cost abstraction needed, or mockall generics |
 
 ## How to Find Seams
 

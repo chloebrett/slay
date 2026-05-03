@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Testing patterns for behavior-driven tests. Use when writing tests, creating test factories, structuring test files, or deciding what to test. Do NOT use for UI-specific testing (see front-end-testing or react-testing skills).
+description: Testing patterns for behavior-driven tests in Rust. Use when writing tests, creating test helpers, structuring test modules, or deciding what to test.
 ---
 
 # Testing Patterns
@@ -9,9 +9,9 @@ For verifying test effectiveness through mutation analysis, load the `mutation-t
 
 ## Core Principle
 
-**Test behavior, not implementation.** 100% coverage through business behavior, not implementation details.
+**Test behavior, not implementation.** Full coverage through business behavior, not implementation details.
 
-**Example:** Validation code in `payment-validator.ts` gets 100% coverage by testing `processPayment()` behavior, NOT by directly testing validator functions.
+**Example:** Validation logic in `payment_validator.rs` gets full coverage by testing `process_payment()` behavior, NOT by directly testing validator functions.
 
 ---
 
@@ -26,87 +26,87 @@ Never test implementation details. Test behavior through public APIs.
 
 ### Examples
 
-❌ **WRONG - Testing implementation:**
-```typescript
-// ❌ Testing HOW (implementation detail)
-it('should call validateAmount', () => {
-  const spy = jest.spyOn(validator, 'validateAmount');
-  processPayment(payment);
-  expect(spy).toHaveBeenCalled(); // Tests HOW, not WHAT
-});
-
-// ❌ Testing private methods
-it('should validate CVV format', () => {
-  const result = validator._validateCVV('123'); // Private method!
-  expect(result).toBe(true);
-});
+❌ **WRONG — Testing implementation:**
+```rust
+// ❌ Testing a private function directly
+#[test]
+fn test_validate_cvv() {
+    // validate_cvv is pub(crate) — this tests an implementation detail
+    assert!(validate_cvv("123"));
+}
 
 // ❌ Testing internal state
-it('should set isValidated flag', () => {
-  processPayment(payment);
-  expect(processor.isValidated).toBe(true); // Internal state
-});
+#[test]
+fn test_sets_validated_flag() {
+    let mut processor = Processor::new();
+    processor.process(payment());
+    assert!(processor.is_validated); // internal state
+}
 ```
 
-✅ **CORRECT - Testing behavior through public API:**
-```typescript
-it('should reject negative amounts', () => {
-  const payment = getMockPayment({ amount: -100 });
-  const result = processPayment(payment);
-  expect(result.success).toBe(false);
-  expect(result.error).toContain('Amount must be positive');
-});
+✅ **CORRECT — Testing behavior through public API:**
+```rust
+#[test]
+fn rejects_negative_amounts() {
+    let payment = payment_with(|p| p.amount = -100);
+    let result = process_payment(&payment);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), PaymentError::InvalidAmount);
+}
 
-it('should reject invalid CVV', () => {
-  const payment = getMockPayment({ cvv: '12' }); // Only 2 digits
-  const result = processPayment(payment);
-  expect(result.success).toBe(false);
-  expect(result.error).toContain('Invalid CVV');
-});
+#[test]
+fn rejects_invalid_cvv() {
+    let payment = payment_with(|p| p.cvv = "12".into()); // only 2 digits
+    let result = process_payment(&payment);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), PaymentError::InvalidCvv);
+}
 
-it('should process valid payments', () => {
-  const payment = getMockPayment({ amount: 100, cvv: '123' });
-  const result = processPayment(payment);
-  expect(result.success).toBe(true);
-  expect(result.data.transactionId).toBeDefined();
-});
+#[test]
+fn processes_valid_payment() {
+    let payment = default_payment();
+    let result = process_payment(&payment);
+    assert!(result.is_ok());
+    assert!(!result.unwrap().transaction_id.is_empty());
+}
 ```
 
 ---
 
 ## Coverage Through Behavior
 
-Validation code gets 100% coverage by testing the behavior it protects:
+Validation logic gets full coverage by testing the behavior it protects:
 
-```typescript
-// Tests covering validation WITHOUT testing validator directly
-describe('processPayment', () => {
-  it('should reject negative amounts', () => {
-    const payment = getMockPayment({ amount: -100 });
-    const result = processPayment(payment);
-    expect(result.success).toBe(false);
-  });
+```rust
+mod process_payment_tests {
+    use super::*;
 
-  it('should reject amounts over 10000', () => {
-    const payment = getMockPayment({ amount: 15000 });
-    const result = processPayment(payment);
-    expect(result.success).toBe(false);
-  });
+    #[test]
+    fn rejects_negative_amounts() {
+        let result = process_payment(&payment_with(|p| p.amount = -100));
+        assert!(result.is_err());
+    }
 
-  it('should reject invalid CVV', () => {
-    const payment = getMockPayment({ cvv: '12' });
-    const result = processPayment(payment);
-    expect(result.success).toBe(false);
-  });
+    #[test]
+    fn rejects_amounts_over_limit() {
+        let result = process_payment(&payment_with(|p| p.amount = 15_000));
+        assert!(result.is_err());
+    }
 
-  it('should process valid payments', () => {
-    const payment = getMockPayment({ amount: 100, cvv: '123' });
-    const result = processPayment(payment);
-    expect(result.success).toBe(true);
-  });
-});
+    #[test]
+    fn rejects_invalid_cvv() {
+        let result = process_payment(&payment_with(|p| p.cvv = "12".into()));
+        assert!(result.is_err());
+    }
 
-// ✅ Result: payment-validator.ts has 100% coverage through behavior
+    #[test]
+    fn processes_valid_payment() {
+        let result = process_payment(&default_payment());
+        assert!(result.is_ok());
+    }
+}
+
+// ✅ Result: payment_validator.rs has full coverage through behavior
 ```
 
 **Key insight:** When coverage drops, ask **"What business behavior am I not testing?"** not "What line am I missing?"
@@ -115,343 +115,255 @@ describe('processPayment', () => {
 
 ## Don't Extract for Testability
 
-Never extract a function into its own file purely to give it its own unit test. Extract for readability (a descriptive name clarifies intent), for DRY (same **knowledge** used in multiple places — see the `refactoring` skill's "DRY = Knowledge, Not Code" rule), or for separation of concerns. Not for testability.
+Never extract a function into its own module purely to give it its own unit test. Extract for readability, DRY (same **knowledge** in multiple places), or separation of concerns. Not for testability.
 
-If code is inline in a function, it gets coverage through that function's behavioral tests. Every layer has behavioral tests — domain functions have vitest unit tests, components have browser tests, pages have integration tests. There is no gap.
+If code is inline in a function, it gets coverage through that function's behavioral tests. There is no gap.
 
-The anti-pattern is creating a 1:1 mapping between extracted helpers and test files (see "No 1:1 Mapping" below). The extracted helper is an implementation detail of its consumer. Test the consumer's behavior.
+The anti-pattern is creating a 1:1 mapping between extracted helpers and test modules. The extracted helper is an implementation detail of its consumer. Test the consumer's behavior.
 
-❌ **WRONG — Extracted single-use helper with its own test file:**
-```typescript
-// prepare-participant-data.ts (new file, one caller)
-export const prepareParticipantData = (items: Item[]) => ({
-  yourClaims: items.filter(i => i.isClaimed && i.isClaimedByCurrentUser),
-  available: items.filter(i => !i.isClaimedByCurrentUser),
-});
+❌ **WRONG — Extracted single-use helper with its own test:**
+```rust
+// prepare_participant_data.rs (new file, one caller)
+pub fn prepare_participant_data(items: &[Item], user_id: &str) -> ParticipantData {
+    ParticipantData {
+        your_claims: items.iter().filter(|i| i.is_claimed_by(user_id)).cloned().collect(),
+        available: items.iter().filter(|i| !i.is_claimed_by(user_id)).cloned().collect(),
+    }
+}
 
-// prepare-participant-data.test.ts (tests the helper directly)
-it('filters claims', () => { ... });
+// tests — testing the helper directly
+#[test]
+fn filters_claims() { ... }
 ```
 
 ✅ **CORRECT — Inline in the consuming function, tested through its behavior:**
-```typescript
-// load-participant-view.ts
-export const loadParticipantView = async (db, eventId, userId) => {
-  const items = await getItems(db, eventId);
-  const yourClaims = items.filter(i => i.isClaimed && i.isClaimedByCurrentUser);
-  const available = items.filter(i => !i.isClaimedByCurrentUser);
-  return { yourClaims, available };
-};
+```rust
+pub async fn load_participant_view(db: &Db, event_id: &str, user_id: &str) -> Result<View> {
+    let items = get_items(db, event_id).await?;
+    let your_claims = items.iter().filter(|i| i.is_claimed_by(user_id)).cloned().collect();
+    let available = items.iter().filter(|i| !i.is_claimed_by(user_id)).cloned().collect();
+    Ok(View { your_claims, available })
+}
 
-// The behavioral test for loadParticipantView covers the filtering:
-it('returns claimed gifts in yourClaims and unclaimed in available', () => {
-  const result = await loadParticipantView(db, eventId, userId);
-  expect(result.yourClaims).toHaveLength(1);
-  expect(result.available).toHaveLength(2);
-});
+#[test]
+async fn separates_claimed_and_available() {
+    let view = load_participant_view(&db, "event-1", "user-1").await.unwrap();
+    assert_eq!(view.your_claims.len(), 1);
+    assert_eq!(view.available.len(), 2);
+}
 ```
-
-**When extraction IS justified (DRY):** If the same filtering logic is used by multiple consumers with the same business meaning, extract it. But test it through each consumer's behavior, not as an isolated unit.
 
 ---
 
-## Test Factory Pattern
+## Test Helper (Factory) Pattern
 
-For test data, use factory functions with optional overrides.
+For test data, use helper functions with optional mutation closures or builder structs.
 
 ### Core Principles
 
-1. Return complete objects with sensible defaults
-2. Accept `Partial<T>` overrides for customization
-3. Validate with real schemas (don't redefine)
-4. NO `let`/`beforeEach` - use factories for fresh state
+1. Return complete, valid objects with sensible defaults
+2. Allow per-test customization without shared mutable state
+3. Use real types — don't stub or partially construct
+4. No shared mutable state across tests (Rust's ownership helps here)
 
-### Basic Pattern
+### Basic Pattern — mutation closure
 
-```typescript
-const getMockUser = (overrides?: Partial<User>): User => {
-  return UserSchema.parse({
-    id: 'user-123',
-    name: 'Test User',
-    email: 'test@example.com',
-    role: 'user',
-    ...overrides,
-  });
-};
+```rust
+fn default_user() -> User {
+    User {
+        id: "user-123".into(),
+        name: "Test User".into(),
+        email: "test@example.com".into(),
+        role: Role::User,
+        is_active: true,
+    }
+}
+
+fn user_with(f: impl FnOnce(&mut User)) -> User {
+    let mut u = default_user();
+    f(&mut u);
+    u
+}
 
 // Usage
-it('creates user with custom email', () => {
-  const user = getMockUser({ email: 'custom@example.com' });
-  const result = createUser(user);
-  expect(result.success).toBe(true);
-});
+#[test]
+fn creates_user_with_custom_email() {
+    let user = user_with(|u| u.email = "custom@example.com".into());
+    assert!(create_user(&user).is_ok());
+}
 ```
 
-### Complete Factory Example
+### Alternative — builder pattern for complex types
 
-```typescript
-import { UserSchema } from '@/schemas'; // Import real schema
+```rust
+#[derive(Default)]
+struct PaymentBuilder {
+    amount: i64,
+    currency: String,
+    cvv: String,
+}
 
-const getMockUser = (overrides?: Partial<User>): User => {
-  return UserSchema.parse({
-    id: 'user-123',
-    name: 'Test User',
-    email: 'test@example.com',
-    role: 'user',
-    isActive: true,
-    createdAt: new Date('2024-01-01'),
-    ...overrides,
-  });
-};
+impl PaymentBuilder {
+    fn valid() -> Self {
+        Self { amount: 100, currency: "GBP".into(), cvv: "123".into() }
+    }
+    fn amount(mut self, v: i64) -> Self { self.amount = v; self }
+    fn cvv(mut self, v: &str) -> Self { self.cvv = v.into(); self }
+    fn build(self) -> Payment {
+        Payment { amount: self.amount, currency: self.currency, cvv: self.cvv }
+    }
+}
+
+#[test]
+fn rejects_negative_amounts() {
+    let payment = PaymentBuilder::valid().amount(-100).build();
+    assert!(process_payment(&payment).is_err());
+}
 ```
-
-**Why validate with schema?**
-- Ensures test data is valid according to production schema
-- Catches breaking changes early (schema changes fail tests)
-- Single source of truth (no schema redefinition)
-
-**Tip:** For factories where only a subset of fields are relevant, use `Pick<T, 'field1' | 'field2'>` for the overrides parameter to constrain what callers can customize.
 
 ### Factory Composition
 
-For nested objects, compose factories:
+```rust
+fn default_order() -> Order {
+    Order {
+        id: "order-1".into(),
+        items: vec![default_item()],
+        customer: default_customer(),
+        payment: default_payment(),
+    }
+}
 
-```typescript
-const getMockItem = (overrides?: Partial<Item>): Item => {
-  return ItemSchema.parse({
-    id: 'item-1',
-    name: 'Test Item',
-    price: 100,
-    ...overrides,
-  });
-};
-
-const getMockOrder = (overrides?: Partial<Order>): Order => {
-  return OrderSchema.parse({
-    id: 'order-1',
-    items: [getMockItem()],      // ✅ Compose factories
-    customer: getMockCustomer(),  // ✅ Compose factories
-    payment: getMockPayment(),    // ✅ Compose factories
-    ...overrides,
-  });
-};
-
-// Usage - override nested objects
-it('calculates total with multiple items', () => {
-  const order = getMockOrder({
-    items: [
-      getMockItem({ price: 100 }),
-      getMockItem({ price: 200 }),
-    ],
-  });
-  expect(calculateTotal(order)).toBe(300);
-});
+#[test]
+fn calculates_total_with_multiple_items() {
+    let order = Order {
+        items: vec![
+            item_with(|i| i.price = 100),
+            item_with(|i| i.price = 200),
+        ],
+        ..default_order()
+    };
+    assert_eq!(calculate_total(&order), 300);
+}
 ```
 
 ### Anti-Patterns
 
-❌ **WRONG: Using `let` and `beforeEach`**
-```typescript
-let user: User;
-beforeEach(() => {
-  user = { id: 'user-123', name: 'Test User', ... };  // Shared mutable state!
-});
-
-it('test 1', () => {
-  user.name = 'Modified User';  // Mutates shared state
-});
-
-it('test 2', () => {
-  expect(user.name).toBe('Test User');  // Fails! Modified by test 1
-});
+❌ **WRONG: Incomplete objects (missing required fields)**
+```rust
+fn mock_user() -> User {
+    User { id: "user-123".into(), ..Default::default() }
+    // Default for name/email may be empty strings — misleading test data
+}
 ```
 
-✅ **CORRECT: Factory per test**
-```typescript
-it('test 1', () => {
-  const user = getMockUser({ name: 'Modified User' });  // Fresh state
-  // ...
-});
-
-it('test 2', () => {
-  const user = getMockUser();  // Fresh state, not affected by test 1
-  expect(user.name).toBe('Test User');  // ✅ Passes
-});
-```
-
-❌ **WRONG: Incomplete objects**
-```typescript
-const getMockUser = () => ({
-  id: 'user-123',  // Missing name, email, role!
-});
-```
-
-✅ **CORRECT: Complete objects**
-```typescript
-const getMockUser = (overrides?: Partial<User>): User => {
-  return UserSchema.parse({
-    id: 'user-123',
-    name: 'Test User',
-    email: 'test@example.com',
-    role: 'user',
-    ...overrides,  // All required fields present
-  });
-};
-```
-
-❌ **WRONG: Redefining schemas in tests**
-```typescript
-// ❌ Schema already defined in src/schemas/user.ts!
-const UserSchema = z.object({ ... });
-const getMockUser = () => UserSchema.parse({ ... });
-```
-
-✅ **CORRECT: Import real schema**
-```typescript
-import { UserSchema } from '@/schemas/user';
-
-const getMockUser = (overrides?: Partial<User>): User => {
-  return UserSchema.parse({
-    id: 'user-123',
-    name: 'Test User',
-    email: 'test@example.com',
-    ...overrides,
-  });
-};
+✅ **CORRECT: All fields explicitly meaningful**
+```rust
+fn default_user() -> User {
+    User {
+        id: "user-123".into(),
+        name: "Test User".into(),
+        email: "test@example.com".into(),
+        role: Role::User,
+        is_active: true,
+    }
+}
 ```
 
 ---
 
 ## Coverage Theater Detection
 
-Watch for these patterns that give fake 100% coverage:
+### Pattern 1: Asserting a function was called rather than what it produced
 
-### Pattern 1: Mock the function being tested
-
-❌ **WRONG** - Gives 100% coverage but tests nothing:
-```typescript
-it('calls validator', () => {
-  const spy = jest.spyOn(validator, 'validate');
-  validate(payment);
-  expect(spy).toHaveBeenCalled(); // Meaningless assertion
-});
+❌ **WRONG** — no behavior validation:
+```rust
+#[test]
+fn processes_payment() {
+    let mut mock = MockProcessor::new();
+    mock.expect_process().times(1).returning(|_| Ok(()));
+    handle_payment(&mock, &payment());
+    // Only verifies the call happened, not the outcome
+}
 ```
 
-✅ **CORRECT** - Test actual behavior:
-```typescript
-it('should reject invalid payment', () => {
-  const payment = getMockPayment({ amount: -100 });
-  const result = validate(payment);
-  expect(result.success).toBe(false);
-  expect(result.error).toContain('Amount must be positive');
-});
+✅ **CORRECT** — verify the outcome:
+```rust
+#[test]
+fn returns_transaction_id_on_success() {
+    let result = handle_payment(&real_processor(), &default_payment());
+    assert!(result.is_ok());
+    assert!(!result.unwrap().transaction_id.is_empty());
+}
 ```
 
-### Pattern 2: Test only that function was called
+### Pattern 2: Only testing the happy path
 
-❌ **WRONG** - No behavior validation:
-```typescript
-it('processes payment', () => {
-  const spy = jest.spyOn(processor, 'process');
-  handlePayment(payment);
-  expect(spy).toHaveBeenCalledWith(payment); // So what?
-});
+❌ **WRONG** — one test, one branch:
+```rust
+#[test]
+fn validates_payment() {
+    assert!(validate(&default_payment()).is_ok()); // only happy path
+}
 ```
 
-✅ **CORRECT** - Verify the outcome:
-```typescript
-it('should process payment and return transaction ID', () => {
-  const payment = getMockPayment();
-  const result = handlePayment(payment);
-  expect(result.success).toBe(true);
-  expect(result.transactionId).toBeDefined();
-});
+✅ **CORRECT** — all branches:
+```rust
+#[test] fn rejects_negative_amounts() { ... }
+#[test] fn rejects_amounts_over_limit() { ... }
+#[test] fn rejects_invalid_cvv() { ... }
+#[test] fn accepts_valid_payment() { ... }
 ```
 
-### Pattern 3: Test trivial getters/setters
+### Pattern 3: Testing trivial accessors
 
-❌ **WRONG** - Testing implementation, not behavior:
-```typescript
-it('sets amount', () => {
-  payment.setAmount(100);
-  expect(payment.getAmount()).toBe(100); // Trivial
-});
+❌ **WRONG**:
+```rust
+#[test]
+fn sets_amount() {
+    let mut p = Payment::default();
+    p.set_amount(100);
+    assert_eq!(p.amount(), 100); // trivial round-trip
+}
 ```
 
-✅ **CORRECT** - Test meaningful behavior:
-```typescript
-it('should calculate total with tax', () => {
-  const order = createOrder({ items: [item1, item2] });
-  const total = order.calculateTotal();
-  expect(total).toBe(230); // 200 + 15% tax
-});
-```
-
-### Pattern 4: 100% line coverage, 0% branch coverage
-
-❌ **WRONG** - Missing edge cases:
-```typescript
-it('validates payment', () => {
-  const result = validate(getMockPayment());
-  expect(result.success).toBe(true); // Only happy path!
-});
-// Missing: negative amounts, invalid CVV, missing fields, etc.
-```
-
-✅ **CORRECT** - Test all branches:
-```typescript
-describe('validate payment', () => {
-  it('should reject negative amounts', () => {
-    const payment = getMockPayment({ amount: -100 });
-    expect(validate(payment).success).toBe(false);
-  });
-
-  it('should reject amounts over limit', () => {
-    const payment = getMockPayment({ amount: 15000 });
-    expect(validate(payment).success).toBe(false);
-  });
-
-  it('should reject invalid CVV', () => {
-    const payment = getMockPayment({ cvv: '12' });
-    expect(validate(payment).success).toBe(false);
-  });
-
-  it('should accept valid payments', () => {
-    const payment = getMockPayment();
-    expect(validate(payment).success).toBe(true);
-  });
-});
+✅ **CORRECT** — meaningful behavior:
+```rust
+#[test]
+fn calculates_total_with_tax() {
+    let order = order_with_items(&[item_at(100), item_at(100)]);
+    assert_eq!(order.total_with_tax(0.15), 230);
+}
 ```
 
 ---
 
 ## No 1:1 Mapping Between Tests and Implementation
 
-Don't create test files that mirror implementation files.
+Don't mirror implementation modules with test modules.
 
 ❌ **WRONG:**
 ```
 src/
-  payment-validator.ts
-  payment-processor.ts
-  payment-formatter.ts
+  payment_validator.rs
+  payment_processor.rs
+  payment_formatter.rs
 tests/
-  payment-validator.test.ts  ← 1:1 mapping
-  payment-processor.test.ts  ← 1:1 mapping
-  payment-formatter.test.ts  ← 1:1 mapping
+  payment_validator_tests.rs  ← 1:1 mapping
+  payment_processor_tests.rs  ← 1:1 mapping
+  payment_formatter_tests.rs  ← 1:1 mapping
 ```
 
 ✅ **CORRECT:**
 ```
 src/
-  payment-validator.ts
-  payment-processor.ts
-  payment-formatter.ts
+  payment_validator.rs
+  payment_processor.rs
+  payment_formatter.rs
 tests/
-  process-payment.test.ts  ← Tests behavior, not implementation files
+  process_payment.rs  ← tests behavior, not implementation modules
 ```
 
-**Why:** Implementation details can be refactored without changing tests. Tests verify behavior remains correct regardless of how code is organized internally.
+In Rust, prefer `#[cfg(test)]` modules inside the source file for unit-level tests, and `tests/` integration tests for public API behavior.
 
 ---
 
@@ -460,12 +372,10 @@ tests/
 When writing tests, verify:
 
 - [ ] Testing behavior through public API (not implementation details)
-- [ ] No mocks of the function being tested
-- [ ] No tests of private methods or internal state
-- [ ] Factory functions return complete, valid objects
-- [ ] Factories validate with real schemas (not redefined in tests)
-- [ ] Using Partial<T> for type-safe overrides
-- [ ] No `let`/`beforeEach` - use factories for fresh state
+- [ ] No assertions on whether a function was called — assert on outcomes
+- [ ] No tests of private functions or internal state
+- [ ] Helper functions return complete, valid objects
+- [ ] No shared mutable state across tests
 - [ ] Edge cases covered (not just happy path)
 - [ ] Tests would pass even if implementation is refactored
-- [ ] No 1:1 mapping between test files and implementation files
+- [ ] No 1:1 mapping between test modules and implementation modules

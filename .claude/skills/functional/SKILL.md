@@ -1,297 +1,263 @@
 ---
 name: functional
-description: Functional programming patterns with immutable data. Use when writing logic, data transformations, or encountering mutation bugs. Covers immutability violations catalog, pure functions, composition, early returns, and options objects. Do NOT over-apply heavy FP abstractions (monads, fp-ts) unless the project requires them.
+description: Functional programming patterns with immutable data in Rust. Use when writing logic, data transformations, or encountering mutation bugs. Covers immutability, pure functions, composition, early returns, and config structs. Do NOT over-apply heavy FP abstractions unless the project requires them.
 ---
 
 # Functional Patterns
 
 ## Core Principles
 
-- **No data mutation** - immutable structures only
+- **No data mutation** — immutable by default, `mut` only when necessary
 - **Pure functions** wherever possible
 - **Composition** over inheritance
-- **No comments** - code should be self-documenting
-- **Array methods** over loops
-- **Options objects** over positional parameters
+- **No comments** — code should be self-documenting
+- **Iterator chains** over loops
+- **Config structs** over long positional parameter lists
 
 ---
 
 ## Why Immutability Matters
 
-Immutable data is the foundation of functional programming. Understanding WHY helps you embrace it:
+Rust makes immutability the default — bindings are immutable unless declared `mut`. Lean into this.
 
 - **Predictable**: Same input always produces same output (no hidden state changes)
-- **Debuggable**: State doesn't change unexpectedly - easier to trace bugs
+- **Debuggable**: State doesn't change unexpectedly — easier to trace bugs
 - **Testable**: No hidden mutable state makes tests straightforward
-- **React-friendly**: React's reconciliation and memoization optimizations work correctly
-- **Concurrency-safe**: No race conditions when data can't change
+- **Concurrency-safe**: `Send + Sync` bounds are easier to satisfy without interior mutability
 
 **Example of the problem:**
-```typescript
-// ❌ WRONG - Mutation creates unpredictable behavior
-const user = { name: 'Alice', permissions: ['read'] };
-grantPermission(user, 'write'); // Mutates user.permissions internally
-console.log(user.permissions); // ['read', 'write'] - SURPRISE! user changed
+```rust
+// ❌ WRONG — mutation creates unpredictable behavior
+fn grant_permission(user: &mut User, permission: &str) {
+    user.permissions.push(permission.to_string()); // mutates caller's data
+}
+
+let mut user = User { permissions: vec!["read".into()] };
+grant_permission(&mut user, "write");
+// user has silently changed — caller may not expect this
 ```
 
-```typescript
-// ✅ CORRECT - Immutable approach is predictable
-const user = { name: 'Alice', permissions: ['read'] };
-const updatedUser = grantPermission(user, 'write'); // Returns new object
-console.log(user.permissions); // ['read'] - original unchanged
-console.log(updatedUser.permissions); // ['read', 'write'] - new version
+```rust
+// ✅ CORRECT — return a new value
+fn grant_permission(user: &User, permission: &str) -> User {
+    let mut permissions = user.permissions.clone();
+    permissions.push(permission.to_string());
+    User { permissions, ..user.clone() }
+}
+
+let user = User { permissions: vec!["read".into()] };
+let updated = grant_permission(&user, "write");
+// user is unchanged; updated is the new version
 ```
 
 ---
 
 ## Functional Light
 
-We follow "Functional Light" principles - practical functional patterns without heavy abstractions:
+We follow "Functional Light" principles — practical functional patterns without heavy abstractions:
 
 **What we DO:**
 - Pure functions and immutable data
 - Composition and declarative code
-- Array methods over loops
-- Type safety and readonly
+- Iterator chains over loops
+- `Result<T, E>` and `Option<T>` for error/absence handling
 
 **What we DON'T do:**
-- Category theory or monads
-- Heavy FP libraries (fp-ts, Ramda)
+- Category theory or monad stacks
+- Heavy FP crates (unless the project explicitly calls for them)
 - Over-engineering with abstractions
 - Functional for the sake of functional
 
-**Why:** The goal is **maintainable, testable code** - not academic purity. If a functional pattern makes code harder to understand, don't use it.
+**Why:** The goal is **maintainable, testable code** — not academic purity. If a functional pattern makes code harder to understand, don't use it.
 
-**Example - Keep it simple:**
-```typescript
-// ✅ GOOD - Simple, clear, functional
-const activeUsers = users.filter(u => u.active);
-const userNames = activeUsers.map(u => u.name);
+**Example — keep it simple:**
+```rust
+// ✅ GOOD — simple, clear, functional
+let active_users: Vec<_> = users.iter().filter(|u| u.active).collect();
+let user_names: Vec<_> = active_users.iter().map(|u| &u.name).collect();
 
-// ❌ OVER-ENGINEERED - Unnecessary abstraction
-const compose = <T>(...fns: Array<(arg: T) => T>) => (x: T) =>
-  fns.reduceRight((v, f) => f(v), x);
-const activeUsers = compose(
-  filter((u: User) => u.active),
-  map((u: User) => u.name)
-)(users);
+// ❌ OVER-ENGINEERED — unnecessary abstraction
+fn compose<A, B, C>(f: impl Fn(A) -> B, g: impl Fn(B) -> C) -> impl Fn(A) -> C {
+    move |x| g(f(x))
+}
 ```
 
 ---
 
 ## No Comments / Self-Documenting Code
 
-Code should be clear through naming and structure. Comments indicate unclear code.
+Code should be clear through naming and structure.
 
-**Exception**: JSDoc for public APIs when generating documentation.
+**Exception**: `// SAFETY:` comments on `unsafe` blocks (required), and doc comments (`///`) for public APIs.
 
 ### Examples
 
-❌ **WRONG - Comments explaining unclear code**
-```typescript
-// Get the user and check if active and has permission
-function check(u: any) {
-  // Check user exists
-  if (u) {
-    // Check if active
-    if (u.a) {
-      // Check permission
-      if (u.p) {
-        return true;
-      }
+❌ **WRONG — comments explaining unclear code**
+```rust
+// check if user can do the thing
+fn chk(u: &Option<User>) -> bool {
+    // see if user exists
+    if let Some(u) = u {
+        // check if active
+        if u.a {
+            // check permission
+            if u.p { return true; }
+        }
     }
-  }
-  return false;
+    false
 }
 ```
 
-✅ **CORRECT - Self-documenting code**
-```typescript
-function canUserAccessResource(user: User | undefined): boolean {
-  if (!user) return false;
-  if (!user.isActive) return false;
-  if (!user.hasPermission) return false;
-  return true;
-}
-
-// Even better - compose predicates
-function canUserAccessResource(user: User | undefined): boolean {
-  return user?.isActive && user?.hasPermission;
+✅ **CORRECT — self-documenting code**
+```rust
+fn can_user_access_resource(user: Option<&User>) -> bool {
+    user.map_or(false, |u| u.is_active && u.has_permission)
 }
 ```
 
-### When Code Needs Explaining
-
-If code requires comments to understand, refactor instead:
-
-- Extract functions with descriptive names
-- Use meaningful variable names
-- Break complex logic into steps
-- Use type aliases for domain concepts
-
-✅ **Acceptable JSDoc for public APIs**
-```typescript
-/**
- * Registers a scenario for runtime switching.
- * @param definition - The scenario configuration including mocks and metadata
- * @throws {ValidationError} if scenario ID is duplicate
- */
-export function registerScenario(definition: ScenaristScenario): void {
-  // Implementation
+✅ **Acceptable doc comment for public API**
+```rust
+/// Registers a scenario for runtime switching.
+///
+/// # Errors
+/// Returns [`Error::DuplicateId`] if a scenario with this ID already exists.
+pub fn register_scenario(definition: ScenarioDefinition) -> Result<(), Error> {
+    // ...
 }
 ```
 
 ---
 
-## Array Methods Over Loops
+## Iterator Chains Over Loops
 
-Prefer `map`, `filter`, `reduce` for transformations. They're declarative (what, not how) and naturally immutable.
+Prefer `.map()`, `.filter()`, `.fold()` for transformations. They're declarative and work naturally with Rust's ownership model.
 
-### Map - Transform Each Element
+### Map — transform each element
 
-❌ **WRONG - Imperative loop**
-```typescript
-const scenarioIds = [];
-for (const scenario of scenarios) {
-  scenarioIds.push(scenario.id);
+❌ **WRONG — imperative loop**
+```rust
+let mut scenario_ids = Vec::new();
+for scenario in &scenarios {
+    scenario_ids.push(scenario.id.clone());
 }
 ```
 
-✅ **CORRECT - Functional map**
-```typescript
-const scenarioIds = scenarios.map(s => s.id);
+✅ **CORRECT — iterator map**
+```rust
+let scenario_ids: Vec<_> = scenarios.iter().map(|s| s.id.clone()).collect();
 ```
 
-### Filter - Select Subset
+### Filter — select subset
 
-❌ **WRONG - Imperative loop**
-```typescript
-const activeScenarios = [];
-for (const scenario of scenarios) {
-  if (scenario.active) {
-    activeScenarios.push(scenario);
-  }
+❌ **WRONG**
+```rust
+let mut active = Vec::new();
+for scenario in &scenarios {
+    if scenario.active {
+        active.push(scenario);
+    }
 }
 ```
 
-✅ **CORRECT - Functional filter**
-```typescript
-const activeScenarios = scenarios.filter(s => s.active);
+✅ **CORRECT**
+```rust
+let active: Vec<_> = scenarios.iter().filter(|s| s.active).collect();
 ```
 
-### Reduce - Aggregate Values
+### Fold — aggregate values
 
-❌ **WRONG - Imperative loop**
-```typescript
-let total = 0;
-for (const item of items) {
-  total += item.price * item.quantity;
+❌ **WRONG**
+```rust
+let mut total = 0.0;
+for item in &items {
+    total += item.price * item.quantity as f64;
 }
 ```
 
-✅ **CORRECT - Functional reduce**
-```typescript
-const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+✅ **CORRECT**
+```rust
+let total: f64 = items.iter().fold(0.0, |sum, item| sum + item.price * item.quantity as f64);
+// or with sum():
+let total: f64 = items.iter().map(|item| item.price * item.quantity as f64).sum();
 ```
 
-### Chaining Multiple Operations
+### Chaining multiple operations
 
-✅ **CORRECT - Compose array methods**
-```typescript
-const total = items
-  .filter(item => item.active)
-  .map(item => item.price * item.quantity)
-  .reduce((sum, price) => sum + price, 0);
+✅ **CORRECT — compose iterators**
+```rust
+let total: f64 = items
+    .iter()
+    .filter(|item| item.active)
+    .map(|item| item.price * item.quantity as f64)
+    .sum();
 ```
 
-### When Loops Are Acceptable
+### When loops are acceptable
 
-Imperative loops are fine when:
-- Early termination is essential (use `for...of` with `break`)
-- Performance critical (measure first!)
-- Side effects are necessary (logging, DOM manipulation)
-
-But even then, consider:
-- `Array.find()` for early termination
-- `Array.some()` / `Array.every()` for boolean checks
+- Early termination with complex state (use `for` + `break` or `.find()` / `.any()`)
+- Side effects that consume ownership
+- Async iteration (iterator adapters don't support `async` directly)
 
 ---
 
-## Options Objects Over Positional Parameters
+## Config Structs Over Long Parameter Lists
 
-Default to options objects for function parameters. This improves readability and reduces ordering dependencies.
+Default to a config struct when a function takes 3+ parameters. This improves readability and allows optional fields via `Default`.
 
-### Why Options Objects?
+### Why config structs?
 
-**Benefits:**
-- Named parameters (clear what each argument means)
+- Named fields — clear what each argument means
 - No ordering dependencies
-- Easy to add optional parameters
-- Self-documenting at call site
-- TypeScript autocomplete
+- Optional fields with `Default::default()`
+- Easy to extend without breaking callers
 
 ### Examples
 
-❌ **WRONG - Positional parameters**
-```typescript
-function createPayment(
-  amount: number,
-  currency: string,
-  cardId: string,
-  cvv: string,
-  saveCard: boolean,
-  sendReceipt: boolean
-): Payment {
-  // ...
-}
+❌ **WRONG — positional parameters**
+```rust
+fn create_payment(
+    amount: u64,
+    currency: &str,
+    card_id: &str,
+    cvv: &str,
+    save_card: bool,
+    send_receipt: bool,
+) -> Payment { ... }
 
-// Call site - unclear what parameters mean
-createPayment(100, 'GBP', 'card_123', '123', true, false);
+// Call site — unclear what each argument means
+create_payment(100, "GBP", "card_123", "123", true, false);
 ```
 
-✅ **CORRECT - Options object**
-```typescript
-type CreatePaymentOptions = {
-  amount: number;
-  currency: string;
-  cardId: string;
-  cvv: string;
-  saveCard?: boolean;
-  sendReceipt?: boolean;
-};
-
-function createPayment(options: CreatePaymentOptions): Payment {
-  const { amount, currency, cardId, cvv, saveCard = false, sendReceipt = true } = options;
-  // ...
+✅ **CORRECT — config struct**
+```rust
+#[derive(Default)]
+struct CreatePaymentOptions<'a> {
+    amount: u64,
+    currency: &'a str,
+    card_id: &'a str,
+    cvv: &'a str,
+    save_card: bool,
+    send_receipt: bool,
 }
 
-// Call site - crystal clear
-createPayment({
-  amount: 100,
-  currency: 'GBP',
-  cardId: 'card_123',
-  cvv: '123',
-  saveCard: true,
+fn create_payment(opts: CreatePaymentOptions<'_>) -> Payment { ... }
+
+// Call site — crystal clear
+create_payment(CreatePaymentOptions {
+    amount: 100,
+    currency: "GBP",
+    card_id: "card_123",
+    cvv: "123",
+    save_card: true,
+    ..Default::default()
 });
 ```
 
-### When Positional Parameters Are OK
+### When positional parameters are OK
 
-Use positional parameters when:
-- 1-2 parameters max
-- Order is obvious (e.g., `add(a, b)`)
+- 1–2 parameters
+- Order is obvious (`add(a, b)`)
 - High-frequency utility functions
-
-```typescript
-// ✅ OK - Obvious ordering, few parameters
-function add(a: number, b: number): number {
-  return a + b;
-}
-
-function updateUser(user: User, changes: Partial<User>): User {
-  return { ...user, ...changes };
-}
-```
 
 ---
 
@@ -299,419 +265,115 @@ function updateUser(user: User, changes: Partial<User>): User {
 
 Pure functions have no side effects and always return the same output for the same input.
 
-### What Makes a Function Pure?
+### What makes a function pure?
 
-1. **No side effects**
-   - Doesn't mutate external state
-   - Doesn't modify function arguments
-   - Doesn't perform I/O (network, file system, console)
-
-2. **Deterministic**
-   - Same input → same output
-   - No dependency on external state (Date.now(), Math.random(), global vars)
-
-3. **Referentially transparent**
-   - Can replace function call with its return value
+1. **No side effects** — no mutations of external state, no I/O
+2. **Deterministic** — same input → same output, no dependency on global state
+3. **Referentially transparent** — you can substitute the call with its return value
 
 ### Examples
 
-❌ **WRONG - Impure function (mutations)**
-```typescript
-function addScenario(scenarios: Scenario[], newScenario: Scenario): void {
-  scenarios.push(newScenario); // ❌ Mutates input
-}
+❌ **WRONG — impure (side effect)**
+```rust
+static mut COUNT: u64 = 0;
 
-let count = 0;
-function increment(): number {
-  count++; // ❌ Modifies external state
-  return count;
+fn increment() -> u64 {
+    unsafe { COUNT += 1; COUNT } // ❌ mutates global state
 }
 ```
 
-✅ **CORRECT - Pure functions**
-```typescript
-function addScenario(
-  scenarios: ReadonlyArray<Scenario>,
-  newScenario: Scenario,
-): ReadonlyArray<Scenario> {
-  return [...scenarios, newScenario]; // ✅ Returns new array
-}
-
-function increment(count: number): number {
-  return count + 1; // ✅ No external state
+✅ **CORRECT — pure**
+```rust
+fn increment(count: u64) -> u64 {
+    count + 1 // ✅ no external state
 }
 ```
 
-### Benefits of Pure Functions
+### Isolating impure functions
 
-- **Testable**: No setup/teardown needed
-- **Composable**: Easy to combine
-- **Predictable**: No hidden behavior
-- **Cacheable**: Memoization possible
-- **Parallelizable**: No race conditions
+Keep impure functions (I/O, randomness, time) at system boundaries:
 
-### When Impurity Is Necessary
-
-Some functions must be impure (I/O, randomness, side effects). Isolate them:
-
-```typescript
-// ✅ CORRECT - Isolate impure functions at edges
-// Pure core
-function calculateTotal(items: ReadonlyArray<Item>): number {
-  return items.reduce((sum, item) => sum + item.price, 0);
+```rust
+// ✅ Pure core
+fn calculate_total(items: &[Item]) -> u64 {
+    items.iter().map(|i| i.price).sum()
 }
 
-// Impure shell (isolated)
-async function saveOrder(order: Order): Promise<void> {
-  const total = calculateTotal(order.items); // Pure
-  await database.save({ ...order, total }); // Impure (I/O)
+// ✅ Impure shell — isolated at the edge
+async fn save_order(order: &Order, db: &Database) -> Result<(), Error> {
+    let total = calculate_total(&order.items); // pure
+    db.save(order.id, total).await             // impure (I/O)
 }
-```
-
-**Pattern**: Keep impure functions at system boundaries (adapters, ports). Keep core domain logic pure.
-
----
-
-## Composition Over Complex Logic
-
-Compose small functions into larger ones. Each function does one thing well.
-
-### Benefits of Composition
-
-- Easier to understand (each piece is simple)
-- Easier to test (test pieces independently)
-- Easier to reuse (pieces work in multiple contexts)
-- Easier to maintain (change one piece without affecting others)
-
-### Examples
-
-❌ **WRONG - Complex monolithic function**
-```typescript
-function registerScenario(input: unknown) {
-  if (typeof input !== 'object' || !input) {
-    throw new Error('Invalid input');
-  }
-  if (!('id' in input) || typeof input.id !== 'string') {
-    throw new Error('Missing id');
-  }
-  if (!('name' in input) || typeof input.name !== 'string') {
-    throw new Error('Missing name');
-  }
-  if (!('mocks' in input) || !Array.isArray(input.mocks)) {
-    throw new Error('Missing mocks');
-  }
-  // ... 50 more lines of validation and registration
-}
-```
-
-✅ **CORRECT - Composed functions**
-```typescript
-// Small, focused functions
-const validate = (input: unknown) => ScenarioSchema.parse(input);
-const register = (scenario: Scenario) => registry.register(scenario);
-
-// Compose them
-const registerScenario = (input: unknown) => register(validate(input));
-
-// Even better - use pipe/compose utilities
-const registerScenario = pipe(
-  validate,
-  register,
-);
-```
-
-### Composing Immutable Transformations
-
-```typescript
-// Small transformation functions
-const addDiscount = (order: Order, percent: number): Order => ({
-  ...order,
-  total: order.total * (1 - percent / 100),
-});
-
-const addShipping = (order: Order, cost: number): Order => ({
-  ...order,
-  total: order.total + cost,
-});
-
-const addTax = (order: Order, rate: number): Order => ({
-  ...order,
-  total: order.total * (1 + rate),
-});
-
-// Compose them
-const finalizeOrder = (order: Order): Order => {
-  return addTax(
-    addShipping(
-      addDiscount(order, 10),
-      5.99
-    ),
-    0.2
-  );
-};
-
-// Or use pipe for left-to-right reading
-const finalizeOrder = (order: Order): Order =>
-  pipe(
-    order,
-    o => addDiscount(o, 10),
-    o => addShipping(o, 5.99),
-    o => addTax(o, 0.2),
-  );
-```
-
----
-
-## Readonly Keyword for Immutability
-
-Use `readonly` on all data structures to signal immutability intent.
-
-### readonly on Properties
-
-```typescript
-// ✅ CORRECT - Immutable data structure
-type Scenario = {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-};
-
-// ❌ WRONG - Mutable
-type Scenario = {
-  id: string;
-  name: string;
-};
-```
-
-### ReadonlyArray vs Array
-
-```typescript
-// ✅ CORRECT - Immutable array
-type Scenario = {
-  readonly mocks: ReadonlyArray<Mock>;
-};
-
-// ❌ WRONG - Mutable array
-type Scenario = {
-  readonly mocks: Mock[];
-};
-```
-
-### Nested readonly
-
-```typescript
-// ✅ CORRECT - Deep immutability
-type Mock = {
-  readonly method: 'GET' | 'POST';
-  readonly response: {
-    readonly status: number;
-    readonly body: readonly unknown[];
-  };
-};
-```
-
-### Why readonly Matters
-
-- **Compiler enforces immutability**: TypeScript errors on mutation attempts
-- **Self-documenting**: Signals "don't mutate this"
-- **Functional programming alignment**: Natural fit for FP patterns
-- **Prevents accidental bugs**: Can't accidentally mutate data
-
----
-
-## Deep Nesting Limitation
-
-**Max 2 levels of function nesting.** Beyond that, extract functions.
-
-### Why Limit Nesting?
-
-- Deeply nested code is hard to read
-- Hard to test (many paths through code)
-- Hard to modify (tight coupling)
-- Sign of missing abstractions
-
-### Examples
-
-❌ **WRONG - Deep nesting (4+ levels)**
-```typescript
-function processOrder(order: Order) {
-  if (order.items.length > 0) {
-    if (order.customer.verified) {
-      if (order.total > 0) {
-        if (order.payment.valid) {
-          // ... deeply nested logic
-        }
-      }
-    }
-  }
-}
-```
-
-✅ **CORRECT - Flat with early returns**
-```typescript
-function processOrder(order: Order) {
-  if (order.items.length === 0) return;
-  if (!order.customer.verified) return;
-  if (order.total <= 0) return;
-  if (!order.payment.valid) return;
-
-  // Main logic at top level
-}
-```
-
-✅ **CORRECT - Extract to functions**
-```typescript
-function processOrder(order: Order) {
-  if (!canProcessOrder(order)) return;
-  const validated = validateOrder(order);
-  return executeOrder(validated);
-}
-
-function canProcessOrder(order: Order): boolean {
-  return order.items.length > 0
-    && order.customer.verified
-    && order.total > 0
-    && order.payment.valid;
-}
-```
-
----
-
-## Immutable Array Operations
-
-**Complete catalog of array mutations and their immutable alternatives:**
-
-```typescript
-// ❌ WRONG - Mutations
-items.push(newItem);        // Add to end
-items.pop();                // Remove last
-items.unshift(newItem);     // Add to start
-items.shift();              // Remove first
-items.splice(index, 1);     // Remove at index
-items.reverse();            // Reverse order
-items.sort();               // Sort
-items[i] = newValue;        // Update at index
-
-// ✅ CORRECT - Immutable alternatives
-const withNew = [...items, newItem];           // Add to end
-const withoutLast = items.slice(0, -1);        // Remove last
-const withFirst = [newItem, ...items];         // Add to start
-const withoutFirst = items.slice(1);           // Remove first
-const removed = [...items.slice(0, index),     // Remove at index
-                 ...items.slice(index + 1)];
-const reversed = [...items].reverse();         // Reverse (copy first!)
-const sorted = [...items].sort();              // Sort (copy first!)
-const updated = items.map((item, idx) =>       // Update at index
-  idx === i ? newValue : item
-);
-```
-
-**Common patterns:**
-
-```typescript
-// Filter out specific item
-const withoutItem = items.filter(item => item.id !== targetId);
-
-// Replace specific item
-const replaced = items.map(item =>
-  item.id === targetId ? newItem : item
-);
-
-// Insert at specific position
-const inserted = [
-  ...items.slice(0, index),
-  newItem,
-  ...items.slice(index)
-];
-```
-
----
-
-## Immutable Object Updates
-
-```typescript
-// ❌ WRONG
-user.name = "New";
-Object.assign(user, { name: "New" });
-
-// ✅ CORRECT
-const updated = { ...user, name: "New" };
-```
-
----
-
-## Nested Updates
-
-```typescript
-// ✅ CORRECT - Immutable nested update
-const updatedCart = {
-  ...cart,
-  items: cart.items.map((item, i) =>
-    i === targetIndex ? { ...item, quantity: newQuantity } : item
-  ),
-};
-
-// ✅ CORRECT - Immutable nested array update
-const updatedOrder = {
-  ...order,
-  items: [
-    ...order.items.slice(0, index),
-    updatedItem,
-    ...order.items.slice(index + 1),
-  ],
-};
-```
-
----
-
-## Early Returns Over Nesting
-
-```typescript
-// ❌ WRONG - Nested conditions
-if (user) {
-  if (user.isActive) {
-    if (user.hasPermission) {
-      // do something
-    }
-  }
-}
-
-// ✅ CORRECT - Early returns (guard clauses)
-if (!user) return;
-if (!user.isActive) return;
-if (!user.hasPermission) return;
-
-// do something
 ```
 
 ---
 
 ## Result Type for Error Handling
 
-```typescript
-type Result<T, E = Error> =
-  | { readonly success: true; readonly data: T }
-  | { readonly success: false; readonly error: E };
+Use `Result<T, E>` and `Option<T>` — never panic in library code.
 
-// Usage
-function processPayment(payment: Payment): Result<Transaction> {
-  if (payment.amount <= 0) {
-    return { success: false, error: new Error('Invalid amount') };
-  }
-
-  const transaction = executePayment(payment);
-  return { success: true, data: transaction };
+```rust
+// ✅ Return Result, let callers decide how to handle
+fn process_payment(payment: &Payment) -> Result<Transaction, PaymentError> {
+    if payment.amount == 0 {
+        return Err(PaymentError::InvalidAmount);
+    }
+    Ok(execute_payment(payment))
 }
 
-// Caller handles both cases explicitly
-const result = processPayment(payment);
-if (!result.success) {
-  console.error(result.error);
-  return;
+// ✅ Use ? to propagate
+fn handle_checkout(cart: &Cart, payment: &Payment) -> Result<Order, CheckoutError> {
+    let transaction = process_payment(payment)?;
+    let order = create_order(cart, transaction)?;
+    Ok(order)
+}
+```
+
+---
+
+## Early Returns Over Nesting
+
+```rust
+// ❌ WRONG — deeply nested
+fn process_order(order: &Order) -> Result<(), Error> {
+    if !order.items.is_empty() {
+        if order.customer.verified {
+            if order.total > 0 {
+                // ... logic buried here
+            }
+        }
+    }
+    Ok(())
 }
 
-// TypeScript knows result.data exists here
-console.log(result.data.transactionId);
+// ✅ CORRECT — guard clauses with early returns
+fn process_order(order: &Order) -> Result<(), Error> {
+    if order.items.is_empty() { return Err(Error::EmptyOrder); }
+    if !order.customer.verified { return Err(Error::UnverifiedCustomer); }
+    if order.total == 0 { return Err(Error::ZeroTotal); }
+
+    // main logic at top level
+    Ok(())
+}
+```
+
+---
+
+## Newtype Pattern for Domain Types
+
+Use newtypes to make domain concepts distinct at the type level (equivalent to branded types):
+
+```rust
+struct UserId(String);
+struct PaymentAmount(u64);
+
+fn process_payment(user_id: UserId, amount: PaymentAmount) { ... }
+
+// ❌ Can't accidentally swap arguments
+process_payment(PaymentAmount(100), UserId("user-123".into())); // compile error
+
+// ✅ Must construct the correct type
+process_payment(UserId("user-123".into()), PaymentAmount(100));
 ```
 
 ---
@@ -720,13 +382,12 @@ console.log(result.data.transactionId);
 
 When writing functional code, verify:
 
-- [ ] No data mutation - using spread operators
-- [ ] Pure functions wherever possible (no side effects)
-- [ ] Code is self-documenting (no comments needed)
-- [ ] Array methods (`map`, `filter`, `reduce`) over loops
-- [ ] Options objects for 3+ parameters
+- [ ] No `mut` bindings unless truly necessary
+- [ ] Pure functions wherever possible (no side effects in core logic)
+- [ ] Code is self-documenting (no explanatory comments needed)
+- [ ] Iterator chains (`.map()`, `.filter()`, `.fold()`) over loops
+- [ ] Config structs for 3+ parameters
 - [ ] Composed small functions, not complex monoliths
-- [ ] `readonly` on all data structure properties
-- [ ] `ReadonlyArray<T>` for immutable arrays
-- [ ] Max 2 levels of nesting (use early returns)
-- [ ] Result types for error handling
+- [ ] `Result<T, E>` / `Option<T>` for error handling — no panics in library code
+- [ ] Early returns (guard clauses) instead of deep nesting
+- [ ] Newtype pattern for domain-meaningful primitives

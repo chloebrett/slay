@@ -30,9 +30,9 @@ Compare CI vs local:
 
 | Factor | Check |
 |--------|-------|
-| Node/runtime version | CI config vs `node -v` locally |
+| Rust toolchain version | CI config vs `rustup show` locally |
 | OS | Linux CI vs macOS local |
-| Dependency resolution | Fresh `npm ci` vs cached `node_modules` |
+| Dependency resolution | Fresh `cargo fetch` vs cached `~/.cargo/registry` |
 | Env vars | CI secrets/config vs local `.env` |
 | Parallelism | CI may run tests in parallel differently |
 | Memory/CPU | CI runners often have less resources |

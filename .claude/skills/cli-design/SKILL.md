@@ -1,6 +1,6 @@
 ---
 name: cli-design
-description: Unix-composable CLI design patterns. Use when building CLI tools, designing command trees, implementing output layers, or testing CLI behavior. Covers stream separation (stdout/stderr), format flags (--json/--plain), exit codes, TTY detection, composability, and error design. Language-agnostic principles; TypeScript implementation patterns in resources/. For API design (REST, HTTP), see api-design.
+description: Unix-composable CLI design patterns. Use when building CLI tools, designing command trees, implementing output layers, or testing CLI behavior. Covers stream separation (stdout/stderr), format flags (--json/--plain), exit codes, TTY detection, composability, and error design. Language-agnostic principles; Rust implementation patterns in resources/. For API design (REST, HTTP), see api-design.
 ---
 
 # CLI Design: Unix-Composable Command-Line Interfaces
@@ -9,7 +9,7 @@ This skill covers **language-agnostic** CLI design principles. The rules about s
 
 For API contract stability and Hyrum's Law, see the `api-design` skill. For config, env vars, and graceful shutdown, see the `twelve-factor` skill.
 
-**TypeScript implementation patterns** are in the `resources/` directory. Load them on demand when building a CLI in TypeScript:
+**Rust implementation patterns** are in the `resources/` directory. Load them on demand when building a CLI in Rust:
 
 | Resource | Load when... |
 |----------|-------------|

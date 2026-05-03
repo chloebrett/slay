@@ -1,6 +1,6 @@
 ---
 name: domain-driven-design
-description: Domain-Driven Design patterns for TypeScript. Use when implementing ubiquitous language, value objects, entities, aggregates, domain events, domain services, or bounded contexts. Only applies to projects that explicitly use DDD. Do NOT use for simple CRUD or projects without domain modeling.
+description: Domain-Driven Design patterns for Rust. Use when implementing ubiquitous language, value objects, entities, aggregates, domain events, domain services, or bounded contexts. Only applies to projects that explicitly use DDD. Do NOT use for simple CRUD or projects without domain modeling.
 ---
 
 # Domain-Driven Design (DDD)

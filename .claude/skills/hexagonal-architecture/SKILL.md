@@ -1,6 +1,6 @@
 ---
 name: hexagonal-architecture
-description: Hexagonal (ports and adapters) architecture patterns for TypeScript. Use when implementing ports, adapters, dependency inversion, or domain isolation. Only applies to projects that explicitly use hexagonal architecture. Do NOT use for projects without ports/adapters structure.
+description: Hexagonal (ports and adapters) architecture patterns for Rust. Use when implementing ports (traits), adapters (impl blocks), dependency inversion, or domain isolation. Only applies to projects that explicitly use hexagonal architecture. Do NOT use for projects without ports/adapters structure.
 ---
 
 # Hexagonal Architecture (Ports & Adapters)

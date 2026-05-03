@@ -1,148 +1,112 @@
 # Modern Tooling for Characterisation Tests
 
-TypeScript/JavaScript tooling that supports the characterisation testing workflow. See the main `characterisation-tests` skill for the process and heuristics.
+Rust tooling that supports the characterisation testing workflow. See the main `characterisation-tests` skill for the process and heuristics.
 
-## Vitest Snapshot Testing
+## insta Snapshot Testing
 
-Snapshots automate the "let the failure tell you the behavior" step. Instead of manually copying expected values, the framework captures them.
+`insta` automates the "let the failure tell you the behavior" step. Instead of manually copying expected values, the framework captures them on first run.
+
+Add to `Cargo.toml`:
+```toml
+[dev-dependencies]
+insta = { version = "1", features = ["ron", "yaml"] }
+```
 
 ### Inline Snapshots (Preferred for Characterisation)
 
-The expected value lives right in the test file. Vitest fills it in on first run.
+The expected value lives right in the test file. `insta` fills it in on first run.
 
-```typescript
-it('characterises formatAddress', () => {
-  // First run: leave the argument empty -- Vitest fills it in
-  expect(formatAddress(testAddress)).toMatchInlineSnapshot();
-});
+```rust
+#[test]
+fn characterises_format_address() {
+    // First run: leave assert_snapshot! with just the value — insta fills it in
+    insta::assert_snapshot!(format_address(&test_address()));
+}
 
-// After first run, Vitest rewrites the file:
-it('characterises formatAddress', () => {
-  expect(formatAddress(testAddress)).toMatchInlineSnapshot(`
-    "123 Main St
+// After first run, insta rewrites the test (or creates a .snap file):
+#[test]
+fn characterises_format_address() {
+    insta::assert_snapshot!(format_address(&test_address()), @r###"
+    123 Main St
     Suite 4B
-    Springfield, IL 62701"
-  `);
-});
+    Springfield, IL 62701
+    "###);
+}
 ```
 
-Inline snapshots are ideal for characterisation because the actual behavior is visible right next to the call -- no separate snapshot file to track.
+Inline snapshots are ideal for characterisation because the actual behavior is visible right next to the call.
 
 ### File Snapshots
 
-For large outputs (HTML, JSON payloads), write to a separate file:
+For large outputs (JSON, structured data), `insta` writes a separate `.snap` file:
 
-```typescript
-it('characterises full report output', () => {
-  const report = generateReport(testData);
-  expect(report).toMatchFileSnapshot('./snapshots/report-baseline.txt');
-});
+```rust
+#[test]
+fn characterises_full_report_output() {
+    let report = generate_report(&test_data());
+    insta::assert_snapshot!("report_baseline", report);
+}
 ```
 
-### When to Use Each
+This creates `snapshots/characterises_full_report_output__report_baseline.snap`.
 
-| Approach | Use when |
-|----------|----------|
-| `toMatchInlineSnapshot()` | Output is short (< 20 lines), readability matters |
-| `toMatchSnapshot()` | Output is medium, co-located `.snap` file is fine |
-| `toMatchFileSnapshot()` | Output is large, or you want a human-reviewable baseline file |
-| Manual `toBe()` / `toEqual()` | You want to document specific values with intent |
+### Structured Snapshots
 
-## Combination Testing
+For structs/enums, use YAML or RON snapshots for readable diffs:
 
-Test many input combinations at once to rapidly characterise a function's behavior. Use `it.each` with a generated matrix, or the `jest-extended-snapshot` library (compatible with Vitest via `vitest-compatible-jest-extended-snapshot` or by configuring Vitest's Jest compatibility mode):
-
-```typescript
-// Option 1: it.each with inline snapshot (pure Vitest, no extra dependency)
-const amounts = [100, 1000, 10000, 15000] as const;
-const types = ['standard', 'premium', 'business'] as const;
-const years = [0, 1, 3, 5, 7, 10] as const;
-
-const combinations = amounts.flatMap(amount =>
-  types.flatMap(type =>
-    years.map(y => ({ amount, type, years: y })),
-  ),
-);
-
-it('characterises all input combinations', () => {
-  const results = combinations.map(
-    c => `${c.type}/${c.amount}/${c.years} → ${calculateDiscount(c.amount, c.type, c.years)}`,
-  );
-  expect(results).toMatchInlineSnapshot();
-  // Vitest fills in all 72 results on first run
-});
+```rust
+#[test]
+fn characterises_order_structure() {
+    let order = build_order(&test_cart());
+    insta::assert_yaml_snapshot!(order);
+}
 ```
 
-This provides broad characterisation with minimal test code. The snapshot captures every combination's result, so any behavioral change is detected.
+---
 
-**Trade-off:** Combination tests are excellent for initial characterisation but poor for documentation -- a list of 72 results doesn't explain *why* the behavior differs. Replace with focused tests as you understand the code.
+## Reviewing Snapshots
 
-## Handling Non-Determinism
+```bash
+# Review all pending snapshots interactively
+cargo insta review
 
-Characterisation tests must be deterministic. Common sources of non-determinism and their fixes:
+# Accept all pending snapshots
+cargo insta accept
 
-### Dates and Timestamps
-
-Use a helper that sets up and tears down fake timers within a single test, avoiding shared mutable state from `beforeEach`/`afterEach`:
-
-```typescript
-import { vi } from 'vitest';
-
-const withFrozenTime = (date: string, fn: () => void) => {
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date(date));
-  try {
-    fn();
-  } finally {
-    vi.useRealTimers();
-  }
-};
-
-it('characterises timestamp formatting', () => {
-  withFrozenTime('2025-01-15T10:00:00Z', () => {
-    expect(formatTimestamp()).toBe('Jan 15, 2025 10:00 AM');
-  });
-});
+# Reject all (discard captured behavior)
+cargo insta reject
 ```
 
-### Random Values / UUIDs
+Workflow:
+1. Write characterisation test with `assert_snapshot!`
+2. Run `cargo test` — test "fails" (no snapshot yet), insta captures the value
+3. Run `cargo insta review` to inspect and accept
+4. Commit the `.snap` file — it is the documented behavior
 
-```typescript
-// Option 1: mock the source
-vi.spyOn(crypto, 'randomUUID').mockReturnValue('test-uuid-001');
+---
 
-// Option 2: use property matchers with snapshots
-expect(result).toMatchSnapshot({
-  id: expect.any(String),
-  createdAt: expect.any(Date),
-});
+## cargo-nextest Integration
+
+`cargo-nextest` runs tests faster and gives better output for characterisation test workflows:
+
+```bash
+# Run all characterisation tests
+cargo nextest run characterise
+
+# Run a specific test
+cargo nextest run characterises_format_address
 ```
 
-### External Service Responses
+---
 
-Use the `finding-seams` skill to introduce a seam (preferably a function parameter) before characterising. If you cannot modify the production code yet, `vi.mock()` can be used as temporary scaffolding -- but migrate to parameter injection once you have tests in place.
+## When Snapshots Need Updating
 
-## Approval Testing Workflow
+After intentional behavior changes, update snapshots:
 
-For complex outputs where automated comparison isn't enough, use an explicit approval step:
+```bash
+# Re-run tests, capturing new values
+INSTA_UPDATE=always cargo test
+cargo insta review
+```
 
-1. Run code, capture output as `.received.txt`
-2. Compare against `.approved.txt` (the golden master)
-3. If no approved file exists, the test fails -- a human must review and approve
-4. If files differ, the test fails -- a human reviews the change
-
-The `approvals` npm package (`npm install approvals`) provides this workflow with Vitest/Jest integration and diff tool support.
-
-**When to prefer approval tests:** When the output is complex enough that a human should review it before accepting as baseline (e.g., HTML rendering, PDF generation, complex business reports).
-
-## Coverage-Guided Characterisation
-
-Use coverage and mutation testing as a feedback loop to know when you've characterised enough:
-
-1. **Run tests with coverage**: `vitest --coverage`
-2. **Identify untested branches**: look for red/uncovered lines in the area you're changing
-3. **Add characterisation tests** targeting those paths
-4. **Repeat** until the change area + one layer out has adequate branch coverage
-5. **Validate with mutation testing**: run the `mutation-testing` skill against the change area
-
-Coverage tells you which paths are *exercised*. Mutation testing tells you which are *protected*. A test that executes a branch but doesn't assert on its effect is a false sense of security. Use both before starting your actual changes.
+Always review diffs before accepting — the diff is the behavior change.

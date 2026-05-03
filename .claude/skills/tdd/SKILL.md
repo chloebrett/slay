@@ -112,15 +112,13 @@ Test Evidence:
 
 2. Run coverage verification:
    ```bash
-   cd packages/core
-   pnpm test:coverage
-   # OR
-   pnpm exec vitest run --coverage
+   cargo llvm-cov --all-features
+   # OR with nextest
+   cargo llvm-cov nextest --all-features
    ```
 
 3. Verify ALL metrics hit 100%:
    - Lines: 100% ✅
-   - Statements: 100% ✅
    - Branches: 100% ✅
    - Functions: 100% ✅
 
@@ -130,15 +128,13 @@ Test Evidence:
 
 ### Reading Coverage Output
 
-Look for the "All files" line in coverage summary:
+Look for the summary line in `cargo llvm-cov` output:
 
 ```
-File           | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
----------------|---------|----------|---------|---------|-------------------
-All files      |     100 |      100 |     100 |     100 |
-setup.ts       |     100 |      100 |     100 |     100 |
-context.ts     |     100 |      100 |     100 |     100 |
-endpoints.ts   |     100 |      100 |     100 |     100 |
+Filename                    Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover
+payment.rs                       42                 0   100.00%          12                 0   100.00%          87                 0   100.00%
+order.rs                         28                 0   100.00%           8                 0   100.00%          61                 0   100.00%
+TOTAL                            70                 0   100.00%          20                 0   100.00%         148                 0   100.00%
 ```
 
 ✅ This is 100% coverage - all four metrics at 100%.
@@ -158,7 +154,7 @@ All files      |   97.11 |    93.97 |   81.81 |   97.11 |
 
 ❌ **"Uncovered Line #s" column shows line numbers**
 ```
-setup.ts       |   95.23 |      100 |      60 |   95.23 | 45-48, 52-55
+payment.rs     |   95.23 |      100 |      60 |   95.23 |
 ```
 - Lines 45-48 and 52-55 are not covered
 
@@ -222,7 +218,7 @@ The burden of proof is on the requester. 100% is the default expectation.
 ### Adding a New Feature
 
 1. **Write failing test** - describe expected behavior
-2. **Run test** - confirm it fails (`pnpm test:watch`)
+2. **Run test** - confirm it fails (`cargo test` or `cargo watch -x test`)
 3. **Implement minimum** - just enough to pass
 4. **Run test** - confirm it passes
 5. **Run mutation testing** - verify tests catch real bugs

@@ -297,22 +297,21 @@ it('saves order to database', () => {
 | `++a` | `--a` | Increment vs decrement |
 | `a++` | `a--` | Increment vs decrement |
 
-### Method Expression Mutations (TypeScript/JavaScript)
+### Method / Iterator Mutations (Rust)
 
 | Original | Mutated | Test Should Verify |
 |----------|---------|-------------------|
-| `startsWith()` | `endsWith()` | Correct string position |
-| `endsWith()` | `startsWith()` | Correct string position |
-| `toUpperCase()` | `toLowerCase()` | Case transformation |
-| `toLowerCase()` | `toUpperCase()` | Case transformation |
-| `some()` | `every()` | Partial vs full match |
-| `every()` | `some()` | Full vs partial match |
-| `filter()` | (removed) | Filtering is necessary |
-| `reverse()` | (removed) | Order matters |
-| `sort()` | (removed) | Ordering is necessary |
-| `min()` | `max()` | Correct extremum |
-| `max()` | `min()` | Correct extremum |
-| `trim()` | `trimStart()` | Correct trim behavior |
+| `.starts_with()` | `.ends_with()` | Correct string position |
+| `.ends_with()` | `.starts_with()` | Correct string position |
+| `.to_uppercase()` | `.to_lowercase()` | Case transformation |
+| `.to_lowercase()` | `.to_uppercase()` | Case transformation |
+| `.any()` | `.all()` | Partial vs full match |
+| `.all()` | `.any()` | Full vs partial match |
+| `.filter()` | (removed) | Filtering is necessary |
+| `.rev()` | (removed) | Order matters |
+| `.min()` | `.max()` | Correct extremum |
+| `.max()` | `.min()` | Correct extremum |
+| `.trim()` | `.trim_start()` | Correct trim behavior |
 
 ### Optional Chaining Mutations
 
@@ -509,38 +508,38 @@ it('processes order', () => {
 
 ---
 
-## Integration with Stryker (Optional)
+## Integration with cargo-mutants
 
-For automated mutation testing, use Stryker:
+For automated mutation testing, use `cargo-mutants`:
 
 ### Installation
 
 ```bash
-npm init stryker
-```
-
-### Configuration (stryker.conf.json)
-
-```json
-{
-  "testRunner": "jest",
-  "coverageAnalysis": "perTest",
-  "reporters": ["html", "clear-text", "progress"],
-  "mutate": ["src/**/*.ts", "!src/**/*.test.ts"]
-}
+cargo install cargo-mutants
 ```
 
 ### Running
 
 ```bash
-npx stryker run
+# Run against the whole workspace
+cargo mutants
+
+# Run against a specific file
+cargo mutants --file src/domain/payment.rs
+
+# Run only tests matching a filter (faster feedback)
+cargo mutants -- --test-threads 4
 ```
 
-### Incremental Mode (for branches)
+### Incremental mode (for branches — only mutate changed files)
 
 ```bash
-npx stryker run --incremental
+cargo mutants --in-diff $(git diff main..HEAD)
 ```
+
+### Output
+
+`cargo-mutants` reports each surviving mutant with the file, line, and the change it made. A surviving mutant means your tests didn't catch that change — add or strengthen a test to kill it.
 
 ---
 
