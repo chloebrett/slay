@@ -944,6 +944,20 @@ mod tests {
     }
 
     #[test]
+    fn effective_intent_applies_player_vulnerable() {
+        let enemy = Enemy {
+            kind: EnemyKind::Louse,
+            hp: Hp(20), max_hp: Hp(20), block: Block(0),
+            move_: Move::LouseBite,
+            last_move: None,
+            statuses: StatusMap::new(),
+        };
+        let mut player_statuses = StatusMap::new();
+        player_statuses.insert(StatusEffect::Vulnerable, 1);
+        assert_eq!(enemy.effective_intent(&player_statuses), Intent::Attack(12));
+    }
+
+    #[test]
     fn effective_intent_applies_enemy_weak() {
         let mut enemy = Enemy {
             kind: EnemyKind::Louse,
