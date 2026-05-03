@@ -23,6 +23,7 @@ pub enum Command {
     WinCombat,
     AddCard(Card),
     AddRelic(Relic),
+    Spawn(Vec<EnemyKind>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +53,7 @@ pub const MAP_NODES: &[MapNode] = &[
 pub struct MapState {
     pub player: Player,
     pub floor: usize,
+    pub next_enemies: Option<Vec<EnemyKind>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,7 +96,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
         relics: Vec::new(),
     };
     let _ = rng;
-    GameState::Map(MapState { player, floor: 0 })
+    GameState::Map(MapState { player, floor: 0, next_enemies: None })
 }
 
 fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
@@ -147,15 +149,18 @@ pub fn apply_command(
     rng: &mut impl Rng,
 ) -> Result<(GameState, Vec<Event>), CommandError> {
     match state {
-        GameState::Map(MapState { player, floor }) => match command {
+        GameState::Map(MapState { player, floor, next_enemies }) => match command {
+            Command::Spawn(enemies) => {
+                Ok((GameState::Map(MapState { player, floor, next_enemies: Some(enemies) }), Vec::new()))
+            }
             Command::ChooseNode(idx) => {
                 if idx != 0 {
                     return Err(CommandError::InvalidCard);
                 }
-                let node = MAP_NODES.get(floor).ok_or(CommandError::InvalidCard)?;
+                let node = MAP_NODES.get(floor).unwrap_or(&MapNode::Combat);
                 match node {
                     MapNode::Combat | MapNode::Boss => {
-                        let enemies = enemies_for_floor(floor);
+                        let enemies = next_enemies.unwrap_or_else(|| enemies_for_floor(floor));
                         let is_boss = matches!(node, MapNode::Boss);
                         let mut combat_state = CombatState::from_player(player, enemies, rng);
                         let mut events = Vec::new();
@@ -184,12 +189,12 @@ pub fn apply_command(
                 }
             }
             Command::SkipFloor => {
-                Ok((GameState::Map(MapState { player, floor: floor + 1 }), Vec::new()))
+                Ok((GameState::Map(MapState { player, floor: floor + 1, next_enemies: None }), Vec::new()))
             }
             Command::AddRelic(relic) => {
                 let mut p = player;
                 let events = crate::relics::grant_relic(&mut p, relic, rng);
-                Ok((GameState::Map(MapState { player: p, floor }), events))
+                Ok((GameState::Map(MapState { player: p, floor, next_enemies: None }), events))
             }
             _ => Err(CommandError::InvalidPhase),
         },
@@ -271,14 +276,14 @@ pub fn apply_command(
                 player.hp.0 = (player.hp.0 + heal).min(player.max_hp.0);
                 let mut events = vec![Event::Healed { amount: heal }];
                 apply_rest_relics(&mut player, &mut events);
-                Ok((GameState::Map(MapState { player, floor: floor + 1 }), events))
+                Ok((GameState::Map(MapState { player, floor: floor + 1, next_enemies: None }), events))
             }
             Command::UpgradeCard(idx) => {
                 let from = player.deck.get(idx).cloned().ok_or(CommandError::InvalidCard)?;
                 let to = from.upgrade().ok_or(CommandError::InvalidCard)?;
                 player.deck[idx] = to.clone();
                 let events = vec![Event::CardUpgraded { from, to }];
-                Ok((GameState::Map(MapState { player, floor: floor + 1 }), events))
+                Ok((GameState::Map(MapState { player, floor: floor + 1, next_enemies: None }), events))
             }
             _ => Err(CommandError::InvalidPhase),
         },
@@ -292,10 +297,10 @@ pub fn apply_command(
                     let card = options[idx].clone();
                     player.deck.push(card.clone());
                     let events = vec![Event::CardAdded { card }];
-                    Ok((GameState::Map(MapState { player, floor }), events))
+                    Ok((GameState::Map(MapState { player, floor, next_enemies: None }), events))
                 }
                 Command::SkipReward => {
-                    Ok((GameState::Map(MapState { player, floor }), Vec::new()))
+                    Ok((GameState::Map(MapState { player, floor, next_enemies: None }), Vec::new()))
                 }
                 _ => Err(CommandError::InvalidPhase),
             }
@@ -541,7 +546,7 @@ mod tests {
 
     #[test]
     fn choosing_rest_site_enters_rest_state() {
-        let map = GameState::Map(MapState { player: make_player(), floor: 3 });
+        let map = GameState::Map(MapState { player: make_player(), floor: 3, next_enemies: None });
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::RestSite(_)));
     }
@@ -658,6 +663,52 @@ mod tests {
     #[test]
     fn floor_6_spawns_red_louse() {
         assert_eq!(enemies_for_floor(6), vec![EnemyKind::RedLouse]);
+    }
+
+    // --- Spawn command ---
+
+    #[test]
+    fn spawn_command_sets_next_enemies_on_map_state() {
+        let state = GameState::Map(MapState { player: make_player(), floor: 0, next_enemies: None });
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::Fungibeast]), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.next_enemies, Some(vec![EnemyKind::Fungibeast]));
+    }
+
+    #[test]
+    fn choose_node_uses_spawned_enemies_instead_of_floor_default() {
+        // Floor 0 normally spawns a Louse, but spawn overrides it
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 0,
+            next_enemies: Some(vec![EnemyKind::Cultist]),
+        });
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.enemies[0].kind, EnemyKind::Cultist);
+    }
+
+    #[test]
+    fn choose_node_clears_next_enemies_after_use() {
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 0,
+            next_enemies: Some(vec![EnemyKind::Cultist]),
+        });
+        // enter combat, win, come back to map
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.next_enemies, None);
+    }
+
+    #[test]
+    fn choose_node_falls_back_to_floor_enemies_when_no_spawn() {
+        let state = GameState::Map(MapState { player: make_player(), floor: 0, next_enemies: None });
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.enemies[0].kind, EnemyKind::Louse);
     }
 
     // --- player state persists across combat ---
@@ -909,7 +960,7 @@ mod tests {
 
     #[test]
     fn boss_floor_has_two_enemies() {
-        let map = GameState::Map(MapState { player: make_player(), floor: 4 });
+        let map = GameState::Map(MapState { player: make_player(), floor: 4, next_enemies: None });
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.enemies.len(), 2);
@@ -917,7 +968,7 @@ mod tests {
 
     #[test]
     fn regular_floor_has_one_enemy() {
-        let map = GameState::Map(MapState { player: make_player(), floor: 0 });
+        let map = GameState::Map(MapState { player: make_player(), floor: 0, next_enemies: None });
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.enemies.len(), 1);
@@ -988,7 +1039,7 @@ mod tests {
     fn enter_combat_with_relic(relic: Relic, floor: usize) -> GameState {
         let mut player = make_player();
         player.relics.push(relic);
-        let state = GameState::Map(MapState { player, floor });
+        let state = GameState::Map(MapState { player, floor, next_enemies: None });
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         state
     }
@@ -1021,7 +1072,7 @@ mod tests {
         // Lantern bumps max_energy to 4 before we win.
         let mut player = make_player();
         player.relics.push(Relic::Lantern);
-        let state = GameState::Map(MapState { player, floor: 0 });
+        let state = GameState::Map(MapState { player, floor: 0, next_enemies: None });
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         // Verify Lantern boosted energy during combat.
         let GameState::Combat { .. } = state else { panic!("expected Combat") };
@@ -1036,7 +1087,7 @@ mod tests {
         let mut player = make_player();
         player.hp = Hp(50);
         player.relics.push(Relic::Pantograph);
-        let state = GameState::Map(MapState { player, floor: 4 }); // floor 4 = Boss
+        let state = GameState::Map(MapState { player, floor: 4, next_enemies: None }); // floor 4 = Boss
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hp, Hp(75));
@@ -1047,7 +1098,7 @@ mod tests {
         let mut player = make_player();
         player.hp = Hp(50);
         player.relics.push(Relic::Pantograph);
-        let state = GameState::Map(MapState { player, floor: 0 });
+        let state = GameState::Map(MapState { player, floor: 0, next_enemies: None });
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hp, Hp(50));

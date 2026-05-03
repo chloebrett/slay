@@ -250,7 +250,8 @@ pub(crate) fn apply_combat_command(
         | Command::SkipFloor
         | Command::WinCombat
         | Command::AddCard(_)
-        | Command::AddRelic(_) => {
+        | Command::AddRelic(_)
+        | Command::Spawn(_) => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {

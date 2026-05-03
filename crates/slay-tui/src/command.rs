@@ -20,7 +20,7 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
             return Relic::from_id(id.trim()).map(Command::AddRelic);
         }
     }
-    if s.is_empty() {
+    if s.is_empty() || s == "enter" {
         return Some(Command::ChooseNode(0));
     }
     None

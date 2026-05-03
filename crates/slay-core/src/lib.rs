@@ -11,7 +11,7 @@ pub use cards::{Card, CardDef, CardType, reward_pool, starter_deck};
 pub use combat::{CombatPhase, CombatState, Enemy, Event, Player, Target};
 pub use relics::{Relic, grant_relic};
 pub use enemies::{EnemyKind, Intent, Move};
-pub use rng::{NoOpRng, Rng, ThreadRng};
+pub use rng::{AnyRng, NoOpRng, Rng, ThreadRng};
 pub use run::{
     apply_command, Command, CommandError, CardRewardState, GameState, MapNode, MapState,
     RestSiteState, new_run,

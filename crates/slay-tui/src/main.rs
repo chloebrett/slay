@@ -35,6 +35,9 @@ fn main() {
             println!("{input}");
             continue;
         }
+        if scripted && input.trim().is_empty() {
+            continue;
+        }
         if scripted {
             println!("> {input}");
         } else {

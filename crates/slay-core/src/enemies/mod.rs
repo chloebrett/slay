@@ -119,6 +119,29 @@ impl EnemyKind {
 
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn max_hp(&self) -> Hp { self.def().max_hp }
+
+    pub fn id(&self) -> &'static str {
+        match self {
+            EnemyKind::Louse          => "louse",
+            EnemyKind::Fungibeast     => "fungibeast",
+            EnemyKind::Cultist        => "cultist",
+            EnemyKind::JawWorm        => "jaw-worm",
+            EnemyKind::SmallSpikeSlime => "small-spike-slime",
+            EnemyKind::RedLouse       => "red-louse",
+        }
+    }
+
+    pub fn from_id(s: &str) -> Option<EnemyKind> {
+        match s {
+            "louse"            => Some(EnemyKind::Louse),
+            "fungibeast"       => Some(EnemyKind::Fungibeast),
+            "cultist"          => Some(EnemyKind::Cultist),
+            "jaw-worm"         => Some(EnemyKind::JawWorm),
+            "small-spike-slime" => Some(EnemyKind::SmallSpikeSlime),
+            "red-louse"        => Some(EnemyKind::RedLouse),
+            _                  => None,
+        }
+    }
 }
 
 pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Move {
@@ -292,5 +315,39 @@ mod tests {
     #[test]
     fn louse_block_intent_is_defend_5() {
         assert_eq!(Move::LouseBlock.intent(), Intent::Defend(5));
+    }
+
+    // --- Enemy IDs ---
+
+    #[test]
+    fn all_enemy_ids_round_trip() {
+        let kinds = [
+            EnemyKind::Louse,
+            EnemyKind::Fungibeast,
+            EnemyKind::Cultist,
+            EnemyKind::JawWorm,
+            EnemyKind::SmallSpikeSlime,
+            EnemyKind::RedLouse,
+        ];
+        for kind in &kinds {
+            let id = kind.id();
+            assert_eq!(EnemyKind::from_id(id), Some(kind.clone()), "round-trip failed for {id}");
+        }
+    }
+
+    #[test]
+    fn unknown_enemy_id_returns_none() {
+        assert_eq!(EnemyKind::from_id("dragon"), None);
+        assert_eq!(EnemyKind::from_id(""), None);
+    }
+
+    #[test]
+    fn enemy_ids_are_kebab_case() {
+        assert_eq!(EnemyKind::Louse.id(), "louse");
+        assert_eq!(EnemyKind::Fungibeast.id(), "fungibeast");
+        assert_eq!(EnemyKind::Cultist.id(), "cultist");
+        assert_eq!(EnemyKind::JawWorm.id(), "jaw-worm");
+        assert_eq!(EnemyKind::SmallSpikeSlime.id(), "small-spike-slime");
+        assert_eq!(EnemyKind::RedLouse.id(), "red-louse");
     }
 }

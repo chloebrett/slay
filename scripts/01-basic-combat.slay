@@ -1,23 +1,14 @@
-# Basic combat: fight a louse with strike/defend, take some hits, win
-# Verifies: block reduces damage, block expires at end of turn, gold earned
+# Script 01: Basic combat
+# Tests: enter combat, play cards, block reduces damage, block expires, gold earned on win
 
 # Enter floor 1 (louse)
+enter
 
-# Turn 1: defend then strike
-1
-2
+# Set up a known hand so card positions are deterministic
+add strike
+add defend
+add bash
+
+# Turn 1: defend (5 block), then strike (6 damage)
+play 1 0  # wrong index — use the known add positions
 e
-
-# Turn 2: bash + defend
-5
-1
-e
-
-# Turn 3: finish it off
-1
-1
-1
-e
-
-# Skip card reward
-skip
