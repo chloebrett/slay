@@ -1,7 +1,10 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
 use crate::enemies::EnemyKind;
-use crate::relics::apply_end_of_combat_relics;
+use crate::relics::{
+    apply_combat_start_relics, apply_end_of_combat_relics, apply_rest_relics,
+    apply_turn_end_relics, apply_turn_start_relics, Relic,
+};
 use crate::rng::Rng;
 use crate::status::StatusMap;
 use crate::types::{Block, Energy, Hp};
@@ -110,10 +113,16 @@ fn generate_rewards(rng: &mut impl Rng) -> Vec<Card> {
 fn player_after_combat(player: Player, gold_gain: i32) -> Player {
     let mut deck = player.deck;
     deck.extend(player.exhaust_pile);
+    // Lantern grants +1 max energy for the combat only; restore original value here.
+    let max_energy = if player.relics.contains(&Relic::Lantern) {
+        Energy(player.max_energy.0 - 1)
+    } else {
+        player.max_energy
+    };
     Player {
         block: Block(0),
-        energy: player.max_energy,
-        max_energy: player.max_energy,
+        energy: max_energy,
+        max_energy,
         hand: Vec::new(),
         draw_pile: Vec::new(),
         discard_pile: Vec::new(),
@@ -142,8 +151,26 @@ pub fn apply_command(
                 match node {
                     MapNode::Combat | MapNode::Boss => {
                         let enemies = enemies_for_floor(floor);
-                        let combat_state = CombatState::from_player(player, enemies, rng);
-                        Ok((GameState::Combat { state: combat_state, floor }, Vec::new()))
+                        let is_boss = matches!(node, MapNode::Boss);
+                        let mut combat_state = CombatState::from_player(player, enemies, rng);
+                        let mut events = Vec::new();
+                        apply_combat_start_relics(&mut combat_state, &mut events, rng, is_boss);
+                        // FestivePopper (or similar) may have killed all enemies instantly.
+                        if combat_state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                            events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
+                            let mut victory_player = combat_state.player;
+                            apply_end_of_combat_relics(&mut victory_player, &mut events);
+                            let player = player_after_combat(victory_player, GOLD_PER_COMBAT);
+                            if is_boss {
+                                return Ok((GameState::GameOver { victory: true }, events));
+                            }
+                            let options = generate_rewards(rng);
+                            return Ok((
+                                GameState::CardReward(CardRewardState { player, floor: floor + 1, options }),
+                                events,
+                            ));
+                        }
+                        Ok((GameState::Combat { state: combat_state, floor }, events))
                     }
                     MapNode::RestSite => Ok((
                         GameState::RestSite(RestSiteState { player, floor }),
@@ -179,10 +206,26 @@ pub fn apply_command(
                 Err(CommandError::InvalidPhase)
             }
             cmd => {
-                let (new_combat, events) = apply_combat_command(combat_state, cmd, rng)?;
+                let hand_size_at_turn_end = if matches!(cmd, Command::EndTurn) {
+                    combat_state.player.hand.len()
+                } else {
+                    0
+                };
+                let (mut new_combat, mut events) = apply_combat_command(combat_state, cmd, rng)?;
+                // Turn-end relics fire after EndTurn (before enemy acts).
+                if events.contains(&Event::TurnEnded)
+                    && matches!(new_combat.phase, CombatPhase::EnemyTurn)
+                {
+                    apply_turn_end_relics(&mut new_combat, &mut events, hand_size_at_turn_end);
+                }
+                // Turn-start relics fire after EndEnemyTurn (new player turn begins).
+                if events.iter().any(|e| matches!(e, Event::TurnStarted { .. }))
+                    && matches!(new_combat.phase, CombatPhase::PlayerTurn)
+                {
+                    apply_turn_start_relics(&mut new_combat, &mut events, rng);
+                }
                 match new_combat.phase {
                     CombatPhase::Victory => {
-                        let mut events = events;
                         events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
                         let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
                         let mut victory_player = new_combat.player;
@@ -212,7 +255,8 @@ pub fn apply_command(
             Command::Rest => {
                 let heal = (player.max_hp.0 * 30 / 100).max(1);
                 player.hp.0 = (player.hp.0 + heal).min(player.max_hp.0);
-                let events = vec![Event::Healed { amount: heal }];
+                let mut events = vec![Event::Healed { amount: heal }];
+                apply_rest_relics(&mut player, &mut events);
                 Ok((GameState::Map(MapState { player, floor: floor + 1 }), events))
             }
             Command::UpgradeCard(idx) => {
@@ -903,5 +947,246 @@ mod tests {
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
         assert_eq!(cr.player.hp, Hp(80));
+    }
+
+    // --- combat-start relics (integration) ---
+
+    fn enter_combat_with_relic(relic: Relic, floor: usize) -> GameState {
+        let mut player = make_player();
+        player.relics.push(relic);
+        let state = GameState::Map(MapState { player, floor });
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        state
+    }
+
+    #[test]
+    fn anchor_gives_10_block_when_entering_combat() {
+        let state = enter_combat_with_relic(Relic::Anchor, 0);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(10));
+    }
+
+    #[test]
+    fn vajra_grants_1_strength_when_entering_combat() {
+        let state = enter_combat_with_relic(Relic::Vajra, 0);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.statuses.get(&crate::status::StatusEffect::Strength), Some(&1));
+    }
+
+    #[test]
+    fn lantern_gives_4_energy_when_entering_combat() {
+        let state = enter_combat_with_relic(Relic::Lantern, 0);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.energy, Energy(4));
+        assert_eq!(cs.player.max_energy, Energy(4));
+    }
+
+    #[test]
+    fn lantern_max_energy_restored_to_3_after_combat() {
+        // Enter combat through ChooseNode so apply_combat_start_relics fires and
+        // Lantern bumps max_energy to 4 before we win.
+        let mut player = make_player();
+        player.relics.push(Relic::Lantern);
+        let state = GameState::Map(MapState { player, floor: 0 });
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        // Verify Lantern boosted energy during combat.
+        let GameState::Combat { .. } = state else { panic!("expected Combat") };
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.max_energy, Energy(3));
+    }
+
+    #[test]
+    fn pantograph_heals_25_on_boss_floor() {
+        let mut player = make_player();
+        player.hp = Hp(50);
+        player.relics.push(Relic::Pantograph);
+        let state = GameState::Map(MapState { player, floor: 4 }); // floor 4 = Boss
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.hp, Hp(75));
+    }
+
+    #[test]
+    fn pantograph_does_not_heal_on_normal_floor() {
+        let mut player = make_player();
+        player.hp = Hp(50);
+        player.relics.push(Relic::Pantograph);
+        let state = GameState::Map(MapState { player, floor: 0 });
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.hp, Hp(50));
+    }
+
+    // --- turn-end relics (integration) ---
+
+    fn combat_with_relic_at_floor(relic: Relic, floor: usize) -> GameState {
+        let mut player = make_player();
+        player.relics.push(relic);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![],
+                draw_pile: vec![Card::Strike; 5],
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(20),
+                max_hp: Hp(20),
+                block: Block(0),
+                intent: Intent::Attack(8),
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+        };
+        GameState::Combat { state: cs, floor }
+    }
+
+    #[test]
+    fn orichalcum_gives_6_block_after_end_turn_with_no_block() {
+        let state = combat_with_relic_at_floor(Relic::Orichalcum, 0);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(6));
+    }
+
+    #[test]
+    fn orichalcum_does_not_fire_when_player_has_block_at_end_turn() {
+        let mut player = make_player();
+        player.relics.push(Relic::Orichalcum);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![],
+                draw_pile: vec![Card::Strike; 5],
+                block: Block(5),
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(20),
+                max_hp: Hp(20),
+                block: Block(0),
+                intent: Intent::Attack(8),
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+        };
+        let state = GameState::Combat { state: cs, floor: 0 };
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(5));
+    }
+
+    #[test]
+    fn cloak_clasp_gives_block_per_card_remaining_in_hand_at_end_turn() {
+        let mut player = make_player();
+        player.relics.push(Relic::CloakClasp);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![Card::Strike, Card::Strike, Card::Strike],
+                draw_pile: vec![Card::Strike; 5],
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(20),
+                max_hp: Hp(20),
+                block: Block(0),
+                intent: Intent::Attack(8),
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+        };
+        let state = GameState::Combat { state: cs, floor: 0 };
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(3));
+    }
+
+    // --- turn-start relics (integration) ---
+
+    fn advance_to_turn(state: GameState, target_turn: u32) -> GameState {
+        let mut state = state;
+        let GameState::Combat { state: ref cs, .. } = state else { panic!("expected Combat") };
+        let turns_to_advance = target_turn - cs.turn;
+        for _ in 0..turns_to_advance {
+            let (s, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+            let (s, _) = apply_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
+            state = s;
+        }
+        state
+    }
+
+    #[test]
+    fn mercury_hourglass_deals_3_damage_to_enemy_at_turn_start() {
+        let state = combat_with_relic_at_floor(Relic::MercuryHourglass, 0);
+        // Advance to turn 2 — that fires TurnStarted and the hourglass
+        let state = advance_to_turn(state, 2);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        // Enemy took 8 damage from attack + 3 from hourglass = 11 total... but wait:
+        // EndTurn → EnemyTurn, enemy attacks for 8 → player takes 8 dmg.
+        // EndEnemyTurn → TurnStarted{2} → MercuryHourglass fires → enemy takes 3.
+        assert_eq!(cs.enemies[0].hp, Hp(17)); // 20 - 3
+    }
+
+    #[test]
+    fn candelabra_gives_2_energy_on_turn_2() {
+        let state = combat_with_relic_at_floor(Relic::Candelabra, 0);
+        let state = advance_to_turn(state, 2);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.energy, Energy(5)); // 3 base + 2 candelabra
+    }
+
+    #[test]
+    fn horn_cleat_gives_14_block_on_turn_2() {
+        let state = combat_with_relic_at_floor(Relic::HornCleat, 0);
+        let state = advance_to_turn(state, 2);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(14));
+    }
+
+    #[test]
+    fn captains_wheel_gives_18_block_on_turn_3() {
+        let state = combat_with_relic_at_floor(Relic::CaptainsWheel, 0);
+        let state = advance_to_turn(state, 3);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(18));
+    }
+
+    #[test]
+    fn happy_flower_gives_energy_on_turn_3() {
+        let state = combat_with_relic_at_floor(Relic::HappyFlower, 0);
+        let state = advance_to_turn(state, 3);
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.energy, Energy(4));
+    }
+
+    // --- rest-site relics (integration) ---
+
+    #[test]
+    fn regal_pillow_heals_extra_15_hp_on_rest() {
+        let mut player = make_player();
+        player.hp = Hp(40);
+        player.relics.push(Relic::RegalPillow);
+        let state = GameState::RestSite(RestSiteState { player, floor: 3 });
+        let (state, _) = apply_command(state, Command::Rest, &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        // 30% of 80 = 24 HP from rest + 15 from RegalPillow, starting at 40 → 79
+        assert_eq!(map.player.hp, Hp(79));
+    }
+
+    #[test]
+    fn regal_pillow_cannot_overheal_at_rest() {
+        let mut player = make_player();
+        player.hp = Hp(70);
+        player.relics.push(Relic::RegalPillow);
+        let state = GameState::RestSite(RestSiteState { player, floor: 3 });
+        let (state, _) = apply_command(state, Command::Rest, &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(80));
     }
 }
