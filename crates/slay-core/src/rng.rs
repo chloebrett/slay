@@ -16,6 +16,12 @@ impl ThreadRng {
     }
 }
 
+impl Default for ThreadRng {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rng for ThreadRng {
     fn shuffle<T>(&mut self, slice: &mut [T]) {
         use rand::seq::SliceRandom;

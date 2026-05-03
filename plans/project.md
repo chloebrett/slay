@@ -161,6 +161,7 @@ pub struct Energy(pub i32);  // player energy; card cost comparisons are very co
 ```
 
 The damage pipeline is the main footgun these prevent:
+
 ```rust
 // Without newtypes — easy to swap hp and block accidentally:
 fn deal_damage(damage: i32, hp: &mut i32, block: &mut i32)
@@ -269,6 +270,7 @@ fn block_reduces_incoming_damage() {
 **Goal:** A complete, playable (if tiny) game. Win and lose conditions. No cards. Validates the full architecture end-to-end.
 
 **slay-core mechanics:**
+
 - `Player`: 80 HP, 0 block.
 - `Enemy`: `Louse`, 20 HP, attacks for 8 each turn.
 - Commands: `Attack` (deal 6 damage to enemy), `Block` (gain 5 block), `EndTurn`.
@@ -276,11 +278,13 @@ fn block_reduces_incoming_damage() {
 - Combat ends when either HP reaches zero.
 
 **slay-tui:**
+
 - Parses: `"attack"`, `"block"`, `"end"` (and aliases `"end turn"`, `"pass"`).
 - Renders: player HP/block, enemy HP/intent, available commands, event log.
 - No `crossterm` raw mode yet — line-buffered stdin (simpler, correct for command orientation).
 
 **slay-core tests (RED first):**
+
 - `attack_deals_6_damage_to_enemy`
 - `block_grants_5_block_to_player`
 - `end_turn_triggers_enemy_attack`
@@ -293,6 +297,7 @@ fn block_reduces_incoming_damage() {
 - `commands_rejected_after_combat_ends`
 
 **slay-tui integration tests (RED first):**
+
 - `attack_command_parses_and_reduces_enemy_hp`
 - `unknown_command_returns_error_not_crash`
 - `player_wins_by_attacking_until_enemy_dead`
@@ -307,6 +312,7 @@ fn block_reduces_incoming_damage() {
 **Goal:** Real card mechanics. The game now feels like a card game.
 
 **Additions:**
+
 - `Card` enum: `Strike` (1 energy, 6 damage), `Defend` (1 energy, 5 block).
 - Starting deck: 5× Strike, 4× Defend, 1× Bash (preview; Bash implemented in Phase 4).
 - Piles: draw pile (shuffled from deck), hand (max 10), discard pile.
@@ -323,6 +329,7 @@ fn block_reduces_incoming_damage() {
 **Goal:** Telegraphed enemies.
 
 **Additions:**
+
 - `Intent` on `Enemy`. Computed at start of player turn, displayed, executed on enemy turn.
 - Simple `Louse` AI: alternates `Attack(8)` and `Defend(5)`.
 - Enemy block works symmetrically to player block.
@@ -334,11 +341,15 @@ fn block_reduces_incoming_damage() {
 **Goal:** The modifier system. Architecture stress test.
 
 **Additions:**
+
 - `StatusEffect`: `Strength`, `Vulnerable`, `Weak`, `Poison`.
 - `HashMap<StatusEffect, i32>` on Player and Enemy.
 - All damage via pipeline. No raw HP subtraction anywhere.
 - Status durations tick at end of turn.
 - New card: `Bash` (2 energy, 8 damage + 2× Vulnerable).
+- Note: split this into two phases (4 and 4.5). First phase: just 'vulnerable' and 'weak'. Add 'bash', and 'clothesline'. Clothesline costs 2 energy, deals 12 damage, and applies 2 weak. Put one of each clothesline and bash into the player draw pile (but not straight away into hand).
+- Are we drawing 5 cards per turn yet? We should be if not.
+- For 4.5: add "deadly poison" (applies 5 poison to enemy).
 
 ---
 
@@ -347,6 +358,7 @@ fn block_reduces_incoming_damage() {
 **Goal:** A full run with persistence between encounters.
 
 **Additions:**
+
 - `MapNode`: `Combat(EnemyId)`, `RestSite`, `Boss(EnemyId)`.
 - Linear map: 3× combat → rest site → boss.
 - Post-combat card reward: choose 1 of 3 (`Command::ChooseCardReward(usize)`).
@@ -361,6 +373,7 @@ fn block_reduces_incoming_damage() {
 **Goal:** Rule-breaking relics via event hooks.
 
 **Additions:**
+
 - `GameEvent` enum emitted alongside every state transition.
 - `RelicEffect` trait: `fn on_event(&self, event: &GameEvent, state: &mut CombatState)`.
 - `BurningBlood` (heal 6 after combat), `Vajra` (+1 Strength on combat start).
@@ -393,11 +406,11 @@ fn block_reduces_incoming_damage() {
 
 ## Crate Plan
 
-| Crate | Belongs to | Purpose | Added in |
-|---|---|---|---|
-| `rand` | slay-core | Shuffling, card rewards, AI variation | Phase 1 |
-| `crossterm` | slay-tui | Terminal input, cursor | Phase 1 |
-| `ratatui` | slay-tui | Full TUI layout | Phase 7 |
+| Crate       | Belongs to | Purpose                               | Added in |
+| ----------- | ---------- | ------------------------------------- | -------- |
+| `rand`      | slay-core  | Shuffling, card rewards, AI variation | Phase 1  |
+| `crossterm` | slay-tui   | Terminal input, cursor                | Phase 1  |
+| `ratatui`   | slay-tui   | Full TUI layout                       | Phase 7  |
 
 No async. Minimal dependencies until Phase 7.
 

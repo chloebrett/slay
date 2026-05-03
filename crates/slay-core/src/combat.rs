@@ -1,4 +1,5 @@
 use crate::cards::Card;
+use crate::enemies::{self, EnemyKind, Intent};
 use crate::rng::Rng;
 use crate::types::{Block, Energy, Hp};
 
@@ -16,15 +17,21 @@ pub struct Player {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Enemy {
-    pub name: String,
+    pub kind: EnemyKind,
     pub hp: Hp,
     pub max_hp: Hp,
     pub block: Block,
+    pub intent: Intent,
+}
+
+impl Enemy {
+    pub fn name(&self) -> &'static str { self.kind.name() }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CombatPhase {
     PlayerTurn,
+    EnemyTurn,
     Victory,
     Defeat,
 }
@@ -39,6 +46,9 @@ pub struct CombatState {
 
 impl CombatState {
     pub fn new(rng: &mut impl Rng) -> Self {
+        let kind = EnemyKind::Louse;
+        let max_hp = kind.max_hp();
+        let intent = enemies::next_intent(&kind, 1);
         let mut state = Self {
             player: Player {
                 hp: Hp(80),
@@ -51,10 +61,11 @@ impl CombatState {
                 discard_pile: Vec::new(),
             },
             enemy: Enemy {
-                name: "Louse".to_string(),
-                hp: Hp(20),
-                max_hp: Hp(20),
+                kind,
+                hp: max_hp,
+                max_hp,
                 block: Block(0),
+                intent,
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
@@ -95,6 +106,7 @@ fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
 pub enum Command {
     PlayCard(usize),
     EndTurn,
+    EndEnemyTurn,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -102,6 +114,7 @@ pub enum CommandError {
     CombatOver,
     InvalidCard,
     NotEnoughEnergy,
+    InvalidPhase,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -110,6 +123,8 @@ pub enum Event {
     PlayerAttacked { damage: i32 },
     PlayerBlocked { amount: i32 },
     EnemyAttacked { damage: i32 },
+    EnemyDefended { amount: i32 },
+    IntentRevealed { intent: Intent },
     TurnEnded,
     TurnStarted { turn: u32 },
     EnemyDied,
@@ -121,7 +136,7 @@ pub fn apply_command(
     command: Command,
     rng: &mut impl Rng,
 ) -> Result<(CombatState, Vec<Event>), CommandError> {
-    if state.phase != CombatPhase::PlayerTurn {
+    if matches!(state.phase, CombatPhase::Victory | CombatPhase::Defeat) {
         return Err(CommandError::CombatOver);
     }
 
@@ -129,6 +144,9 @@ pub fn apply_command(
 
     match command {
         Command::PlayCard(index) => {
+            if state.phase != CombatPhase::PlayerTurn {
+                return Err(CommandError::InvalidPhase);
+            }
             if index >= state.player.hand.len() {
                 return Err(CommandError::InvalidCard);
             }
@@ -143,10 +161,19 @@ pub fn apply_command(
             apply_card(&card, &mut state, &mut events);
         }
         Command::EndTurn => {
+            if state.phase != CombatPhase::PlayerTurn {
+                return Err(CommandError::InvalidPhase);
+            }
             events.push(Event::TurnEnded);
-            state.player.discard_pile.extend(state.player.hand.drain(..));
-            let damage = deal_damage(8, &mut state.player.hp, &mut state.player.block);
-            events.push(Event::EnemyAttacked { damage });
+            state.player.discard_pile.append(&mut state.player.hand);
+            state.phase = CombatPhase::EnemyTurn;
+        }
+        Command::EndEnemyTurn => {
+            if state.phase != CombatPhase::EnemyTurn {
+                return Err(CommandError::InvalidPhase);
+            }
+            state.enemy.block = Block(0);
+            execute_intent(&mut state, &mut events);
             if state.player.hp.0 <= 0 {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
@@ -154,13 +181,30 @@ pub fn apply_command(
                 state.player.block = Block(0);
                 state.player.energy = state.player.max_energy;
                 state.turn += 1;
+                let next = enemies::next_intent(&state.enemy.kind, state.turn);
+                state.enemy.intent = next;
+                events.push(Event::IntentRevealed { intent: next });
                 draw_cards(&mut state.player, 5, rng);
+                state.phase = CombatPhase::PlayerTurn;
                 events.push(Event::TurnStarted { turn: state.turn });
             }
         }
     }
 
     Ok((state, events))
+}
+
+fn execute_intent(state: &mut CombatState, events: &mut Vec<Event>) {
+    match state.enemy.intent {
+        Intent::Attack(n) => {
+            let damage = deal_damage(n, &mut state.player.hp, &mut state.player.block);
+            events.push(Event::EnemyAttacked { damage });
+        }
+        Intent::Defend(n) => {
+            state.enemy.block = Block(state.enemy.block.0 + n);
+            events.push(Event::EnemyDefended { amount: n });
+        }
+    }
 }
 
 fn apply_card(card: &Card, state: &mut CombatState, events: &mut Vec<Event>) {
@@ -184,7 +228,8 @@ mod tests {
         NoOpRng
     }
 
-    // Creates a state with a known hand, empty piles, full energy — no shuffle needed
+    // Creates a state with a known hand, empty piles, full energy — no shuffle needed.
+    // Default enemy intent is Attack(8) so legacy tests that bundle EndTurn keep working.
     fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         CombatState {
             player: Player {
@@ -198,14 +243,30 @@ mod tests {
                 discard_pile: Vec::new(),
             },
             enemy: Enemy {
-                name: "Louse".to_string(),
+                kind: EnemyKind::Louse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
+                intent: Intent::Attack(8),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         }
+    }
+
+    // Runs EndTurn followed by EndEnemyTurn — for tests that don't care about
+    // the intermediate EnemyTurn state.
+    fn end_turn_full(
+        state: CombatState,
+        rng: &mut impl Rng,
+    ) -> Result<(CombatState, Vec<Event>), CommandError> {
+        let (state, mut events) = apply_command(state, Command::EndTurn, rng)?;
+        if state.phase != CombatPhase::EnemyTurn {
+            return Ok((state, events));
+        }
+        let (state, more) = apply_command(state, Command::EndEnemyTurn, rng)?;
+        events.extend(more);
+        Ok((state, events))
     }
 
     // --- Combat start / drawing ---
@@ -238,7 +299,7 @@ mod tests {
             },
             ..state
         };
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hand.len(), 5);
     }
 
@@ -246,7 +307,7 @@ mod tests {
     fn end_turn_discards_remaining_hand() {
         let mut state = combat_with_hand(vec![Card::Strike, Card::Defend]);
         state.player.draw_pile = vec![Card::Strike; 5];
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         // draw pile had 5 cards → those fill the new hand; original 2 stay in discard
         assert_eq!(state.player.hand.len(), 5);
         assert!(state.player.discard_pile.contains(&Card::Strike));
@@ -257,7 +318,7 @@ mod tests {
     fn empty_draw_pile_shuffles_discard_when_drawing() {
         let mut state = combat_with_hand(Vec::new());
         state.player.discard_pile = vec![Card::Strike, Card::Defend, Card::Strike];
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         // Only 3 cards available — all should be drawn
         assert_eq!(state.player.hand.len(), 3);
         assert!(state.player.discard_pile.is_empty());
@@ -283,7 +344,7 @@ mod tests {
         let mut state = combat_with_hand(vec![Card::Strike]);
         state.player.energy = Energy(0);
         state.player.draw_pile = vec![Card::Strike; 5];
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(3));
     }
 
@@ -351,19 +412,19 @@ mod tests {
         assert!(events.contains(&Event::PlayerBlocked { amount: 5 }));
     }
 
-    // --- Enemy attack (EndTurn) ---
+    // --- Enemy attack (full turn cycle) ---
 
     #[test]
-    fn end_turn_causes_enemy_to_attack_for_8() {
+    fn full_turn_cycle_causes_enemy_to_attack_for_8() {
         let state = combat_with_hand(Vec::new());
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(72));
     }
 
     #[test]
-    fn end_turn_emits_enemy_attacked_event() {
+    fn full_turn_cycle_emits_enemy_attacked_event() {
         let state = combat_with_hand(Vec::new());
-        let (_, events) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         assert!(events.contains(&Event::EnemyAttacked { damage: 8 }));
     }
 
@@ -371,7 +432,7 @@ mod tests {
     fn block_absorbs_enemy_damage_before_hp() {
         let mut state = combat_with_hand(Vec::new());
         state.player.block = Block(5);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(0));
         assert_eq!(state.player.hp, Hp(77));
     }
@@ -380,7 +441,7 @@ mod tests {
     fn block_fully_absorbing_attack_leaves_hp_unchanged() {
         let mut state = combat_with_hand(Vec::new());
         state.player.block = Block(10);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(80));
     }
 
@@ -388,7 +449,7 @@ mod tests {
     fn player_block_resets_at_start_of_next_turn() {
         let mut state = combat_with_hand(Vec::new());
         state.player.block = Block(5);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(0));
     }
 
@@ -396,7 +457,7 @@ mod tests {
     fn enemy_killing_player_yields_defeat() {
         let mut state = combat_with_hand(Vec::new());
         state.player.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Defeat);
     }
 
@@ -404,7 +465,7 @@ mod tests {
     fn enemy_killing_player_emits_player_died_event() {
         let mut state = combat_with_hand(Vec::new());
         state.player.hp = Hp(1);
-        let (_, events) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         assert!(events.contains(&Event::PlayerDied));
     }
 
@@ -420,10 +481,10 @@ mod tests {
 
     #[test]
     fn player_hp_does_not_go_below_zero() {
-        // EndTurn triggers enemy attack (8 damage); with 1 HP result should be Hp(0) not Hp(-7)
+        // EndEnemyTurn fires Attack(8); with 1 HP result should be Hp(0) not Hp(-7)
         let mut state = combat_with_hand(Vec::new());
         state.player.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(0));
     }
 
@@ -451,10 +512,153 @@ mod tests {
     fn commands_rejected_after_defeat() {
         let mut state = combat_with_hand(Vec::new());
         state.player.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Defeat);
 
         let result = apply_command(state, Command::EndTurn, &mut rng());
         assert_eq!(result, Err(CommandError::CombatOver));
+    }
+
+    // --- Phase 3: intent + EnemyTurn ---
+
+    #[test]
+    fn new_combat_sets_initial_attack_intent() {
+        let state = CombatState::new(&mut rng());
+        assert_eq!(state.enemy.intent, Intent::Attack(8));
+    }
+
+    #[test]
+    fn end_turn_transitions_to_enemy_turn() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::EnemyTurn);
+    }
+
+    #[test]
+    fn end_turn_does_not_yet_damage_player() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn end_enemy_turn_returns_to_player_turn() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn intent_alternates_to_defend_on_turn_2() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.turn, 2);
+        assert_eq!(state.enemy.intent, Intent::Defend(5));
+    }
+
+    #[test]
+    fn intent_alternates_back_to_attack_on_turn_3() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.turn, 3);
+        assert_eq!(state.enemy.intent, Intent::Attack(8));
+    }
+
+    #[test]
+    fn defend_intent_grants_enemy_block() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.intent = Intent::Defend(5);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.enemy.block, Block(5));
+    }
+
+    #[test]
+    fn defend_intent_emits_enemy_defended_event() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.intent = Intent::Defend(5);
+        let (_, events) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemyDefended { amount: 5 }));
+    }
+
+    #[test]
+    fn defend_intent_does_not_damage_player() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.intent = Intent::Defend(5);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn enemy_block_absorbs_player_strike_damage() {
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.enemy.block = Block(4);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        // Strike does 6 damage; 4 absorbed by block, 2 remainder to HP
+        assert_eq!(state.enemy.block, Block(0));
+        assert_eq!(state.enemy.hp, Hp(18));
+    }
+
+    #[test]
+    fn enemy_block_fully_absorbs_player_strike() {
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.enemy.block = Block(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(20));
+    }
+
+    #[test]
+    fn enemy_block_resets_when_enemy_acts() {
+        // Pre-existing block should reset to 0 before the intent fires,
+        // so a Defend(5) intent yields exactly 5 block — not 10 stacked.
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.block = Block(5);
+        state.enemy.intent = Intent::Defend(5);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.enemy.block, Block(5));
+    }
+
+    #[test]
+    fn enemy_block_persists_through_player_turn() {
+        // After a Defend turn, the enemy carries block into the player's next turn.
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.enemy.intent = Intent::Defend(5);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        // Block should still be 5 at the start of player's next turn
+        assert_eq!(state.enemy.block, Block(5));
+    }
+
+    // --- Phase guards ---
+
+    #[test]
+    fn cannot_play_card_during_enemy_turn() {
+        let state = combat_with_hand(vec![Card::Strike]);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let result = apply_command(state, Command::PlayCard(0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidPhase));
+    }
+
+    #[test]
+    fn cannot_end_turn_during_enemy_turn() {
+        let state = combat_with_hand(Vec::new());
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let result = apply_command(state, Command::EndTurn, &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidPhase));
+    }
+
+    #[test]
+    fn cannot_end_enemy_turn_during_player_turn() {
+        let state = combat_with_hand(Vec::new());
+        let result = apply_command(state, Command::EndEnemyTurn, &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidPhase));
+    }
+
+    #[test]
+    fn intent_revealed_event_fires_at_turn_start() {
+        let state = combat_with_hand(Vec::new());
+        let (_, events) = end_turn_full(state, &mut rng()).unwrap();
+        // After full cycle: turn 2's intent is Defend(5)
+        assert!(events.contains(&Event::IntentRevealed { intent: Intent::Defend(5) }));
     }
 }

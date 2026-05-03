@@ -1,5 +1,6 @@
 mod cards;
 mod combat;
+mod enemies;
 mod rng;
 mod types;
 
@@ -7,6 +8,7 @@ pub use cards::Card;
 pub use combat::{
     apply_command, Command, CommandError, CombatPhase, CombatState, Enemy, Event, Player,
 };
+pub use enemies::{EnemyKind, Intent};
 pub use rng::{NoOpRng, Rng, ThreadRng};
 pub use types::{Block, Energy, Hp};
 
