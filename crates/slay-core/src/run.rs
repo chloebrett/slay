@@ -22,6 +22,7 @@ pub enum Command {
     SkipFloor,
     WinCombat,
     AddCard(Card),
+    AddRelic(Relic),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -181,6 +182,11 @@ pub fn apply_command(
             Command::SkipFloor => {
                 Ok((GameState::Map(MapState { player, floor: floor + 1 }), Vec::new()))
             }
+            Command::AddRelic(relic) => {
+                let mut p = player;
+                let events = crate::relics::grant_relic(&mut p, relic, rng);
+                Ok((GameState::Map(MapState { player: p, floor }), events))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
@@ -200,6 +206,10 @@ pub fn apply_command(
             Command::AddCard(card) => {
                 combat_state.player.hand.push(card);
                 Ok((GameState::Combat { state: combat_state, floor }, vec![]))
+            }
+            Command::AddRelic(relic) => {
+                let events = crate::relics::grant_relic(&mut combat_state.player, relic, rng);
+                Ok((GameState::Combat { state: combat_state, floor }, events))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
             | Command::SkipFloor | Command::UpgradeCard(_) => {

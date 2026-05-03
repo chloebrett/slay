@@ -1,4 +1,4 @@
-use slay_core::{Card, Command, GameState};
+use slay_core::{Card, Command, GameState, Relic};
 
 pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     let s = input.trim().to_lowercase();
@@ -15,6 +15,11 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
     if debug && s == "skip" {
         return Some(Command::SkipFloor);
     }
+    if debug {
+        if let Some(id) = s.strip_prefix("relic ") {
+            return Relic::from_id(id.trim()).map(Command::AddRelic);
+        }
+    }
     if let Ok(n) = s.trim().parse::<usize>() {
         if n > 0 {
             return Some(Command::ChooseNode(n - 1));
@@ -30,6 +35,9 @@ fn parse_combat(s: &str, debug: bool) -> Option<Command> {
     if debug {
         if let Some(id) = s.strip_prefix("add ") {
             return Card::from_id(id.trim()).map(Command::AddCard);
+        }
+        if let Some(id) = s.strip_prefix("relic ") {
+            return Relic::from_id(id.trim()).map(Command::AddRelic);
         }
     }
     let num_str = s.strip_prefix("play ").unwrap_or(s);

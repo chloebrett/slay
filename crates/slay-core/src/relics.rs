@@ -45,6 +45,57 @@ pub enum Relic {
     RegalPillow,
 }
 
+impl Relic {
+    pub fn id(&self) -> &'static str {
+        match self {
+            Relic::Strawberry       => "strawberry",
+            Relic::Pear             => "pear",
+            Relic::Mango            => "mango",
+            Relic::OldCoin          => "old-coin",
+            Relic::Whetstone        => "whetstone",
+            Relic::WarPaint         => "war-paint",
+            Relic::BurningBlood     => "burning-blood",
+            Relic::BlackBlood       => "black-blood",
+            Relic::Anchor           => "anchor",
+            Relic::Vajra            => "vajra",
+            Relic::Lantern          => "lantern",
+            Relic::BloodVial        => "blood-vial",
+            Relic::BagOfMarbles     => "bag-of-marbles",
+            Relic::RedMask          => "red-mask",
+            Relic::FestivePopper    => "festive-popper",
+            Relic::Pantograph       => "pantograph",
+            Relic::BagOfPreparation => "bag-of-preparation",
+            Relic::MercuryHourglass => "mercury-hourglass",
+            Relic::CaptainsWheel    => "captains-wheel",
+            Relic::Chandelier       => "chandelier",
+            Relic::Candelabra       => "candelabra",
+            Relic::HornCleat        => "horn-cleat",
+            Relic::HappyFlower      => "happy-flower",
+            Relic::Pendulum         => "pendulum",
+            Relic::StoneCalendar    => "stone-calendar",
+            Relic::Orichalcum       => "orichalcum",
+            Relic::CloakClasp       => "cloak-clasp",
+            Relic::RegalPillow      => "regal-pillow",
+        }
+    }
+
+    pub fn from_id(s: &str) -> Option<Relic> {
+        let all = [
+            Relic::Strawberry, Relic::Pear, Relic::Mango, Relic::OldCoin,
+            Relic::Whetstone, Relic::WarPaint,
+            Relic::BurningBlood, Relic::BlackBlood,
+            Relic::Anchor, Relic::Vajra, Relic::Lantern, Relic::BloodVial,
+            Relic::BagOfMarbles, Relic::RedMask, Relic::FestivePopper,
+            Relic::Pantograph, Relic::BagOfPreparation,
+            Relic::MercuryHourglass, Relic::CaptainsWheel, Relic::Chandelier,
+            Relic::Candelabra, Relic::HornCleat, Relic::HappyFlower,
+            Relic::Pendulum, Relic::StoneCalendar,
+            Relic::Orichalcum, Relic::CloakClasp, Relic::RegalPillow,
+        ];
+        all.into_iter().find(|r| r.id() == s)
+    }
+}
+
 pub fn grant_relic(player: &mut Player, relic: Relic, rng: &mut impl Rng) -> Vec<Event> {
     let mut events = Vec::new();
     match &relic {
@@ -1147,5 +1198,29 @@ mod tests {
         apply_rest_relics(&mut player, &mut events);
         assert_eq!(player.hp, Hp(50));
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn relic_id_roundtrip_for_all_relics() {
+        let all = [
+            Relic::Strawberry, Relic::Pear, Relic::Mango, Relic::OldCoin,
+            Relic::Whetstone, Relic::WarPaint,
+            Relic::BurningBlood, Relic::BlackBlood,
+            Relic::Anchor, Relic::Vajra, Relic::Lantern, Relic::BloodVial,
+            Relic::BagOfMarbles, Relic::RedMask, Relic::FestivePopper,
+            Relic::Pantograph, Relic::BagOfPreparation,
+            Relic::MercuryHourglass, Relic::CaptainsWheel, Relic::Chandelier,
+            Relic::Candelabra, Relic::HornCleat, Relic::HappyFlower,
+            Relic::Pendulum, Relic::StoneCalendar,
+            Relic::Orichalcum, Relic::CloakClasp, Relic::RegalPillow,
+        ];
+        for relic in all {
+            assert_eq!(Relic::from_id(relic.id()), Some(relic));
+        }
+    }
+
+    #[test]
+    fn from_id_returns_none_for_unknown_id() {
+        assert_eq!(Relic::from_id("not-a-relic"), None);
     }
 }

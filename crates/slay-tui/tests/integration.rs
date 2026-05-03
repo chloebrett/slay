@@ -1,6 +1,6 @@
 use slay_core::{
     apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
-    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, RestSiteState, StatusMap,
+    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, Relic, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -435,4 +435,42 @@ fn player_dies_when_hp_reaches_zero() {
     }
     game.send("end").unwrap(); // enemy attacks → player dead → GameOver
     assert!(matches!(game.state, GameState::GameOver { victory: false }));
+}
+
+// --- Debug relic command ---
+
+#[test]
+fn relic_command_rejected_without_debug_flag() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+    assert!(game.send("relic strawberry").is_err());
+}
+
+#[test]
+fn relic_command_adds_relic_on_map_in_debug_mode() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    game.send("relic strawberry").unwrap();
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert!(map.player.relics.contains(&Relic::Strawberry));
+}
+
+#[test]
+fn relic_command_raises_max_hp_via_strawberry() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    game.send("relic strawberry").unwrap();
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.player.max_hp, Hp(87));
+}
+
+#[test]
+fn relic_command_adds_relic_during_combat_in_debug_mode() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]).debug();
+    game.send("relic anchor").unwrap();
+    let GameState::Combat { state, .. } = &game.state else { panic!("expected Combat") };
+    assert!(state.player.relics.contains(&Relic::Anchor));
+}
+
+#[test]
+fn relic_unknown_id_returns_error() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    assert!(game.send("relic not-a-relic").is_err());
 }
