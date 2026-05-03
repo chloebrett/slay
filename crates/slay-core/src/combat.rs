@@ -108,7 +108,7 @@ impl CombatState {
     }
 }
 
-fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
+pub(crate) fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
     for _ in 0..n {
         if player.draw_pile.is_empty() {
             if player.discard_pile.is_empty() {
@@ -141,6 +141,7 @@ pub enum Event {
     PlayerDied,
     PlayerSelfDamaged { amount: i32 },
     EnergyGained { amount: i32 },
+    CardsDrawn { count: usize },
     GoldEarned { amount: i32 },
     Healed { amount: i32 },
     CardAdded { card: Card },
@@ -189,7 +190,7 @@ pub(crate) fn apply_combat_command(
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
             events.push(Event::CardPlayed { card: card.clone() });
-            crate::cards::apply(&card, &mut state, &mut events, actual_target);
+            crate::cards::apply(&card, &mut state, &mut events, actual_target, rng);
             if card.exhausts() {
                 events.push(Event::CardExhausted { card: card.clone() });
                 state.player.exhaust_pile.push(card.clone());

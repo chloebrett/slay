@@ -12,6 +12,8 @@ mod inflame;
 mod iron_wave;
 mod mangle;
 mod not_yet;
+mod pommel_strike;
+mod shrug_it_off;
 mod strike;
 mod taunt;
 mod thunderclap;
@@ -59,6 +61,10 @@ pub enum Card {
     TauntPlus,
     Thunderclap,
     ThunderclapPlus,
+    PommelStrike,
+    PommelStrikePlus,
+    ShrugItOff,
+    ShrugItOffPlus,
     Breakthrough,
     BreakthroughPlus,
     BloodWall,
@@ -303,6 +309,30 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Attack,
             },
+            Card::PommelStrike => CardDef {
+                name: "Pommel Strike",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Draw 1 card.", base: 9 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::PommelStrikePlus => CardDef {
+                name: "Pommel Strike+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Draw 2 cards.", base: 10 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::ShrugItOff => CardDef {
+                name: "Shrug It Off",
+                description: CardDescription::Static("Gain 8 Block. Draw 1 card."),
+                energy_cost: Energy(1),
+                card_type: CardType::Skill,
+            },
+            Card::ShrugItOffPlus => CardDef {
+                name: "Shrug It Off+",
+                description: CardDescription::Static("Gain 11 Block. Draw 1 card."),
+                energy_cost: Energy(1),
+                card_type: CardType::Skill,
+            },
             Card::Breakthrough => CardDef {
                 name: "Breakthrough",
                 description: CardDescription::WithDamage { template: "Lose 1 HP. Deal {damage} damage to ALL enemies.", base: 9 },
@@ -376,8 +406,10 @@ impl Card {
             Card::Mangle      => Some(Card::ManglePlus),
             Card::Uppercut    => Some(Card::UppercutPlus),
             Card::Taunt       => Some(Card::TauntPlus),
-            Card::Thunderclap  => Some(Card::ThunderclapPlus),
-            Card::Breakthrough => Some(Card::BreakthroughPlus),
+            Card::Thunderclap   => Some(Card::ThunderclapPlus),
+            Card::PommelStrike  => Some(Card::PommelStrikePlus),
+            Card::ShrugItOff    => Some(Card::ShrugItOffPlus),
+            Card::Breakthrough  => Some(Card::BreakthroughPlus),
             Card::BloodWall    => Some(Card::BloodWallPlus),
             Card::Bloodletting => Some(Card::BloodlettingPlus),
             Card::Hemokinesis  => Some(Card::HemokinesisPlus),
@@ -1015,6 +1047,62 @@ mod tests {
         assert_eq!(Card::Cleave.upgrade(), Some(Card::CleavePlus));
     }
 
+    // --- Pommel Strike ---
+
+    #[test]
+    fn pommel_strike_deals_9_damage() {
+        let state = combat_with_hand(vec![Card::PommelStrike]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(11));
+    }
+
+    #[test]
+    fn pommel_strike_draws_1_card() {
+        let mut state = combat_with_hand(vec![Card::PommelStrike]);
+        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn pommel_strike_plus_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::PommelStrikePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
+    }
+
+    #[test]
+    fn pommel_strike_plus_draws_2_cards() {
+        let mut state = combat_with_hand(vec![Card::PommelStrikePlus]);
+        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+    }
+
+    // --- Shrug It Off ---
+
+    #[test]
+    fn shrug_it_off_grants_8_block() {
+        let state = combat_with_hand(vec![Card::ShrugItOff]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(8));
+    }
+
+    #[test]
+    fn shrug_it_off_draws_1_card() {
+        let mut state = combat_with_hand(vec![Card::ShrugItOff]);
+        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn shrug_it_off_plus_grants_11_block() {
+        let state = combat_with_hand(vec![Card::ShrugItOffPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(11));
+    }
+
     // --- Breakthrough ---
 
     #[test]
@@ -1137,7 +1225,7 @@ mod tests {
     }
 }
 
-pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize) {
+pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize, rng: &mut impl crate::rng::Rng) {
     match card {
         Card::Strike      => strike::apply(state, events, 6, target),
         Card::StrikePlus  => strike::apply(state, events, 9, target),
@@ -1174,6 +1262,10 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::TauntPlus => taunt::apply(state, events, 8, 2, target),
         Card::Thunderclap    => thunderclap::apply(state, events, 4, 1),
         Card::ThunderclapPlus => thunderclap::apply(state, events, 7, 1),
+        Card::PommelStrike    => pommel_strike::apply(state, events, 9, 1, target, rng),
+        Card::PommelStrikePlus => pommel_strike::apply(state, events, 10, 2, target, rng),
+        Card::ShrugItOff    => shrug_it_off::apply(state, events, 8, 1, rng),
+        Card::ShrugItOffPlus => shrug_it_off::apply(state, events, 11, 1, rng),
         Card::Breakthrough    => breakthrough::apply(state, events, 1, 9),
         Card::BreakthroughPlus => breakthrough::apply(state, events, 1, 13),
         Card::BloodWall    => blood_wall::apply(state, events, 2, 16),
