@@ -7,7 +7,7 @@ use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    PlayCard(usize),
+    PlayCard(usize, usize), // card index, target enemy index
     EndTurn,
     EndEnemyTurn,
     ChooseNode(usize),
@@ -90,10 +90,11 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
     GameState::Map(MapState { player, floor: 0 })
 }
 
-fn enemy_for_floor(floor: usize) -> EnemyKind {
+fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
     match floor {
-        1 => EnemyKind::Fungibeast,
-        _ => EnemyKind::Louse,
+        1 => vec![EnemyKind::Fungibeast],
+        4 => vec![EnemyKind::Louse, EnemyKind::Louse],
+        _ => vec![EnemyKind::Louse],
     }
 }
 
@@ -137,8 +138,8 @@ pub fn apply_command(
                 let node = MAP_NODES.get(floor).ok_or(CommandError::InvalidCard)?;
                 match node {
                     MapNode::Combat | MapNode::Boss => {
-                        let enemy = enemy_for_floor(floor);
-                        let combat_state = CombatState::from_player(player, enemy, rng);
+                        let enemies = enemies_for_floor(floor);
+                        let combat_state = CombatState::from_player(player, enemies, rng);
                         Ok((GameState::Combat { state: combat_state, floor }, Vec::new()))
                     }
                     MapNode::RestSite => Ok((
@@ -272,14 +273,14 @@ mod tests {
                 draw_pile: Vec::new(),
                 ..player
             },
-            enemy: Enemy {
+            enemies: vec![Enemy {
                 kind: EnemyKind::Louse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
                 statuses: StatusMap::new(),
-            },
+            }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         };
@@ -355,21 +356,21 @@ mod tests {
     #[test]
     fn winning_combat_goes_to_card_reward() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::CardReward(_)));
     }
 
     #[test]
     fn winning_combat_awards_50_gold() {
         let state = combat_at_floor(0);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::GoldEarned { amount: 50 }));
     }
 
     #[test]
     fn winning_combat_advances_to_correct_floor_in_reward() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         if let GameState::CardReward(cr) = state {
             assert_eq!(cr.floor, 1);
         } else {
@@ -380,7 +381,7 @@ mod tests {
     #[test]
     fn card_reward_has_3_options() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         if let GameState::CardReward(cr) = state {
             assert_eq!(cr.options.len(), 3);
         } else {
@@ -391,7 +392,7 @@ mod tests {
     #[test]
     fn choosing_card_reward_adds_card_to_deck() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         if let GameState::CardReward(ref cr) = state {
             let deck_size_before = cr.player.deck.len();
             let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
@@ -408,7 +409,7 @@ mod tests {
     #[test]
     fn choosing_card_reward_returns_to_map() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::Map(_)));
     }
@@ -416,7 +417,7 @@ mod tests {
     #[test]
     fn choosing_card_reward_emits_card_added_event() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (_, events) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         assert!(events.iter().any(|e| matches!(e, Event::CardAdded { .. })));
     }
@@ -424,7 +425,7 @@ mod tests {
     #[test]
     fn invalid_reward_index_returns_error() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let result = apply_command(state, Command::ChooseCardReward(99), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidCard));
     }
@@ -440,14 +441,14 @@ mod tests {
         };
         let cs = CombatState {
             player,
-            enemy: Enemy {
+            enemies: vec![Enemy {
                 kind: EnemyKind::Louse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
                 statuses: StatusMap::new(),
-            },
+            }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         };
@@ -537,7 +538,7 @@ mod tests {
     #[test]
     fn winning_boss_ends_run_with_victory() {
         let state = combat_at_floor(4);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state, GameState::GameOver { victory: true });
     }
 
@@ -554,22 +555,22 @@ mod tests {
 
     #[test]
     fn floor_0_spawns_louse() {
-        assert_eq!(enemy_for_floor(0), EnemyKind::Louse);
+        assert_eq!(enemies_for_floor(0), vec![EnemyKind::Louse]);
     }
 
     #[test]
     fn floor_1_spawns_fungibeast() {
-        assert_eq!(enemy_for_floor(1), EnemyKind::Fungibeast);
+        assert_eq!(enemies_for_floor(1), vec![EnemyKind::Fungibeast]);
     }
 
     #[test]
     fn floor_2_spawns_louse() {
-        assert_eq!(enemy_for_floor(2), EnemyKind::Louse);
+        assert_eq!(enemies_for_floor(2), vec![EnemyKind::Louse]);
     }
 
     #[test]
-    fn floor_4_boss_spawns_louse() {
-        assert_eq!(enemy_for_floor(4), EnemyKind::Louse);
+    fn floor_4_boss_spawns_two_lice() {
+        assert_eq!(enemies_for_floor(4), vec![EnemyKind::Louse, EnemyKind::Louse]);
     }
 
     // --- player state persists across combat ---
@@ -583,19 +584,19 @@ mod tests {
                 hand: vec![Card::Strike],
                 ..player
             },
-            enemy: Enemy {
+            enemies: vec![Enemy {
                 kind: EnemyKind::Louse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
                 statuses: StatusMap::new(),
-            },
+            }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         };
         let state = GameState::Combat { state: cs, floor: 0 };
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Now at CardReward
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         if let GameState::Map(map) = state {
@@ -609,7 +610,7 @@ mod tests {
     fn player_gold_persists_after_multiple_combats() {
         // Win two combats, check gold = 100
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         // Now on map floor 1 with 50 gold
         if let GameState::Map(ref map) = state {
@@ -619,13 +620,13 @@ mod tests {
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         // Manually kill the enemy
         let state = if let GameState::Combat { mut state, floor } = state {
-            state.enemy.hp = Hp(1);
+            state.enemies[0].hp = Hp(1);
             state.player.hand = vec![Card::Strike];
             GameState::Combat { state, floor }
         } else {
             panic!("expected Combat");
         };
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         if let GameState::Map(map) = state {
             assert_eq!(map.player.gold, 100);
@@ -637,7 +638,7 @@ mod tests {
     #[test]
     fn skipping_reward_returns_to_map() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::CardReward(_)));
         let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
         assert!(matches!(state, GameState::Map(_)));
@@ -646,7 +647,7 @@ mod tests {
     #[test]
     fn skipping_reward_does_not_add_card_to_deck() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let deck_size = if let GameState::CardReward(ref cr) = state {
             cr.player.deck.len()
         } else {
@@ -663,7 +664,7 @@ mod tests {
     #[test]
     fn skipping_reward_advances_to_correct_floor() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
         if let GameState::Map(map) = state {
             assert_eq!(map.floor, 1);
@@ -684,19 +685,19 @@ mod tests {
         };
         let cs = CombatState {
             player,
-            enemy: Enemy {
+            enemies: vec![Enemy {
                 kind: EnemyKind::Louse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
                 statuses: StatusMap::new(),
-            },
+            }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         };
         let state = GameState::Combat { state: cs, floor: 0 };
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
         assert!(cr.player.deck.contains(&Card::Disarm), "Disarm should be back in deck");
         assert!(cr.player.exhaust_pile.is_empty(), "exhaust pile should be cleared");
@@ -807,11 +808,38 @@ mod tests {
     #[test]
     fn combat_commands_rejected_in_card_reward_state() {
         let state = combat_at_floor(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::CardReward(_)));
         assert_eq!(
             apply_command(state, Command::EndTurn, &mut rng()),
             Err(CommandError::InvalidPhase)
         );
+    }
+
+    // --- Phase 8: multiple enemies ---
+
+    #[test]
+    fn boss_floor_has_two_enemies() {
+        let map = GameState::Map(MapState { player: make_player(), floor: 4 });
+        let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.enemies.len(), 2);
+    }
+
+    #[test]
+    fn regular_floor_has_one_enemy() {
+        let map = GameState::Map(MapState { player: make_player(), floor: 0 });
+        let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.enemies.len(), 1);
+    }
+
+    #[test]
+    fn winning_boss_requires_all_enemies_dead() {
+        // Boss has two enemies; combat_at_floor(4) only has one at 1 HP.
+        // Use WinCombat (debug) to confirm boss victory still works.
+        let state = combat_at_floor(4);
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        assert_eq!(state, GameState::GameOver { victory: true });
     }
 }

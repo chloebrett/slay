@@ -223,37 +223,37 @@ mod tests {
     #[test]
     fn strike_deals_6_damage_to_enemy() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(14));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(14));
     }
 
     #[test]
     fn strike_emits_player_attacked_event() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::PlayerAttacked { raw: 6, damage: 6 }));
     }
 
     #[test]
     fn strike_killing_enemy_yields_victory() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        state.enemies[0].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
     }
 
     #[test]
     fn strike_killing_enemy_emits_enemy_died_event() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        state.enemies[0].hp = Hp(1);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::EnemyDied));
     }
 
     #[test]
     fn strike_moves_to_discard_after_play() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.hand.len(), 0);
         assert_eq!(state.player.discard_pile, vec![Card::Strike]);
     }
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn strike_goes_to_discard_not_exhaust() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.discard_pile, vec![Card::Strike]);
         assert!(state.player.exhaust_pile.is_empty());
     }
@@ -271,14 +271,14 @@ mod tests {
     #[test]
     fn defend_grants_5_block() {
         let state = combat_with_hand(vec![Card::Defend]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(5));
     }
 
     #[test]
     fn defend_emits_player_blocked_event() {
         let state = combat_with_hand(vec![Card::Defend]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::PlayerBlocked { amount: 5 }));
     }
 
@@ -287,28 +287,28 @@ mod tests {
     #[test]
     fn bash_deals_8_damage_to_enemy() {
         let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(12));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
     }
 
     #[test]
     fn bash_costs_2_energy() {
         let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(1));
     }
 
     #[test]
     fn bash_applies_2_vulnerable_to_enemy() {
         let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&2));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
     }
 
     #[test]
     fn bash_emits_status_applied_event() {
         let state = combat_with_hand(vec![Card::Bash]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::StatusApplied {
             target: Target::Enemy,
             status: StatusEffect::Vulnerable,
@@ -319,8 +319,8 @@ mod tests {
     #[test]
     fn strike_damage_boosted_against_vulnerable_enemy() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        state.enemies[0].statuses.insert(StatusEffect::Vulnerable, 2);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::PlayerAttacked { raw: 9, damage: 9 }));
     }
 
@@ -329,15 +329,15 @@ mod tests {
     #[test]
     fn clothesline_deals_12_damage_to_enemy() {
         let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(8));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
     }
 
     #[test]
     fn clothesline_applies_2_weak_to_enemy() {
         let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&2));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&2));
     }
 
     // --- Deadly Poison ---
@@ -345,15 +345,15 @@ mod tests {
     #[test]
     fn deadly_poison_applies_5_poison_to_enemy() {
         let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&5));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Poison), Some(&5));
     }
 
     #[test]
     fn deadly_poison_deals_no_direct_damage() {
         let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(20));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(20));
     }
 
     // --- CardType ---
@@ -398,21 +398,21 @@ mod tests {
     #[test]
     fn inflame_grants_2_strength_to_player() {
         let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
     }
 
     #[test]
     fn inflame_is_absorbed_not_discarded() {
         let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(state.player.discard_pile.is_empty());
     }
 
     #[test]
     fn inflame_is_absorbed_not_exhausted() {
         let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(state.player.exhaust_pile.is_empty());
     }
 
@@ -421,57 +421,57 @@ mod tests {
     #[test]
     fn strike_plus_deals_9_damage() {
         let state = combat_with_hand(vec![Card::StrikePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(11));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(11));
     }
 
     #[test]
     fn defend_plus_grants_8_block() {
         let state = combat_with_hand(vec![Card::DefendPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(8));
     }
 
     #[test]
     fn bash_plus_deals_10_damage() {
         let state = combat_with_hand(vec![Card::BashPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(10));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
     }
 
     #[test]
     fn bash_plus_applies_3_vulnerable() {
         let state = combat_with_hand(vec![Card::BashPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&3));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&3));
     }
 
     #[test]
     fn clothesline_plus_deals_14_damage() {
         let state = combat_with_hand(vec![Card::ClotheslinePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(6));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(6));
     }
 
     #[test]
     fn clothesline_plus_applies_3_weak() {
         let state = combat_with_hand(vec![Card::ClotheslinePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&3));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&3));
     }
 
     #[test]
     fn inflame_plus_grants_3_strength() {
         let state = combat_with_hand(vec![Card::InflamePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&3));
     }
 
     #[test]
     fn deadly_poison_plus_applies_7_poison() {
         let state = combat_with_hand(vec![Card::DeadlyPoisonPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&7));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Poison), Some(&7));
     }
 
     // --- Card::upgrade() ---
@@ -521,14 +521,14 @@ mod tests {
     #[test]
     fn disarm_applies_minus_2_strength_to_enemy() {
         let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Strength), Some(&-2));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength), Some(&-2));
     }
 
     #[test]
     fn disarm_goes_to_exhaust_pile_not_discard() {
         let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
         assert!(state.player.discard_pile.is_empty());
     }
@@ -536,25 +536,25 @@ mod tests {
     #[test]
     fn disarm_emits_card_exhausted_event() {
         let state = combat_with_hand(vec![Card::Disarm]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::CardExhausted { card: Card::Disarm }));
     }
 }
 
-pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>) {
+pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize) {
     match card {
-        Card::Strike      => strike::apply(state, events, 6),
-        Card::StrikePlus  => strike::apply(state, events, 9),
-        Card::Defend      => defend::apply(state, events, 5),
-        Card::DefendPlus  => defend::apply(state, events, 8),
-        Card::Bash        => bash::apply(state, events, 8, 2),
-        Card::BashPlus    => bash::apply(state, events, 10, 3),
-        Card::Clothesline      => clothesline::apply(state, events, 12, 2),
-        Card::ClotheslinePlus  => clothesline::apply(state, events, 14, 3),
-        Card::Inflame     => inflame::apply(state, events, 2),
-        Card::InflamePlus => inflame::apply(state, events, 3),
-        Card::DeadlyPoison      => deadly_poison::apply(state, events, 5),
-        Card::DeadlyPoisonPlus  => deadly_poison::apply(state, events, 7),
-        Card::Disarm => disarm::apply(state, events),
+        Card::Strike      => strike::apply(state, events, 6, target),
+        Card::StrikePlus  => strike::apply(state, events, 9, target),
+        Card::Defend      => defend::apply(state, events, 5, target),
+        Card::DefendPlus  => defend::apply(state, events, 8, target),
+        Card::Bash        => bash::apply(state, events, 8, 2, target),
+        Card::BashPlus    => bash::apply(state, events, 10, 3, target),
+        Card::Clothesline      => clothesline::apply(state, events, 12, 2, target),
+        Card::ClotheslinePlus  => clothesline::apply(state, events, 14, 3, target),
+        Card::Inflame     => inflame::apply(state, events, 2, target),
+        Card::InflamePlus => inflame::apply(state, events, 3, target),
+        Card::DeadlyPoison      => deadly_poison::apply(state, events, 5, target),
+        Card::DeadlyPoisonPlus  => deadly_poison::apply(state, events, 7, target),
+        Card::Disarm => disarm::apply(state, events, target),
     }
 }

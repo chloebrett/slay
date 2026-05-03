@@ -28,9 +28,17 @@ fn parse_combat(s: &str, debug: bool) -> Option<Command> {
         return Some(Command::WinCombat);
     }
     let num_str = s.strip_prefix("play ").unwrap_or(s);
-    if let Ok(n) = num_str.trim().parse::<usize>() {
-        if n > 0 {
-            return Some(Command::PlayCard(n - 1));
+    let parts: Vec<&str> = num_str.trim().splitn(2, ' ').collect();
+    if let Ok(card_n) = parts[0].parse::<usize>() {
+        if card_n > 0 {
+            let target = if parts.len() > 1 {
+                let t: usize = parts[1].trim().parse().ok()?;
+                if t == 0 { return None; }
+                t - 1
+            } else {
+                0
+            };
+            return Some(Command::PlayCard(card_n - 1, target));
         }
     }
     match s {

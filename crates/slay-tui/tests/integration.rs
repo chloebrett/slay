@@ -1,6 +1,6 @@
 use slay_core::{
     apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
-    EnemyKind, Energy, GameState, Hp, Intent, MapState, NoOpRng, Player, RestSiteState, StatusMap,
+    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -36,14 +36,14 @@ impl TestHarness {
                     deck: starter_deck(),
                     gold: 0,
                 },
-                enemy: Enemy {
+                enemies: vec![Enemy {
                     kind: EnemyKind::Louse,
                     hp: Hp(20),
                     max_hp: Hp(20),
                     block: Block(0),
                     intent: Intent::Attack(8),
                     statuses: StatusMap::new(),
-                },
+                }],
                 turn: 1,
                 phase: CombatPhase::PlayerTurn,
             },
@@ -88,15 +88,8 @@ impl TestHarness {
 
     fn enemy_hp(&self) -> i32 {
         match &self.state {
-            GameState::Combat { state, .. } => state.enemy.hp.0,
+            GameState::Combat { state, .. } => state.enemies[0].hp.0,
             _ => panic!("not in combat"),
-        }
-    }
-
-    fn combat_phase(&self) -> Option<&CombatPhase> {
-        match &self.state {
-            GameState::Combat { state, .. } => Some(&state.phase),
-            _ => None,
         }
     }
 
@@ -170,21 +163,21 @@ fn enemy_alternates_attack_and_defend_intents() {
     }
     let intent_attack = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemy.intent == Intent::Attack(8)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Attack(8)
     );
     assert!(intent_attack);
 
     game.send("end").unwrap();
     let intent_defend = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemy.intent == Intent::Defend(5)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Defend(5)
     );
     assert!(intent_defend);
 
     game.send("end").unwrap();
     let intent_attack2 = matches!(
         &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemy.intent == Intent::Attack(8)
+        GameState::Combat { state: cs, .. } if cs.enemies[0].intent == Intent::Attack(8)
     );
     assert!(intent_attack2);
 }
@@ -199,7 +192,7 @@ fn enemy_block_from_defend_absorbs_player_attack() {
     game.send("end").unwrap(); // enemy defends; now turn 3, enemy has 5 block
 
     let enemy_block = match &game.state {
-        GameState::Combat { state, .. } => state.enemy.block,
+        GameState::Combat { state, .. } => state.enemies[0].block,
         _ => panic!("not in combat"),
     };
     assert_eq!(enemy_block, slay_core::Block(5));
@@ -208,7 +201,7 @@ fn enemy_block_from_defend_absorbs_player_attack() {
     assert_eq!(game.enemy_hp(), 19);
 
     let enemy_block2 = match &game.state {
-        GameState::Combat { state, .. } => state.enemy.block,
+        GameState::Combat { state, .. } => state.enemies[0].block,
         _ => panic!("not in combat"),
     };
     assert_eq!(enemy_block2, slay_core::Block(0));
@@ -220,7 +213,7 @@ fn enemy_block_from_defend_absorbs_player_attack() {
 fn choosing_card_reward_adds_card_to_deck() {
     let mut game = TestHarness::with_hand(vec![Card::Strike]);
     if let GameState::Combat { state, .. } = &mut game.state {
-        state.enemy.hp = Hp(1);
+        state.enemies[0].hp = Hp(1);
         state.player.deck = vec![Card::Strike; 5];
     }
     game.send("play 1").unwrap(); // kills enemy → CardReward
@@ -234,7 +227,7 @@ fn choosing_card_reward_adds_card_to_deck() {
 fn skipping_reward_leaves_deck_unchanged() {
     let mut game = TestHarness::with_hand(vec![Card::Strike]);
     if let GameState::Combat { state, .. } = &mut game.state {
-        state.enemy.hp = Hp(1);
+        state.enemies[0].hp = Hp(1);
         state.player.deck = vec![Card::Strike; 5];
     }
     game.send("play 1").unwrap(); // kills enemy → CardReward
@@ -274,9 +267,12 @@ fn rest_heals_player_hp() {
 
 fn set_instant_win(state: &mut GameState) {
     if let GameState::Combat { state: cs, .. } = state {
-        cs.enemy.hp = Hp(1);
-        cs.player.hand = vec![Card::Strike];
-        cs.player.energy = Energy(1);
+        for enemy in &mut cs.enemies {
+            enemy.hp = Hp(1);
+        }
+        let count = cs.enemies.len();
+        cs.player.hand = vec![Card::Strike; count];
+        cs.player.energy = Energy(count as i32);
     }
 }
 
@@ -294,9 +290,10 @@ fn full_run_reaches_victory() {
     game.send("1").unwrap(); // enter rest site
     game.send("rest").unwrap(); // rest → Map floor 4
 
-    game.send("1").unwrap(); // enter boss
+    game.send("1").unwrap(); // enter boss (2 enemies)
     set_instant_win(&mut game.state);
-    game.send("play 1").unwrap(); // kill boss → GameOver
+    game.send("play 1").unwrap(); // kill enemy 1
+    game.send("play 1").unwrap(); // auto-target enemy 2 → GameOver
 
     assert!(matches!(game.state, GameState::GameOver { victory: true }));
 }
@@ -378,7 +375,7 @@ fn disarm_goes_to_exhaust_pile_after_play() {
 
 #[test]
 fn upgrade_at_rest_site_replaces_card_in_deck() {
-    use slay_core::{MapState, RestSiteState};
+    use slay_core::RestSiteState;
     let player = Player {
         hp: Hp(80), max_hp: Hp(80), block: Block(0),
         energy: Energy(3), max_energy: Energy(3),

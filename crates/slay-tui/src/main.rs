@@ -165,16 +165,21 @@ fn render_card_reward(cr: &CardRewardState) {
 }
 
 fn render_combat(state: &CombatState) {
-    let enemy_status_str = statuses_inline(&state.enemy.statuses);
-    println!(
-        "[ {} ] HP: {}/{}  Block: {}  | Intent: {}{}",
-        state.enemy.name(),
-        state.enemy.hp.0,
-        state.enemy.max_hp.0,
-        state.enemy.block.0,
-        describe_intent(&state.enemy.intent),
-        enemy_status_str,
-    );
+    let multi = state.enemies.len() > 1;
+    for (i, enemy) in state.enemies.iter().enumerate() {
+        let status_str = statuses_inline(&enemy.statuses);
+        let prefix = if multi { format!("[{}] ", i + 1) } else { String::new() };
+        println!(
+            "{}[ {} ] HP: {}/{}  Block: {}  | Intent: {}{}",
+            prefix,
+            enemy.name(),
+            enemy.hp.0,
+            enemy.max_hp.0,
+            enemy.block.0,
+            describe_intent(&enemy.intent),
+            status_str,
+        );
+    }
     let player_status_str = statuses_inline(&state.player.statuses);
     println!(
         "[ You  ] HP: {}/{}  Block: {}  Energy: {}/{}  (Turn {}){}",
@@ -186,6 +191,8 @@ fn render_combat(state: &CombatState) {
         state.turn,
         player_status_str,
     );
+    let dummy = StatusMap::new();
+    let target_statuses = state.enemies.first().map_or(&dummy, |e| &e.statuses);
     if state.player.hand.is_empty() {
         println!("Hand: (empty)");
     } else {
@@ -193,7 +200,7 @@ fn render_combat(state: &CombatState) {
         for (i, card) in state.player.hand.iter().enumerate() {
             let affordable = card.energy_cost() <= state.player.energy;
             let prefix = if affordable { " " } else { "×" };
-            let desc = card.effective_description(&state.player.statuses, &state.enemy.statuses);
+            let desc = card.effective_description(&state.player.statuses, target_statuses);
             println!(
                 "  {}[{}] {} ({}) — {}",
                 prefix,
@@ -204,9 +211,11 @@ fn render_combat(state: &CombatState) {
             );
         }
     }
+    let targeting_hint = if multi { "  |  N T to target enemy" } else { "" };
     println!(
-        "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
-        state.player.hand.len().max(1)
+        "Commands: [1-{}] play card{}  |  end / e  end turn  |  z draw  x discard  c exhaust",
+        state.player.hand.len().max(1),
+        targeting_hint,
     );
 }
 

@@ -46,7 +46,7 @@ pub enum CombatPhase {
 #[derive(Debug, Clone, PartialEq)]
 pub struct CombatState {
     pub player: Player,
-    pub enemy: Enemy,
+    pub enemies: Vec<Enemy>,
     pub turn: u32,
     pub phase: CombatPhase,
 }
@@ -68,12 +68,10 @@ impl CombatState {
             deck,
             gold: 0,
         };
-        Self::from_player(player, EnemyKind::Louse, rng)
+        Self::from_player(player, vec![EnemyKind::Louse], rng)
     }
 
-    pub fn from_player(player: Player, enemy_kind: EnemyKind, rng: &mut impl Rng) -> Self {
-        let max_hp = enemy_kind.max_hp();
-        let intent = enemies::next_intent(&enemy_kind, 1);
+    pub fn from_player(player: Player, enemy_kinds: Vec<EnemyKind>, rng: &mut impl Rng) -> Self {
         let mut draw_pile = player.deck.clone();
         rng.shuffle(&mut draw_pile);
         let mut p = Player {
@@ -87,16 +85,23 @@ impl CombatState {
             ..player
         };
         draw_cards(&mut p, 5, rng);
+        let enemies = enemy_kinds
+            .iter()
+            .map(|kind| {
+                let max_hp = kind.max_hp();
+                Enemy {
+                    kind: kind.clone(),
+                    hp: max_hp,
+                    max_hp,
+                    block: Block(0),
+                    intent: enemies::next_intent(kind, 1),
+                    statuses: StatusMap::new(),
+                }
+            })
+            .collect();
         Self {
             player: p,
-            enemy: Enemy {
-                kind: enemy_kind,
-                hp: max_hp,
-                max_hp,
-                block: Block(0),
-                intent,
-                statuses: StatusMap::new(),
-            },
+            enemies,
             turn: 1,
             phase: CombatPhase::PlayerTurn,
         }
@@ -159,7 +164,7 @@ pub(crate) fn apply_combat_command(
     let mut events = Vec::new();
 
     match command {
-        Command::PlayCard(index) => {
+        Command::PlayCard(index, target_idx) => {
             if state.phase != CombatPhase::PlayerTurn {
                 return Err(CommandError::InvalidPhase);
             }
@@ -170,19 +175,30 @@ pub(crate) fn apply_combat_command(
             if state.player.energy < card.energy_cost() {
                 return Err(CommandError::NotEnoughEnergy);
             }
+            // Resolve target: use specified if alive, else first living; out-of-bounds is error
+            let actual_target = if target_idx >= state.enemies.len() {
+                return Err(CommandError::InvalidCard);
+            } else if state.enemies[target_idx].hp > Hp(0) {
+                target_idx
+            } else {
+                state.enemies.iter().position(|e| e.hp > Hp(0))
+                    .ok_or(CommandError::InvalidCard)?
+            };
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
             events.push(Event::CardPlayed { card: card.clone() });
-            crate::cards::apply(&card, &mut state, &mut events);
+            crate::cards::apply(&card, &mut state, &mut events, actual_target);
             if card.exhausts() {
                 events.push(Event::CardExhausted { card: card.clone() });
                 state.player.exhaust_pile.push(card.clone());
             } else if card.card_type() != crate::cards::CardType::Power {
                 state.player.discard_pile.push(card.clone());
             }
-            if state.enemy.hp <= Hp(0) {
-                state.phase = CombatPhase::Victory;
+            if state.enemies[actual_target].hp <= Hp(0) {
                 events.push(Event::EnemyDied);
+            }
+            if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                state.phase = CombatPhase::Victory;
             }
         }
         Command::EndTurn => {
@@ -192,15 +208,20 @@ pub(crate) fn apply_combat_command(
             events.push(Event::TurnEnded);
             state.player.discard_pile.append(&mut state.player.hand);
             tick_statuses(&mut state.player.statuses);
-            let poison_dmg = drain_poison(&mut state.enemy.statuses);
-            if poison_dmg > 0 {
-                state.enemy.hp.0 = (state.enemy.hp.0 - poison_dmg).max(0);
-                events.push(Event::EnemyPoisoned { damage: poison_dmg });
-                if state.enemy.hp <= Hp(0) {
-                    state.phase = CombatPhase::Victory;
-                    events.push(Event::EnemyDied);
-                    return Ok((state, events));
+            for i in 0..state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { continue; }
+                let poison_dmg = drain_poison(&mut state.enemies[i].statuses);
+                if poison_dmg > 0 {
+                    state.enemies[i].hp.0 = (state.enemies[i].hp.0 - poison_dmg).max(0);
+                    events.push(Event::EnemyPoisoned { damage: poison_dmg });
+                    if state.enemies[i].hp <= Hp(0) {
+                        events.push(Event::EnemyDied);
+                    }
                 }
+            }
+            if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                state.phase = CombatPhase::Victory;
+                return Ok((state, events));
             }
             state.phase = CombatPhase::EnemyTurn;
         }
@@ -217,9 +238,25 @@ pub(crate) fn apply_combat_command(
             if state.phase != CombatPhase::EnemyTurn {
                 return Err(CommandError::InvalidPhase);
             }
-            state.enemy.block = Block(0);
-            execute_intent(&mut state, &mut events);
-            tick_statuses(&mut state.enemy.statuses);
+            for i in 0..state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { continue; }
+                state.enemies[i].block = Block(0);
+                // Clone to avoid borrowing state.enemies[i] and state.player simultaneously
+                let intent = state.enemies[i].intent;
+                let enemy_statuses = state.enemies[i].statuses.clone();
+                match intent {
+                    Intent::Attack(n) => {
+                        let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
+                        let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
+                        events.push(Event::EnemyAttacked { raw: effective, damage });
+                    }
+                    Intent::Defend(n) => {
+                        state.enemies[i].block = Block(state.enemies[i].block.0 + n);
+                        events.push(Event::EnemyDefended { amount: n });
+                    }
+                }
+                tick_statuses(&mut state.enemies[i].statuses);
+            }
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
@@ -230,9 +267,12 @@ pub(crate) fn apply_combat_command(
                 state.player.block = Block(0);
                 state.player.energy = state.player.max_energy;
                 state.turn += 1;
-                let next = enemies::next_intent(&state.enemy.kind, state.turn);
-                state.enemy.intent = next;
-                events.push(Event::IntentRevealed { intent: next });
+                for enemy in state.enemies.iter_mut() {
+                    if enemy.hp > Hp(0) {
+                        enemy.intent = enemies::next_intent(&enemy.kind, state.turn);
+                        events.push(Event::IntentRevealed { intent: enemy.intent });
+                    }
+                }
                 draw_cards(&mut state.player, 5, rng);
                 state.phase = CombatPhase::PlayerTurn;
                 events.push(Event::TurnStarted { turn: state.turn });
@@ -241,20 +281,6 @@ pub(crate) fn apply_combat_command(
     }
 
     Ok((state, events))
-}
-
-fn execute_intent(state: &mut CombatState, events: &mut Vec<Event>) {
-    match state.enemy.intent {
-        Intent::Attack(n) => {
-            let effective = crate::status::resolve_damage(n, &state.enemy.statuses, &state.player.statuses);
-            let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
-            events.push(Event::EnemyAttacked { raw: effective, damage });
-        }
-        Intent::Defend(n) => {
-            state.enemy.block = Block(state.enemy.block.0 + n);
-            events.push(Event::EnemyDefended { amount: n });
-        }
-    }
 }
 
 pub(crate) fn apply_status(
@@ -293,14 +319,45 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             deck: Vec::new(),
             gold: 0,
         },
-        enemy: Enemy {
+        enemies: vec![Enemy {
             kind: EnemyKind::Louse,
             hp: Hp(20),
             max_hp: Hp(20),
             block: Block(0),
             intent: Intent::Attack(8),
             statuses: StatusMap::new(),
+        }],
+        turn: 1,
+        phase: CombatPhase::PlayerTurn,
+    }
+}
+
+#[cfg(test)]
+pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
+    let louse = || Enemy {
+        kind: EnemyKind::Louse,
+        hp: Hp(20),
+        max_hp: Hp(20),
+        block: Block(0),
+        intent: Intent::Attack(8),
+        statuses: StatusMap::new(),
+    };
+    CombatState {
+        player: Player {
+            hp: Hp(80),
+            max_hp: Hp(80),
+            block: Block(0),
+            energy: Energy(3),
+            max_energy: Energy(3),
+            hand,
+            draw_pile: Vec::new(),
+            discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
+            statuses: StatusMap::new(),
+            deck: Vec::new(),
+            gold: 0,
         },
+        enemies: vec![louse(), louse()],
         turn: 1,
         phase: CombatPhase::PlayerTurn,
     }
@@ -324,8 +381,6 @@ mod tests {
         super::apply_combat_command(state, cmd, rng)
     }
 
-    // Runs EndTurn followed by EndEnemyTurn — for tests that don't care about
-    // the intermediate EnemyTurn state.
     fn end_turn_full(
         state: CombatState,
         rng: &mut impl Rng,
@@ -378,7 +433,6 @@ mod tests {
         let mut state = combat_with_hand(vec![Card::Strike, Card::Defend]);
         state.player.draw_pile = vec![Card::Strike; 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        // draw pile had 5 cards → those fill the new hand; original 2 stay in discard
         assert_eq!(state.player.hand.len(), 5);
         assert!(state.player.discard_pile.contains(&Card::Strike));
         assert!(state.player.discard_pile.contains(&Card::Defend));
@@ -389,7 +443,6 @@ mod tests {
         let mut state = combat_with_hand(Vec::new());
         state.player.discard_pile = vec![Card::Strike, Card::Defend, Card::Strike];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        // Only 3 cards available — all should be drawn
         assert_eq!(state.player.hand.len(), 3);
         assert!(state.player.discard_pile.is_empty());
     }
@@ -405,7 +458,7 @@ mod tests {
     #[test]
     fn playing_a_card_costs_energy() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(2));
     }
 
@@ -422,7 +475,7 @@ mod tests {
     fn cannot_play_card_without_sufficient_energy() {
         let mut state = combat_with_hand(vec![Card::Strike]);
         state.player.energy = Energy(0);
-        let result = apply_command(state, Command::PlayCard(0), &mut rng());
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::NotEnoughEnergy));
     }
 
@@ -488,14 +541,13 @@ mod tests {
     #[test]
     fn enemy_hp_does_not_go_below_zero() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(0));
+        state.enemies[0].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(0));
     }
 
     #[test]
     fn player_hp_does_not_go_below_zero() {
-        // EndEnemyTurn fires Attack(8); with 1 HP result should be Hp(0) not Hp(-7)
         let mut state = combat_with_hand(Vec::new());
         state.player.hp = Hp(1);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
@@ -507,18 +559,18 @@ mod tests {
     #[test]
     fn invalid_card_index_returns_error() {
         let state = combat_with_hand(vec![Card::Strike]);
-        let result = apply_command(state, Command::PlayCard(5), &mut rng());
+        let result = apply_command(state, Command::PlayCard(5, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidCard));
     }
 
     #[test]
     fn commands_rejected_after_victory() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        state.enemies[0].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
 
-        let result = apply_command(state, Command::PlayCard(0), &mut rng());
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::CombatOver));
     }
 
@@ -538,7 +590,7 @@ mod tests {
     #[test]
     fn new_combat_sets_initial_attack_intent() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.enemy.intent, Intent::Attack(8));
+        assert_eq!(state.enemies[0].intent, Intent::Attack(8));
     }
 
     #[test]
@@ -568,7 +620,7 @@ mod tests {
         let state = combat_with_hand(Vec::new());
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.turn, 2);
-        assert_eq!(state.enemy.intent, Intent::Defend(5));
+        assert_eq!(state.enemies[0].intent, Intent::Defend(5));
     }
 
     #[test]
@@ -577,21 +629,21 @@ mod tests {
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.turn, 3);
-        assert_eq!(state.enemy.intent, Intent::Attack(8));
+        assert_eq!(state.enemies[0].intent, Intent::Attack(8));
     }
 
     #[test]
     fn defend_intent_grants_enemy_block() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.intent = Intent::Defend(5);
+        state.enemies[0].intent = Intent::Defend(5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.enemy.block, Block(5));
+        assert_eq!(state.enemies[0].block, Block(5));
     }
 
     #[test]
     fn defend_intent_emits_enemy_defended_event() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.intent = Intent::Defend(5);
+        state.enemies[0].intent = Intent::Defend(5);
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         assert!(events.contains(&Event::EnemyDefended { amount: 5 }));
     }
@@ -599,7 +651,7 @@ mod tests {
     #[test]
     fn defend_intent_does_not_damage_player() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.intent = Intent::Defend(5);
+        state.enemies[0].intent = Intent::Defend(5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(80));
     }
@@ -607,40 +659,35 @@ mod tests {
     #[test]
     fn enemy_block_absorbs_player_strike_damage() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.block = Block(4);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        // Strike does 6 damage; 4 absorbed by block, 2 remainder to HP
-        assert_eq!(state.enemy.block, Block(0));
-        assert_eq!(state.enemy.hp, Hp(18));
+        state.enemies[0].block = Block(4);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].block, Block(0));
+        assert_eq!(state.enemies[0].hp, Hp(18));
     }
 
     #[test]
     fn enemy_block_fully_absorbs_player_strike() {
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.block = Block(10);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(20));
+        state.enemies[0].block = Block(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(20));
     }
 
     #[test]
     fn enemy_block_resets_when_enemy_acts() {
-        // Pre-existing block should reset to 0 before the intent fires,
-        // so a Defend(5) intent yields exactly 5 block — not 10 stacked.
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.block = Block(5);
-        state.enemy.intent = Intent::Defend(5);
+        state.enemies[0].block = Block(5);
+        state.enemies[0].intent = Intent::Defend(5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.enemy.block, Block(5));
+        assert_eq!(state.enemies[0].block, Block(5));
     }
 
     #[test]
     fn enemy_block_persists_through_player_turn() {
-        // After a Defend turn, the enemy carries block into the player's next turn.
         let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.intent = Intent::Defend(5);
+        state.enemies[0].intent = Intent::Defend(5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        // Block should still be 5 at the start of player's next turn
-        assert_eq!(state.enemy.block, Block(5));
+        assert_eq!(state.enemies[0].block, Block(5));
     }
 
     // --- Phase 4: status effects ---
@@ -649,28 +696,28 @@ mod tests {
     fn vulnerable_ticks_down_after_enemy_turn() {
         use crate::status::StatusEffect;
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        state.enemies[0].statuses.insert(StatusEffect::Vulnerable, 2);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&1));
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&1));
     }
 
     #[test]
     fn vulnerable_expires_after_two_enemy_turns() {
         use crate::status::StatusEffect;
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        state.enemies[0].statuses.insert(StatusEffect::Vulnerable, 2);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert!(!state.enemy.statuses.contains_key(&StatusEffect::Vulnerable));
+        assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Vulnerable));
     }
 
     #[test]
     fn weak_ticks_down_after_enemy_turn() {
         use crate::status::StatusEffect;
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Weak, 2);
+        state.enemies[0].statuses.insert(StatusEffect::Weak, 2);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&1));
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&1));
     }
 
     // --- Phase 4.5: poison ---
@@ -678,16 +725,15 @@ mod tests {
     #[test]
     fn poison_deals_damage_at_start_of_enemy_turn() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 3);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        // Poison deals 3 to enemy HP (ignoring block), then ticks to 2
-        assert_eq!(state.enemy.hp, Hp(17));
+        assert_eq!(state.enemies[0].hp, Hp(17));
     }
 
     #[test]
     fn poison_emits_enemy_poisoned_event() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 3);
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
         assert!(events.contains(&Event::EnemyPoisoned { damage: 3 }));
     }
@@ -695,38 +741,37 @@ mod tests {
     #[test]
     fn poison_decrements_after_triggering() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 3);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&2));
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Poison), Some(&2));
     }
 
     #[test]
     fn poison_expires_when_stacks_reach_zero() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Poison, 1);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 1);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert!(!state.enemy.statuses.contains_key(&StatusEffect::Poison));
+        assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Poison));
     }
 
     #[test]
     fn poison_ignores_enemy_block() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Poison, 5);
-        state.enemy.block = Block(10);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 5);
+        state.enemies[0].block = Block(10);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
-        // Poison bypasses block entirely
-        assert_eq!(state.enemy.hp, Hp(15));
+        assert_eq!(state.enemies[0].hp, Hp(15));
     }
 
     #[test]
     fn poison_killing_enemy_prevents_their_attack() {
         let mut state = combat_with_hand(Vec::new());
-        state.enemy.hp = Hp(3);
-        state.enemy.statuses.insert(StatusEffect::Poison, 5);
+        state.enemies[0].hp = Hp(3);
+        state.enemies[0].statuses.insert(StatusEffect::Poison, 5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
-        assert_eq!(state.player.hp, Hp(80)); // enemy never attacked
+        assert_eq!(state.player.hp, Hp(80));
     }
 
     // --- Phase 4.5: strength ---
@@ -746,7 +791,7 @@ mod tests {
     fn cannot_play_card_during_enemy_turn() {
         let state = combat_with_hand(vec![Card::Strike]);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
-        let result = apply_command(state, Command::PlayCard(0), &mut rng());
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidPhase));
     }
 
@@ -769,8 +814,66 @@ mod tests {
     fn intent_revealed_event_fires_at_turn_start() {
         let state = combat_with_hand(Vec::new());
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
-        // After full cycle: turn 2's intent is Defend(5)
         assert!(events.contains(&Event::IntentRevealed { intent: Intent::Defend(5) }));
     }
 
+    // --- Phase 8: targeting ---
+
+    #[test]
+    fn play_card_targets_second_enemy() {
+        let state = combat_with_two_enemies(vec![Card::Strike]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 1), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(20));
+        assert_eq!(state.enemies[1].hp, Hp(14));
+    }
+
+    #[test]
+    fn play_card_auto_targets_living_enemy_when_specified_is_dead() {
+        let mut state = combat_with_two_enemies(vec![Card::Strike]);
+        state.enemies[0].hp = Hp(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[1].hp, Hp(14));
+    }
+
+    #[test]
+    fn play_card_out_of_bounds_target_returns_error() {
+        let state = combat_with_hand(vec![Card::Strike]);
+        let result = apply_command(state, Command::PlayCard(0, 5), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn both_enemies_attack_on_enemy_turn() {
+        let mut state = combat_with_two_enemies(Vec::new());
+        state.player.draw_pile = vec![Card::Strike; 5];
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(64)); // 80 - 8 - 8
+    }
+
+    #[test]
+    fn dead_enemy_skips_their_turn() {
+        let mut state = combat_with_two_enemies(Vec::new());
+        state.enemies[0].hp = Hp(0); // first enemy already dead
+        state.player.draw_pile = vec![Card::Strike; 5];
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(72)); // only one attack (8 dmg)
+    }
+
+    #[test]
+    fn killing_last_enemy_wins_combat() {
+        let mut state = combat_with_two_enemies(vec![Card::Strike, Card::Strike]);
+        state.enemies[0].hp = Hp(0); // first already dead
+        state.enemies[1].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Victory);
+    }
+
+    #[test]
+    fn killing_one_enemy_does_not_win_if_other_alive() {
+        let mut state = combat_with_two_enemies(vec![Card::Strike]);
+        state.enemies[0].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+        assert_eq!(state.enemies[1].hp, Hp(20));
+    }
 }
