@@ -3,7 +3,7 @@ use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
 use crate::relics::Relic;
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, tick_ritual, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_damage, tick_ritual, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +36,14 @@ pub struct Enemy {
 
 impl Enemy {
     pub fn name(&self) -> &'static str { self.kind.name() }
+
+    pub fn effective_intent(&self, player_statuses: &StatusMap) -> Intent {
+        match self.move_.intent() {
+            Intent::Attack(n) => Intent::Attack(resolve_damage(n, &self.statuses, player_statuses)),
+            Intent::AttackDefend(d, b) => Intent::AttackDefend(resolve_damage(d, &self.statuses, player_statuses), b),
+            other => other,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -919,5 +927,33 @@ mod tests {
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::PlayerTurn);
         assert_eq!(state.enemies[1].hp, Hp(20));
+    }
+
+    #[test]
+    fn effective_intent_includes_enemy_strength() {
+        let mut enemy = Enemy {
+            kind: EnemyKind::Louse,
+            hp: Hp(20), max_hp: Hp(20), block: Block(0),
+            move_: Move::LouseBite,
+            last_move: None,
+            statuses: StatusMap::new(),
+        };
+        enemy.statuses.insert(StatusEffect::Strength, 3);
+        let player_statuses = StatusMap::new();
+        assert_eq!(enemy.effective_intent(&player_statuses), Intent::Attack(11));
+    }
+
+    #[test]
+    fn effective_intent_applies_enemy_weak() {
+        let mut enemy = Enemy {
+            kind: EnemyKind::Louse,
+            hp: Hp(20), max_hp: Hp(20), block: Block(0),
+            move_: Move::LouseBite,
+            last_move: None,
+            statuses: StatusMap::new(),
+        };
+        enemy.statuses.insert(StatusEffect::Weak, 1);
+        let player_statuses = StatusMap::new();
+        assert_eq!(enemy.effective_intent(&player_statuses), Intent::Attack(6));
     }
 }

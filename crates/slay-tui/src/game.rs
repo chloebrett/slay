@@ -218,7 +218,7 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
             enemy.hp.0,
             enemy.max_hp.0,
             enemy.block.0,
-            describe_intent(&enemy.move_.intent()),
+            describe_intent(&enemy.effective_intent(&state.player.statuses)),
             status_str,
         );
     }
