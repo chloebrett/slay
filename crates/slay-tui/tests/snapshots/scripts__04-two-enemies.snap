@@ -35,6 +35,7 @@ Slay the Spire
 [2] 🐦 Cultist ❤️  50/50  🛡️ 0  | ✨ Buff
 🤚 Hand: (empty)
 🎯 Targeting: "1 1" → enemy [1]  ·  "1 2" → enemy [2]
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > end
 ⚔️  Enemy attacks 8.
@@ -48,4 +49,5 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 [2] 🐦 Cultist ❤️  50/50  🛡️ 0  | ⚔️  Attack 6  [🔮3]
 🤚 Hand: (empty)
 🎯 Targeting: "1 1" → enemy [1]  ·  "1 2" → enemy [2]
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust

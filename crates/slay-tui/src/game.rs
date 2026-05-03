@@ -84,7 +84,7 @@ pub fn run_game(
                 render(&state, writer);
             }
             Err(e) => {
-                let _ = writeln!(writer, "Error: {e:?}\n");
+                let _ = writeln!(writer, "{e}\n");
             }
         }
     }
@@ -250,6 +250,13 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
             .collect();
         let _ = writeln!(w, "🎯 Targeting: {}", labels.join("  ·  "));
     }
+    let _ = writeln!(
+        w,
+        "Draw: {}  Discard: {}  Exhaust: {}",
+        state.player.draw_pile.len(),
+        state.player.discard_pile.len(),
+        state.player.exhaust_pile.len(),
+    );
     let _ = writeln!(
         w,
         "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",

@@ -34,6 +34,7 @@ Slay the Spire
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
 🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
 🤚 Hand: (empty)
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add defend
 
@@ -41,6 +42,7 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > 1
 ▶ You play Defend.
@@ -49,6 +51,7 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🧙 You  ❤️  80/80  🛡️ 5  ⚡ 2/3  (Turn 1)
 🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
 🤚 Hand: (empty)
+Draw: 0  Discard: 1  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > end
 ⚔️  Enemy attacks 8. (5 blocked, 3 damage)
@@ -59,4 +62,5 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🐛 Louse ❤️  20/20  🛡️ 0  | 🛡️  Defend 5
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust

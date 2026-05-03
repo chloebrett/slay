@@ -34,6 +34,7 @@ Slay the Spire
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
 🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
 🤚 Hand: (empty)
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > end
 ⚔️  Enemy attacks 8.
@@ -43,4 +44,5 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🧙 You  ❤️  72/80  🛡️ 0  ⚡ 3/3  (Turn 2)
 🐛 Louse ❤️  20/20  🛡️ 0  | 🛡️  Defend 5
 🤚 Hand: (empty)
+Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust

@@ -40,6 +40,18 @@ pub enum CommandError {
     InvalidPhase,
 }
 
+impl std::fmt::Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            CommandError::NotEnoughEnergy => "Not enough energy.",
+            CommandError::InvalidCard     => "No card at that position.",
+            CommandError::InvalidPhase    => "Can't do that right now.",
+            CommandError::CombatOver      => "Combat is already over.",
+        };
+        f.write_str(msg)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum MapNode {
     Combat,
@@ -346,6 +358,26 @@ mod tests {
     use crate::combat::Enemy;
     use crate::enemies::Move;
     use crate::relics::Relic;
+
+    #[test]
+    fn command_error_display_not_enough_energy() {
+        assert_eq!(CommandError::NotEnoughEnergy.to_string(), "Not enough energy.");
+    }
+
+    #[test]
+    fn command_error_display_invalid_card() {
+        assert_eq!(CommandError::InvalidCard.to_string(), "No card at that position.");
+    }
+
+    #[test]
+    fn command_error_display_invalid_phase() {
+        assert_eq!(CommandError::InvalidPhase.to_string(), "Can't do that right now.");
+    }
+
+    #[test]
+    fn command_error_display_combat_over() {
+        assert_eq!(CommandError::CombatOver.to_string(), "Combat is already over.");
+    }
     use crate::rng::NoOpRng;
 
     fn rng() -> NoOpRng {
