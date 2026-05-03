@@ -122,6 +122,7 @@ pub enum Command {
     ChooseNode(usize),
     Rest,
     ChooseCardReward(usize),
+    SkipReward,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -210,7 +211,10 @@ pub(crate) fn apply_combat_command(
             }
             state.phase = CombatPhase::EnemyTurn;
         }
-        Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_) => {
+        Command::ChooseNode(_)
+        | Command::Rest
+        | Command::ChooseCardReward(_)
+        | Command::SkipReward => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {

@@ -59,5 +59,8 @@ fn parse_card_reward(s: &str) -> Option<Command> {
             return Some(Command::ChooseCardReward(n - 1));
         }
     }
-    None
+    match s {
+        "skip" | "s" => Some(Command::SkipReward),
+        _ => None,
+    }
 }

@@ -86,22 +86,38 @@ fn render(state: &GameState) {
 
 fn render_map(map: &MapState) {
     let floor = map.floor;
-    let total = slay_core::run::MAP_NODES.len();
-    println!("=== Map  (floor {}/{}) ===", floor + 1, total);
-    println!("Gold: {}", map.player.gold);
-    println!("HP:   {}/{}", map.player.hp.0, map.player.max_hp.0);
+    let nodes = slay_core::run::MAP_NODES;
+    println!("=== Map ===");
     println!(
-        "Deck: {} cards",
-        map.player.deck.len()
+        "Gold: {}   HP: {}/{}   Deck: {} cards",
+        map.player.gold,
+        map.player.hp.0,
+        map.player.max_hp.0,
+        map.player.deck.len(),
     );
     println!();
-    let node_name = match &slay_core::run::MAP_NODES[floor] {
+    for (i, node) in nodes.iter().enumerate().rev() {
+        let name = match node {
+            slay_core::MapNode::Combat => "Combat",
+            slay_core::MapNode::RestSite => "Rest Site",
+            slay_core::MapNode::Boss => "Boss",
+        };
+        let marker = if i < floor {
+            "  -"
+        } else if i == floor {
+            "  >"
+        } else {
+            "   "
+        };
+        println!("{marker} {}. {name}", i + 1);
+    }
+    println!();
+    let current_name = match &nodes[floor] {
         slay_core::MapNode::Combat => "Combat",
         slay_core::MapNode::RestSite => "Rest Site",
-        slay_core::MapNode::Boss => "Boss Combat",
+        slay_core::MapNode::Boss => "Boss",
     };
-    println!("[1] Enter: {node_name}");
-    println!("(type the number to proceed)");
+    println!("[1] Enter: {current_name}");
 }
 
 fn render_rest(rs: &RestSiteState) {
@@ -124,7 +140,7 @@ fn render_card_reward(cr: &CardRewardState) {
             card.description(),
         );
     }
-    println!("(type the number to pick)");
+    println!("(type a number to pick, or 'skip' / 's' to take nothing)");
 }
 
 fn render_combat(state: &CombatState) {
@@ -229,23 +245,22 @@ fn describe(event: &Event) -> String {
         Event::EnemyDefended { amount } => format!("Enemy gains {amount} block."),
         Event::IntentRevealed { intent } => format!("Enemy prepares: {}.", describe_intent(intent)),
         Event::PlayerBlockExpired { amount } => format!("Your {amount} block expired."),
-        Event::EnemyDied => String::new(),
+        Event::EnemyDied => "Enemy slain!".into(),
         Event::PlayerDied => "You have been slain.".into(),
         Event::EnemyPoisoned { damage } => format!("Poison deals {damage} to enemy."),
         Event::TurnEnded => String::new(),
         Event::TurnStarted { turn } => format!("--- Turn {turn} ---"),
         Event::StatusApplied { target, status, stacks } => {
-            let who = match target {
-                Target::Player => "You",
-                Target::Enemy => "Enemy",
-            };
             let name = match status {
                 StatusEffect::Vulnerable => "Vulnerable",
                 StatusEffect::Weak => "Weak",
                 StatusEffect::Poison => "Poison",
                 StatusEffect::Strength => "Strength",
             };
-            format!("{who} gains {stacks} {name}.")
+            match target {
+                Target::Player => format!("You gain {stacks} {name}."),
+                Target::Enemy => format!("Enemy gains {stacks} {name}."),
+            }
         }
         Event::GoldEarned { amount } => format!("You earn {amount} gold."),
         Event::Healed { amount } => format!("You heal for {amount} HP."),

@@ -190,6 +190,9 @@ pub fn apply_command(
                     let events = vec![Event::CardAdded { card }];
                     Ok((GameState::Map(MapState { player, floor }), events))
                 }
+                Command::SkipReward => {
+                    Ok((GameState::Map(MapState { player, floor }), Vec::new()))
+                }
                 _ => Err(CommandError::InvalidPhase),
             }
         }
@@ -568,6 +571,44 @@ mod tests {
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         if let GameState::Map(map) = state {
             assert_eq!(map.player.gold, 100);
+        } else {
+            panic!("expected Map");
+        }
+    }
+
+    #[test]
+    fn skipping_reward_returns_to_map() {
+        let state = combat_at_floor(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(matches!(state, GameState::CardReward(_)));
+        let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
+        assert!(matches!(state, GameState::Map(_)));
+    }
+
+    #[test]
+    fn skipping_reward_does_not_add_card_to_deck() {
+        let state = combat_at_floor(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let deck_size = if let GameState::CardReward(ref cr) = state {
+            cr.player.deck.len()
+        } else {
+            panic!("expected CardReward");
+        };
+        let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
+        if let GameState::Map(map) = state {
+            assert_eq!(map.player.deck.len(), deck_size);
+        } else {
+            panic!("expected Map");
+        }
+    }
+
+    #[test]
+    fn skipping_reward_advances_to_correct_floor() {
+        let state = combat_at_floor(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::SkipReward, &mut rng()).unwrap();
+        if let GameState::Map(map) = state {
+            assert_eq!(map.floor, 1);
         } else {
             panic!("expected Map");
         }
