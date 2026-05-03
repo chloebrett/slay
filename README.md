@@ -54,7 +54,7 @@ Commands:
 The big things that would make runs feel more like the real game:
 
 - Branching map — right now the map is a fixed linear path. Soon: a proper graph with Combat / Elite / Rest / Merchant / Event / Boss nodes, where you choose your route.
-- More cards — the Ironclad set has a lot more interesting decisions to make (exhaust synergies, multi-hit, self-mill). The full card list is mapped out in `plans/ironclad_cards.json`.
+- More cards — the Ironclad set has a lot more interesting decisions to make (exhaust synergies, multi-hit attacks, more powers). The full card list is mapped out in `plans/ironclad_cards.json`.
 - More relics — 28 are live, another ~60 are planned. The remaining tiers need card-play counters, HP-change hooks, and a couple of new status types (Thorns, Plating).
 - Shop — buy and remove cards, buy relics and potions.
 - TUI polish — colour-coded statuses, card cost colouring, mouse support.
