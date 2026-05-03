@@ -211,11 +211,15 @@ fn render_combat(state: &CombatState) {
             );
         }
     }
-    let targeting_hint = if multi { "  |  N T to target enemy" } else { "" };
+    if multi {
+        let labels: Vec<String> = (1..=state.enemies.len())
+            .map(|n| format!("\"1 {}\" → enemy [{}]", n, n))
+            .collect();
+        println!("Targeting: {}", labels.join("  ·  "));
+    }
     println!(
-        "Commands: [1-{}] play card{}  |  end / e  end turn  |  z draw  x discard  c exhaust",
+        "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
         state.player.hand.len().max(1),
-        targeting_hint,
     );
 }
 
