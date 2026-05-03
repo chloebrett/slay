@@ -373,7 +373,24 @@ Notes from chloe:
 
 ### 5.5
 
-- Introduce card upgrades. Attack: 6 -> 9 damage. Defend: 5 -> 8
+- Introduce card upgrades. Attack: 6 -> 9 damage. Defend: 5 -> 8. Bash: 8 -> 10 damage, 2 -> 3 vuln. Clothesline: 12->14 and 2->3.
+- Allow the player to upgrade a card at the rest site.
+- Add some debugging commands:
+- `skip` to skip the current room and move to the next.
+- `win` to set the enemy HP to zero.
+- these should be enabled via a `--debug` (or similar if that's reserved) flag in the TUI. Add tests to ensure they don't work if this flag is not enabled.
+
+---
+
+### 5.6 - multiple enemies
+
+- Make the boss battle two lice instead of one.
+- Support targeting which enemy the player wants to attack.
+
+### 5.7 - more cards!
+
+- Cleave - 8 damage to ALL enemies. Upgraded: 11 damage. Cost 1
+- Pommel strike - deal 9 damage, then draw 1 card. Upgraded: 10 dam/2 draw. Cost 1
 
 ---
 

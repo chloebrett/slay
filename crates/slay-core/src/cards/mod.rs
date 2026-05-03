@@ -1,6 +1,8 @@
 mod bash;
 mod clothesline;
 mod defend;
+mod inflame;
+mod deadly_poison;
 mod strike;
 
 use crate::status::{StatusMap, resolve_damage};
@@ -12,6 +14,8 @@ pub enum Card {
     Defend,
     Bash,
     Clothesline,
+    Inflame,
+    DeadlyPoison,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -49,6 +53,18 @@ impl Card {
                 energy_cost: Energy(2),
                 base_damage: Some(12),
             },
+            Card::Inflame => CardDef {
+                name: "Inflame",
+                description: "Gain 2 Strength.",
+                energy_cost: Energy(1),
+                base_damage: None,
+            },
+            Card::DeadlyPoison => CardDef {
+                name: "Deadly Poison",
+                description: "Apply 5 Poison.",
+                energy_cost: Energy(1),
+                base_damage: None,
+            },
         }
     }
 
@@ -67,5 +83,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Defend => defend::apply(state, events),
         Card::Bash => bash::apply(state, events),
         Card::Clothesline => clothesline::apply(state, events),
+        Card::Inflame => inflame::apply(state, events),
+        Card::DeadlyPoison => deadly_poison::apply(state, events),
     }
 }

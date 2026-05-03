@@ -121,6 +121,8 @@ fn statuses_inline(statuses: &StatusMap) -> String {
             let name = match s {
                 StatusEffect::Vulnerable => "Vuln",
                 StatusEffect::Weak => "Weak",
+                StatusEffect::Poison => "Psn",
+                StatusEffect::Strength => "Str",
             };
             format!("{name} {n}")
         })
@@ -162,6 +164,7 @@ fn describe(event: &Event) -> String {
         Event::PlayerBlockExpired { amount } => format!("Your {amount} block expired."),
         Event::EnemyDied => String::new(),
         Event::PlayerDied => "You have been slain.".into(),
+        Event::EnemyPoisoned { damage } => format!("Poison deals {damage} to enemy."),
         Event::TurnEnded => String::new(),
         Event::TurnStarted { turn } => format!("--- Turn {turn} ---"),
         Event::StatusApplied { target, status, stacks } => {
@@ -172,6 +175,8 @@ fn describe(event: &Event) -> String {
             let name = match status {
                 StatusEffect::Vulnerable => "Vulnerable",
                 StatusEffect::Weak => "Weak",
+                StatusEffect::Poison => "Poison",
+                StatusEffect::Strength => "Strength",
             };
             format!("{who} gains {stacks} {name}.")
         }

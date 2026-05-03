@@ -1,7 +1,7 @@
 use crate::cards::Card;
 use crate::enemies::{self, EnemyKind, Intent};
 use crate::rng::Rng;
-use crate::status::{StatusEffect, StatusMap, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, drain_poison, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -86,6 +86,8 @@ fn starter_deck() -> Vec<Card> {
     for _ in 0..5 { deck.push(Card::Strike); }
     for _ in 0..3 { deck.push(Card::Defend); }
     deck.push(Card::Bash);
+    deck.push(Card::Inflame);
+    deck.push(Card::DeadlyPoison);
     deck
 }
 
@@ -131,6 +133,7 @@ pub enum Event {
     PlayerBlockExpired { amount: i32 },
     TurnEnded,
     TurnStarted { turn: u32 },
+    EnemyPoisoned { damage: i32 },
     EnemyDied,
     PlayerDied,
 }
@@ -181,6 +184,16 @@ pub fn apply_command(
             events.push(Event::TurnEnded);
             state.player.discard_pile.append(&mut state.player.hand);
             tick_statuses(&mut state.player.statuses);
+            let poison_dmg = drain_poison(&mut state.enemy.statuses);
+            if poison_dmg > 0 {
+                state.enemy.hp.0 = (state.enemy.hp.0 - poison_dmg).max(0);
+                events.push(Event::EnemyPoisoned { damage: poison_dmg });
+                if state.enemy.hp <= Hp(0) {
+                    state.phase = CombatPhase::Victory;
+                    events.push(Event::EnemyDied);
+                    return Ok((state, events));
+                }
+            }
             state.phase = CombatPhase::EnemyTurn;
         }
         Command::EndEnemyTurn => {
@@ -300,9 +313,9 @@ mod tests {
     }
 
     #[test]
-    fn new_combat_leaves_4_cards_in_draw_pile() {
+    fn new_combat_leaves_6_cards_in_draw_pile() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.player.draw_pile.len(), 4);
+        assert_eq!(state.player.draw_pile.len(), 6);
     }
 
     #[test]
@@ -754,6 +767,111 @@ mod tests {
         state.enemy.statuses.insert(StatusEffect::Weak, 2);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&1));
+    }
+
+    // --- Phase 4.5: poison ---
+
+    #[test]
+    fn deadly_poison_applies_5_poison_to_enemy() {
+        let state = combat_with_hand(vec![Card::DeadlyPoison]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&5));
+    }
+
+    #[test]
+    fn deadly_poison_deals_no_direct_damage() {
+        let state = combat_with_hand(vec![Card::DeadlyPoison]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(20));
+    }
+
+    #[test]
+    fn poison_deals_damage_at_start_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        // Poison deals 3 to enemy HP (ignoring block), then ticks to 2
+        assert_eq!(state.enemy.hp, Hp(17));
+    }
+
+    #[test]
+    fn poison_emits_enemy_poisoned_event() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        let (_, events) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemyPoisoned { damage: 3 }));
+    }
+
+    #[test]
+    fn poison_decrements_after_triggering() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Poison, 3);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&2));
+    }
+
+    #[test]
+    fn poison_expires_when_stacks_reach_zero() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Poison, 1);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(!state.enemy.statuses.contains_key(&StatusEffect::Poison));
+    }
+
+    #[test]
+    fn poison_ignores_enemy_block() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Poison, 5);
+        state.enemy.block = Block(10);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // Poison bypasses block entirely
+        assert_eq!(state.enemy.hp, Hp(15));
+    }
+
+    #[test]
+    fn poison_killing_enemy_prevents_their_attack() {
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.hp = Hp(3);
+        state.enemy.statuses.insert(StatusEffect::Poison, 5);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Victory);
+        assert_eq!(state.player.hp, Hp(80)); // enemy never attacked
+    }
+
+    // --- Phase 4.5: strength ---
+
+    #[test]
+    fn inflame_grants_2_strength_to_player() {
+        let state = combat_with_hand(vec![Card::Inflame]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
+    }
+
+    #[test]
+    fn strength_increases_strike_damage() {
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(12)); // 20 - (6 + 2) = 12
+    }
+
+    #[test]
+    fn strength_applies_before_vulnerable_multiplier() {
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(8)); // 20 - ((6 + 2) * 3/2 = 12) = 8
+    }
+
+    #[test]
+    fn strength_does_not_expire_at_end_of_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        state.player.draw_pile = vec![Card::Strike; 5];
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
     }
 
     // --- Phase guards ---
