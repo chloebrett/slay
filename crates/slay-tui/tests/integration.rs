@@ -284,16 +284,16 @@ fn full_run_reaches_victory() {
     let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
 
     for _ in 0..3 {
-        game.send("1").unwrap(); // enter combat
+        game.send("").unwrap(); // enter combat
         set_instant_win(&mut game.state);
         game.send("play 1").unwrap(); // kill → CardReward
         game.send("skip").unwrap(); // skip → Map
     }
 
-    game.send("1").unwrap(); // enter rest site
+    game.send("").unwrap(); // enter rest site
     game.send("rest").unwrap(); // rest → Map floor 4
 
-    game.send("1").unwrap(); // enter boss (2 enemies)
+    game.send("").unwrap(); // enter boss (2 enemies)
     set_instant_win(&mut game.state);
     game.send("play 1").unwrap(); // kill enemy 1
     game.send("play 1").unwrap(); // auto-target enemy 2 → GameOver

@@ -1210,14 +1210,14 @@ mod tests {
         let state = cultist_combat();
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
-        // After turn 1: Cultist played Incantation → Ritual(3), then ticked → Strength(3)
+        // After turn 1: Cultist played Incantation → Ritual(3), Strength not yet gained
         assert_eq!(
             state.enemies[0].statuses.get(&crate::status::StatusEffect::Ritual).copied(),
             Some(3)
         );
         assert_eq!(
             state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
-            Some(3)
+            None
         );
     }
 
@@ -1229,14 +1229,13 @@ mod tests {
         state.player.hand.clear();
         state.player.draw_pile = vec![Card::Defend; 10];
 
-        // Turn 1: end turn → Cultist plays Incantation (gains Ritual 3, ticks → Strength 3)
+        // Turn 1: Cultist plays Incantation → gains Ritual(3), no Strength yet
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (mut state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         let hp_after_turn_1 = state.player.hp.0;
-        // Turn 1 Incantation deals no damage
         assert_eq!(hp_after_turn_1, state.player.max_hp.0);
 
-        // Turn 2: end turn → Cultist plays Dark Strike (6 + 3 Strength = 9 damage)
+        // Turn 2: Ritual ticks → Strength(3), then Dark Strike deals 6 + 3 = 9
         state.player.hand.clear();
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
@@ -1255,10 +1254,10 @@ mod tests {
             let (s, _) = apply_combat_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
             state = s;
         }
-        // After 3 turns: Ritual ticked 3×: Strength = 3 + 3 + 3 = 9
+        // After 3 turns: Ritual ticked on turns 2 and 3 → Strength = 3 + 3 = 6
         assert_eq!(
             state.enemies[0].statuses.get(&crate::status::StatusEffect::Strength).copied(),
-            Some(9)
+            Some(6)
         );
     }
 

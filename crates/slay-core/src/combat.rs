@@ -256,6 +256,7 @@ pub(crate) fn apply_combat_command(
             for i in 0..state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { continue; }
                 state.enemies[i].block = Block(0);
+                tick_ritual(&mut state.enemies[i].statuses);
                 let current_move = state.enemies[i].move_;
                 let enemy_statuses = state.enemies[i].statuses.clone();
                 for effect in current_move.def().effects {
@@ -278,7 +279,6 @@ pub(crate) fn apply_combat_command(
                         }
                     }
                 }
-                tick_ritual(&mut state.enemies[i].statuses);
                 tick_statuses(&mut state.enemies[i].statuses);
                 let last = state.enemies[i].move_;
                 state.enemies[i].last_move = Some(last);

@@ -20,10 +20,8 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
             return Relic::from_id(id.trim()).map(Command::AddRelic);
         }
     }
-    if let Ok(n) = s.trim().parse::<usize>() {
-        if n > 0 {
-            return Some(Command::ChooseNode(n - 1));
-        }
+    if s.is_empty() {
+        return Some(Command::ChooseNode(0));
     }
     None
 }

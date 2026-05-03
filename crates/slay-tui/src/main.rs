@@ -126,7 +126,7 @@ fn render_map(map: &MapState) {
         slay_core::MapNode::RestSite => ("🔥", "Rest Site"),
         slay_core::MapNode::Boss => ("💀", "Boss"),
     };
-    println!("[1] Enter: {icon} {name}");
+    println!("[Enter ↵] {icon} {name}");
 }
 
 fn render_rest(rs: &RestSiteState) {
@@ -182,6 +182,17 @@ fn enemy_icon(enemy: &Enemy) -> &'static str {
 }
 
 fn render_combat(state: &CombatState) {
+    let player_status_str = statuses_inline(&state.player.statuses);
+    println!(
+        "🧙 You  ❤️  {}/{}  🛡️ {}  ⚡ {}/{}  (Turn {}){}",
+        state.player.hp.0,
+        state.player.max_hp.0,
+        state.player.block.0,
+        state.player.energy.0,
+        state.player.max_energy.0,
+        state.turn,
+        player_status_str,
+    );
     let multi = state.enemies.len() > 1;
     for (i, enemy) in state.enemies.iter().enumerate() {
         let status_str = statuses_inline(&enemy.statuses);
@@ -198,17 +209,6 @@ fn render_combat(state: &CombatState) {
             status_str,
         );
     }
-    let player_status_str = statuses_inline(&state.player.statuses);
-    println!(
-        "🧙 You  ❤️  {}/{}  🛡️ {}  ⚡ {}/{}  (Turn {}){}",
-        state.player.hp.0,
-        state.player.max_hp.0,
-        state.player.block.0,
-        state.player.energy.0,
-        state.player.max_energy.0,
-        state.turn,
-        player_status_str,
-    );
     let dummy = StatusMap::new();
     let target_statuses = state.enemies.first().map_or(&dummy, |e| &e.statuses);
     if state.player.hand.is_empty() {
