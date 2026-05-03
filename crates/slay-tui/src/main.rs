@@ -183,6 +183,7 @@ fn render_combat(state: &CombatState) {
             );
         }
     }
+    println!("Commands: [1-{}] play card  |  end / e  end turn", state.player.hand.len().max(1));
 }
 
 fn print_events(events: &[Event]) {
