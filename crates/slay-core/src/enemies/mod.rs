@@ -1,3 +1,4 @@
+mod cultist;
 mod fungibeast;
 mod louse;
 
@@ -7,6 +8,7 @@ use crate::types::Hp;
 pub enum EnemyKind {
     Louse,
     Fungibeast,
+    Cultist,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +28,7 @@ impl EnemyKind {
         match self {
             EnemyKind::Louse => louse::DEF,
             EnemyKind::Fungibeast => fungibeast::DEF,
+            EnemyKind::Cultist => cultist::DEF,
         }
     }
 
@@ -37,6 +40,7 @@ pub fn next_intent(kind: &EnemyKind, turn: u32) -> Intent {
     match kind {
         EnemyKind::Louse => louse::next_intent(turn),
         EnemyKind::Fungibeast => fungibeast::next_intent(turn),
+        EnemyKind::Cultist => cultist::next_intent(turn),
     }
 }
 
@@ -65,6 +69,27 @@ mod tests {
     #[test]
     fn fungibeast_has_22_hp() {
         assert_eq!(EnemyKind::Fungibeast.max_hp(), Hp(22));
+    }
+
+    #[test]
+    fn cultist_has_50_hp() {
+        assert_eq!(EnemyKind::Cultist.max_hp(), Hp(50));
+    }
+
+    #[test]
+    fn cultist_incantation_on_turn_1() {
+        assert_eq!(next_intent(&EnemyKind::Cultist, 1), Intent::Defend(0));
+    }
+
+    #[test]
+    fn cultist_dark_strike_on_turn_2() {
+        assert_eq!(next_intent(&EnemyKind::Cultist, 2), Intent::Attack(6));
+    }
+
+    #[test]
+    fn cultist_dark_strike_on_all_subsequent_turns() {
+        assert_eq!(next_intent(&EnemyKind::Cultist, 3), Intent::Attack(6));
+        assert_eq!(next_intent(&EnemyKind::Cultist, 10), Intent::Attack(6));
     }
 
     #[test]

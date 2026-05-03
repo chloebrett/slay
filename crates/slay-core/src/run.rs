@@ -100,6 +100,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
 fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
     match floor {
         1 => vec![EnemyKind::Fungibeast],
+        2 => vec![EnemyKind::Cultist],
         4 => vec![EnemyKind::Louse, EnemyKind::Louse],
         _ => vec![EnemyKind::Louse],
     }
@@ -630,8 +631,8 @@ mod tests {
     }
 
     #[test]
-    fn floor_2_spawns_louse() {
-        assert_eq!(enemies_for_floor(2), vec![EnemyKind::Louse]);
+    fn floor_2_spawns_cultist() {
+        assert_eq!(enemies_for_floor(2), vec![EnemyKind::Cultist]);
     }
 
     #[test]

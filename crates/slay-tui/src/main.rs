@@ -177,6 +177,7 @@ fn enemy_icon(enemy: &Enemy) -> &'static str {
     match enemy.kind {
         EnemyKind::Louse => "🐛",
         EnemyKind::Fungibeast => "🍄",
+        EnemyKind::Cultist => "🐦",
     }
 }
 
