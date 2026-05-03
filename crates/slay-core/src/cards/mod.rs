@@ -442,6 +442,79 @@ impl Card {
         }
     }
 
+    pub fn id(&self) -> &'static str {
+        match self {
+            Card::Strike         => "strike",
+            Card::StrikePlus     => "strike-plus",
+            Card::Defend         => "defend",
+            Card::DefendPlus     => "defend-plus",
+            Card::Bash           => "bash",
+            Card::BashPlus       => "bash-plus",
+            Card::Clothesline    => "clothesline",
+            Card::ClotheslinePlus => "clothesline-plus",
+            Card::Inflame        => "inflame",
+            Card::InflamePlus    => "inflame-plus",
+            Card::DeadlyPoison   => "deadly-poison",
+            Card::DeadlyPoisonPlus => "deadly-poison-plus",
+            Card::Disarm         => "disarm",
+            Card::Cleave         => "cleave",
+            Card::CleavePlus     => "cleave-plus",
+            Card::IronWave       => "iron-wave",
+            Card::IronWavePlus   => "iron-wave-plus",
+            Card::Tremble        => "tremble",
+            Card::TremblePlus    => "tremble-plus",
+            Card::TwinStrike     => "twin-strike",
+            Card::TwinStrikePlus => "twin-strike-plus",
+            Card::Bludgeon       => "bludgeon",
+            Card::BludgeonPlus   => "bludgeon-plus",
+            Card::Impervious     => "impervious",
+            Card::ImperviousPlus => "impervious-plus",
+            Card::NotYet         => "not-yet",
+            Card::NotYetPlus     => "not-yet-plus",
+            Card::Mangle         => "mangle",
+            Card::ManglePlus     => "mangle-plus",
+            Card::Uppercut       => "uppercut",
+            Card::UppercutPlus   => "uppercut-plus",
+            Card::Taunt          => "taunt",
+            Card::TauntPlus      => "taunt-plus",
+            Card::Thunderclap    => "thunderclap",
+            Card::ThunderclapPlus => "thunderclap-plus",
+            Card::PommelStrike   => "pommel-strike",
+            Card::PommelStrikePlus => "pommel-strike-plus",
+            Card::ShrugItOff     => "shrug-it-off",
+            Card::ShrugItOffPlus => "shrug-it-off-plus",
+            Card::Breakthrough   => "breakthrough",
+            Card::BreakthroughPlus => "breakthrough-plus",
+            Card::BloodWall      => "blood-wall",
+            Card::BloodWallPlus  => "blood-wall-plus",
+            Card::Bloodletting   => "bloodletting",
+            Card::BloodlettingPlus => "bloodletting-plus",
+            Card::Hemokinesis    => "hemokinesis",
+            Card::HemokinesisPlus => "hemokinesis-plus",
+        }
+    }
+
+    pub fn from_id(s: &str) -> Option<Card> {
+        let all = [
+            Card::Strike, Card::StrikePlus, Card::Defend, Card::DefendPlus,
+            Card::Bash, Card::BashPlus, Card::Clothesline, Card::ClotheslinePlus,
+            Card::Inflame, Card::InflamePlus, Card::DeadlyPoison, Card::DeadlyPoisonPlus,
+            Card::Disarm, Card::Cleave, Card::CleavePlus, Card::IronWave, Card::IronWavePlus,
+            Card::Tremble, Card::TremblePlus, Card::TwinStrike, Card::TwinStrikePlus,
+            Card::Bludgeon, Card::BludgeonPlus, Card::Impervious, Card::ImperviousPlus,
+            Card::NotYet, Card::NotYetPlus, Card::Mangle, Card::ManglePlus,
+            Card::Uppercut, Card::UppercutPlus, Card::Taunt, Card::TauntPlus,
+            Card::Thunderclap, Card::ThunderclapPlus,
+            Card::PommelStrike, Card::PommelStrikePlus,
+            Card::ShrugItOff, Card::ShrugItOffPlus,
+            Card::Breakthrough, Card::BreakthroughPlus,
+            Card::BloodWall, Card::BloodWallPlus,
+            Card::Bloodletting, Card::BloodlettingPlus,
+            Card::Hemokinesis, Card::HemokinesisPlus,
+        ];
+        all.into_iter().find(|c| c.id() == s)
+    }
+
     pub fn effective_damage(&self, attacker: &StatusMap, defender: &StatusMap) -> Option<i32> {
         match self.def().description {
             CardDescription::WithDamage { base, .. } => Some(resolve_damage(base, attacker, defender)),
@@ -1047,6 +1120,28 @@ mod tests {
     #[test]
     fn upgrading_cleave_gives_cleave_plus() {
         assert_eq!(Card::Cleave.upgrade(), Some(Card::CleavePlus));
+    }
+
+    // --- Card IDs ---
+
+    #[test]
+    fn pommel_strike_has_kebab_id() {
+        assert_eq!(Card::PommelStrike.id(), "pommel-strike");
+    }
+
+    #[test]
+    fn shrug_it_off_has_kebab_id() {
+        assert_eq!(Card::ShrugItOff.id(), "shrug-it-off");
+    }
+
+    #[test]
+    fn bloodletting_roundtrips_through_id() {
+        assert_eq!(Card::from_id("bloodletting"), Some(Card::Bloodletting));
+    }
+
+    #[test]
+    fn unknown_id_returns_none() {
+        assert_eq!(Card::from_id("not-a-card"), None);
     }
 
     // --- Pommel Strike ---

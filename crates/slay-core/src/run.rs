@@ -17,6 +17,7 @@ pub enum Command {
     UpgradeCard(usize),
     SkipFloor,
     WinCombat,
+    AddCard(Card),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -154,7 +155,7 @@ pub fn apply_command(
             _ => Err(CommandError::InvalidPhase),
         },
 
-        GameState::Combat { state: combat_state, floor } => match command {
+        GameState::Combat { state: mut combat_state, floor } => match command {
             Command::WinCombat => {
                 let events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
                 let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
@@ -165,6 +166,10 @@ pub fn apply_command(
                     let options = generate_rewards(rng);
                     Ok((GameState::CardReward(CardRewardState { player, floor: floor + 1, options }), events))
                 }
+            }
+            Command::AddCard(card) => {
+                combat_state.player.hand.push(card);
+                Ok((GameState::Combat { state: combat_state, floor }, vec![]))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
             | Command::SkipFloor | Command::UpgradeCard(_) => {

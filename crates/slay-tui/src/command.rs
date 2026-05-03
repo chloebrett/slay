@@ -1,4 +1,4 @@
-use slay_core::{Command, GameState};
+use slay_core::{Card, Command, GameState};
 
 pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     let s = input.trim().to_lowercase();
@@ -26,6 +26,11 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
 fn parse_combat(s: &str, debug: bool) -> Option<Command> {
     if debug && s == "win" {
         return Some(Command::WinCombat);
+    }
+    if debug {
+        if let Some(id) = s.strip_prefix("add ") {
+            return Card::from_id(id.trim()).map(Command::AddCard);
+        }
     }
     let num_str = s.strip_prefix("play ").unwrap_or(s);
     let parts: Vec<&str> = num_str.trim().splitn(2, ' ').collect();

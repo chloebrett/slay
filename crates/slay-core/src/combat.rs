@@ -238,7 +238,8 @@ pub(crate) fn apply_combat_command(
         | Command::SkipReward
         | Command::UpgradeCard(_)
         | Command::SkipFloor
-        | Command::WinCombat => {
+        | Command::WinCombat
+        | Command::AddCard(_) => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {
