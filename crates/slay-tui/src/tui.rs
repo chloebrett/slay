@@ -364,6 +364,18 @@ fn render_card_reward(f: &mut Frame, area: Rect, cr: &CardRewardState) {
         Style::default().fg(Color::DarkGray),
     )));
 
+    if let Some(potion) = &cr.offered_potion {
+        items.push(ListItem::new(Line::raw("")));
+        items.push(ListItem::new(Line::styled(
+            format!("🧪 Potion on the ground: {}", potion.name()),
+            Style::default().fg(Color::Yellow),
+        )));
+        items.push(ListItem::new(Line::styled(
+            "[discard N]  Drop potion slot N to pick it up",
+            Style::default().fg(Color::Green),
+        )));
+    }
+
     let block = Block::default().borders(Borders::ALL).title(" ✨ Card Reward ");
     let list = List::new(items).block(block);
     f.render_widget(list, area);
@@ -636,6 +648,7 @@ mod tests {
             player,
             floor: 1,
             options: vec![Card::Strike, Card::Defend, Card::Bash],
+            offered_potion: None,
         });
         let tui = TuiState::new(cr, false);
         let out = render_to_string(&tui, 100, 30);

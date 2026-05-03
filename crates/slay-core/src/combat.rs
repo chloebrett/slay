@@ -166,6 +166,8 @@ pub enum Event {
     CardUpgraded { from: Card, to: Card },
     StatusCardAddedToDiscard { card: Card },
     PotionUsed { potion: Potion },
+    PotionAwarded { potion: Potion },
+    PotionDiscarded { potion: Potion },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -280,6 +282,7 @@ pub(crate) fn apply_combat_command(
         | Command::AddCard(_)
         | Command::AddRelic(_)
         | Command::AddPotion(_)
+        | Command::DiscardPotion(_)
         | Command::Spawn(_) => {
             return Err(CommandError::InvalidPhase);
         }

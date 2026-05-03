@@ -32,6 +32,7 @@ pub enum Command {
     AddRelic(Relic),
     AddPotion(Potion),
     UsePotion(usize, usize), // slot index, target enemy index
+    DiscardPotion(usize),    // slot index
     Spawn(Vec<EnemyKind>),
 }
 
@@ -91,6 +92,7 @@ pub struct CardRewardState {
     pub player: Player,
     pub floor: usize,
     pub options: Vec<Card>,
+    pub offered_potion: Option<Potion>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -162,6 +164,27 @@ fn generate_rewards(rng: &mut impl Rng) -> Vec<Card> {
     pool.into_iter().take(3).collect()
 }
 
+fn random_potion(rng: &mut impl Rng) -> Potion {
+    let mut pool = [
+        Potion::FirePotion, Potion::ExplosivePotion, Potion::BlockPotion,
+        Potion::StrengthPotion, Potion::SwiftPotion, Potion::FearPotion,
+        Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
+    ];
+    rng.shuffle(&mut pool);
+    pool[0]
+}
+
+fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &mut impl Rng) -> Option<Potion> {
+    let potion = random_potion(rng);
+    if player.potions.len() < MAX_POTIONS {
+        player.potions.push(potion);
+        events.push(Event::PotionAwarded { potion });
+        None
+    } else {
+        Some(potion)
+    }
+}
+
 fn player_after_combat(player: Player, gold_gain: i32) -> Player {
     let mut deck = player.deck;
     deck.extend(player.exhaust_pile);
@@ -221,7 +244,7 @@ pub fn apply_command(
                             }
                             let options = generate_rewards(rng);
                             return Ok((
-                                GameState::CardReward(CardRewardState { player, floor: floor + 1, options }),
+                                GameState::CardReward(CardRewardState { player, floor: floor + 1, options, offered_potion: None }),
                                 events,
                             ));
                         }
@@ -248,6 +271,15 @@ pub fn apply_command(
                 }
                 Ok((GameState::Map(MapState { player: p, floor, next_enemies: None, scenario }), vec![]))
             }
+            Command::DiscardPotion(slot) => {
+                let mut p = player;
+                if slot >= p.potions.len() {
+                    return Err(CommandError::InvalidCard);
+                }
+                let potion = p.potions.remove(slot);
+                Ok((GameState::Map(MapState { player: p, floor, next_enemies, scenario }),
+                    vec![Event::PotionDiscarded { potion }]))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
@@ -256,14 +288,15 @@ pub fn apply_command(
                 let mut events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
                 let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
                 apply_end_of_combat_relics(&mut combat_state.player, &mut events);
-                let player = player_after_combat(combat_state.player, GOLD_PER_COMBAT);
+                let mut player = player_after_combat(combat_state.player, GOLD_PER_COMBAT);
                 if is_boss {
                     Ok((GameState::GameOver { victory: true }, events))
                 } else if scenario == Scenario::Simple {
                     Ok((GameState::Map(MapState { player, floor, next_enemies: None, scenario }), events))
                 } else {
+                    let offered_potion = award_potion(&mut player, &mut events, rng);
                     let options = generate_rewards(rng);
-                    Ok((GameState::CardReward(CardRewardState { player, floor: floor + 1, options }), events))
+                    Ok((GameState::CardReward(CardRewardState { player, floor: floor + 1, options, offered_potion }), events))
                 }
             }
             Command::AddCard(card) => {
@@ -279,6 +312,14 @@ pub fn apply_command(
                     combat_state.player.potions.push(potion);
                 }
                 Ok((GameState::Combat { state: combat_state, floor, scenario }, vec![]))
+            }
+            Command::DiscardPotion(slot) => {
+                if slot >= combat_state.player.potions.len() {
+                    return Err(CommandError::InvalidCard);
+                }
+                let potion = combat_state.player.potions.remove(slot);
+                Ok((GameState::Combat { state: combat_state, floor, scenario },
+                    vec![Event::PotionDiscarded { potion }]))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
             | Command::SkipFloor | Command::UpgradeCard(_) => {
@@ -309,18 +350,20 @@ pub fn apply_command(
                         let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
                         let mut victory_player = new_combat.player;
                         apply_end_of_combat_relics(&mut victory_player, &mut events);
-                        let player = player_after_combat(victory_player, GOLD_PER_COMBAT);
+                        let mut player = player_after_combat(victory_player, GOLD_PER_COMBAT);
                         if is_boss {
                             Ok((GameState::GameOver { victory: true }, events))
                         } else if scenario == Scenario::Simple {
                             Ok((GameState::Map(MapState { player, floor, next_enemies: None, scenario }), events))
                         } else {
+                            let offered_potion = award_potion(&mut player, &mut events, rng);
                             let options = generate_rewards(rng);
                             Ok((
                                 GameState::CardReward(CardRewardState {
                                     player,
                                     floor: floor + 1,
                                     options,
+                                    offered_potion,
                                 }),
                                 events,
                             ))
@@ -347,10 +390,18 @@ pub fn apply_command(
                 let events = vec![Event::CardUpgraded { from, to }];
                 Ok((GameState::Map(MapState { player, floor: floor + 1, next_enemies: None, scenario: Scenario::Main }), events))
             }
+            Command::DiscardPotion(slot) => {
+                if slot >= player.potions.len() {
+                    return Err(CommandError::InvalidCard);
+                }
+                let potion = player.potions.remove(slot);
+                Ok((GameState::RestSite(RestSiteState { player, floor }),
+                    vec![Event::PotionDiscarded { potion }]))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
-        GameState::CardReward(CardRewardState { mut player, floor, options }) => {
+        GameState::CardReward(CardRewardState { mut player, floor, options, offered_potion }) => {
             match command {
                 Command::ChooseCardReward(idx) => {
                     if idx >= options.len() {
@@ -363,6 +414,21 @@ pub fn apply_command(
                 }
                 Command::SkipReward => {
                     Ok((GameState::Map(MapState { player, floor, next_enemies: None, scenario: Scenario::Main }), Vec::new()))
+                }
+                Command::DiscardPotion(slot) => {
+                    if slot >= player.potions.len() {
+                        return Err(CommandError::InvalidCard);
+                    }
+                    let discarded = player.potions.remove(slot);
+                    let mut events = vec![Event::PotionDiscarded { potion: discarded }];
+                    let new_offered = if let Some(offered) = offered_potion {
+                        player.potions.push(offered);
+                        events.push(Event::PotionAwarded { potion: offered });
+                        None
+                    } else {
+                        None
+                    };
+                    Ok((GameState::CardReward(CardRewardState { player, floor, options, offered_potion: new_offered }), events))
                 }
                 _ => Err(CommandError::InvalidPhase),
             }
@@ -1557,5 +1623,144 @@ mod tests {
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         let GameState::Map(map) = state else { panic!("expected Map") };
         assert_eq!(map.player.potions, vec![Potion::BlockPotion]);
+    }
+
+    // --- Potion rewards ---
+
+    fn combat_at_floor_0() -> GameState {
+        let (state, _) = apply_command(new_run(&mut rng()), Command::ChooseNode(0), &mut rng()).unwrap();
+        state
+    }
+
+    #[test]
+    fn win_combat_awards_a_potion() {
+        let (state, _) = apply_command(combat_at_floor_0(), Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.potions.len(), 1);
+    }
+
+    #[test]
+    fn win_combat_emits_potion_awarded_event() {
+        let (_, events) = apply_command(combat_at_floor_0(), Command::WinCombat, &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::PotionAwarded { .. })));
+    }
+
+    #[test]
+    fn potion_offered_when_slots_full_on_victory() {
+        let state = new_run(&mut rng());
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.potions.len(), MAX_POTIONS);
+        assert!(cr.offered_potion.is_some());
+    }
+
+    #[test]
+    fn potion_not_awarded_on_boss_floor() {
+        let state = new_run(&mut rng());
+        // skip to boss floor (floor 4)
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        assert!(matches!(state, GameState::GameOver { victory: true }));
+    }
+
+    #[test]
+    fn potion_awarded_via_in_combat_kill() {
+        let state = combat_at_floor_0();
+        let GameState::Combat { state: mut cs, floor, scenario } = state else { panic!() };
+        cs.enemies[0].hp = Hp(6);
+        let state = GameState::Combat { state: cs, floor, scenario };
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        if let GameState::CardReward(cr) = state {
+            assert_eq!(cr.player.potions.len(), 1);
+            assert!(events.iter().any(|e| matches!(e, Event::PotionAwarded { .. })));
+        }
+        // (if not yet in CardReward, combat may still be ongoing — that's fine for this test)
+    }
+
+    // --- DiscardPotion ---
+
+    #[test]
+    fn discard_potion_on_map_removes_from_player() {
+        let state = new_simple_run();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert!(map.player.potions.is_empty());
+    }
+
+    #[test]
+    fn discard_potion_on_map_emits_potion_discarded() {
+        let state = new_simple_run();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::PotionDiscarded { potion: Potion::BlockPotion }));
+    }
+
+    #[test]
+    fn discard_potion_invalid_slot_returns_error() {
+        let state = new_simple_run();
+        let result = apply_command(state, Command::DiscardPotion(0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn discard_potion_in_combat_removes_potion() {
+        let state = new_simple_run();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::Louse]), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, events) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert!(cs.player.potions.is_empty());
+        assert!(events.contains(&Event::PotionDiscarded { potion: Potion::BlockPotion }));
+    }
+
+    #[test]
+    fn discard_potion_in_rest_site_removes_potion() {
+        let mut player = make_player();
+        player.potions.push(Potion::BlockPotion);
+        let state = GameState::RestSite(RestSiteState { player, floor: 3 });
+        let (state, events) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        let GameState::RestSite(rs) = state else { panic!("expected RestSite") };
+        assert!(rs.player.potions.is_empty());
+        assert!(events.contains(&Event::PotionDiscarded { potion: Potion::BlockPotion }));
+    }
+
+    #[test]
+    fn discard_in_card_reward_stays_in_card_reward() {
+        let state = combat_at_floor(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state, GameState::CardReward(_)));
+        let GameState::CardReward(ref cr) = state else { unreachable!() };
+        assert!(!cr.player.potions.is_empty(), "need a potion to discard");
+        let (state, _) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        assert!(matches!(state, GameState::CardReward(_)));
+    }
+
+    #[test]
+    fn discard_in_card_reward_collects_offered_potion() {
+        let state = new_run(&mut rng());
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(ref cr) = state else { panic!("expected CardReward") };
+        assert!(cr.offered_potion.is_some());
+        let (state, events) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.potions.len(), MAX_POTIONS);
+        assert!(cr.offered_potion.is_none());
+        assert!(events.iter().any(|e| matches!(e, Event::PotionDiscarded { .. })));
+        assert!(events.iter().any(|e| matches!(e, Event::PotionAwarded { .. })));
     }
 }

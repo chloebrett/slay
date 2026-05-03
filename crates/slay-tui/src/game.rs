@@ -153,6 +153,10 @@ fn render_card_reward(cr: &CardRewardState, w: &mut impl Write) {
         );
     }
     let _ = writeln!(w, "(type a number to pick, or 'skip' / 's' to take nothing)");
+    if let Some(potion) = &cr.offered_potion {
+        let _ = writeln!(w, "🧪 Potion on the ground: {}", potion.name());
+        let _ = writeln!(w, "(discard N to drop a potion slot and pick it up)");
+    }
 }
 
 fn render_combat(state: &CombatState, w: &mut impl Write) {

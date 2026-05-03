@@ -61,7 +61,7 @@ The ratatui UI works but has room to grow:
 
 ### Potions ✅
 
-9 potions live. `Player.potions: Vec<Potion>` (max 3). `Command::UsePotion(slot, target)` during combat. `Command::AddPotion` for debug/rewards. Potions persist between floors. Next: potion drops as combat reward option.
+9 potions live. `Player.potions: Vec<Potion>` (max 3). `Command::UsePotion(slot, target)` during combat. `Command::AddPotion` for debug/rewards. Potions persist between floors. `Command::DiscardPotion(slot)` works in all states (Map, Combat, RestSite, CardReward). When slots are full on victory, potion is stored as `CardRewardState.offered_potion` — player can `discard N` to make room and auto-collect it, or skip to lose the offer.
 
 ### Merchant
 

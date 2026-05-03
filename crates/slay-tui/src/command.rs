@@ -11,6 +11,12 @@ pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     }
 }
 
+fn parse_discard_potion(s: &str) -> Option<Command> {
+    let rest = s.strip_prefix("discard ")?;
+    let n: usize = rest.trim().parse().ok()?;
+    (n > 0).then(|| Command::DiscardPotion(n - 1))
+}
+
 fn parse_map(s: &str, debug: bool) -> Option<Command> {
     if debug && s == "skip" {
         return Some(Command::SkipFloor);
@@ -25,6 +31,9 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
             .filter_map(EnemyKind::from_id)
             .collect();
         return if enemies.is_empty() { None } else { Some(Command::Spawn(enemies)) };
+    }
+    if let Some(cmd) = parse_discard_potion(s) {
+        return Some(cmd);
     }
     if s.is_empty() || s == "enter" {
         return Some(Command::ChooseNode(0));
@@ -46,6 +55,9 @@ fn parse_combat(s: &str, debug: bool) -> Option<Command> {
         if let Some(id) = s.strip_prefix("potion ") {
             return Potion::from_id(id.trim()).map(Command::AddPotion);
         }
+    }
+    if let Some(cmd) = parse_discard_potion(s) {
+        return Some(cmd);
     }
     if let Some(rest) = s.strip_prefix("use ") {
         let parts: Vec<&str> = rest.trim().splitn(2, ' ').collect();
@@ -88,6 +100,9 @@ fn parse_rest(s: &str) -> Option<Command> {
         let n: usize = rest.trim().parse().ok()?;
         return (n > 0).then_some(Command::UpgradeCard(n - 1));
     }
+    if let Some(cmd) = parse_discard_potion(s) {
+        return Some(cmd);
+    }
     match s {
         "rest" | "r" => Some(Command::Rest),
         _ => None,
@@ -95,6 +110,9 @@ fn parse_rest(s: &str) -> Option<Command> {
 }
 
 fn parse_card_reward(s: &str) -> Option<Command> {
+    if let Some(cmd) = parse_discard_potion(s) {
+        return Some(cmd);
+    }
     let num_str = s.strip_prefix("pick ").unwrap_or(s);
     if let Ok(n) = num_str.trim().parse::<usize>() {
         if n > 0 {
@@ -218,5 +236,23 @@ mod tests {
             parse("potion fire-potion", &state, true),
             Some(Command::AddPotion(Potion::FirePotion))
         );
+    }
+
+    #[test]
+    fn discard_potion_parses_in_map() {
+        let state = map_state();
+        assert_eq!(parse("discard 1", &state, false), Some(Command::DiscardPotion(0)));
+    }
+
+    #[test]
+    fn discard_potion_parses_in_combat() {
+        let state = combat_state();
+        assert_eq!(parse("discard 2", &state, false), Some(Command::DiscardPotion(1)));
+    }
+
+    #[test]
+    fn discard_potion_zero_returns_none() {
+        let state = map_state();
+        assert_eq!(parse("discard 0", &state, false), None);
     }
 }
