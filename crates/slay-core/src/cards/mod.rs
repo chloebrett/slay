@@ -1,5 +1,7 @@
+mod anger;
 mod bash;
 mod blood_wall;
+mod body_slam;
 mod bloodletting;
 mod breakthrough;
 mod cleave;
@@ -73,6 +75,10 @@ pub enum Card {
     BloodlettingPlus,
     Hemokinesis,
     HemokinesisPlus,
+    BodySlam,
+    BodySlamPlus,
+    Anger,
+    AngerPlus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -381,6 +387,30 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Attack,
             },
+            Card::BodySlam => CardDef {
+                name: "Body Slam",
+                description: CardDescription::Static("Deal damage equal to your Block."),
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::BodySlamPlus => CardDef {
+                name: "Body Slam+",
+                description: CardDescription::Static("Deal damage equal to your Block."),
+                energy_cost: Energy(0),
+                card_type: CardType::Attack,
+            },
+            Card::Anger => CardDef {
+                name: "Anger",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Add a copy to your Discard Pile.", base: 6 },
+                energy_cost: Energy(0),
+                card_type: CardType::Attack,
+            },
+            Card::AngerPlus => CardDef {
+                name: "Anger+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Add a copy to your Discard Pile.", base: 8 },
+                energy_cost: Energy(0),
+                card_type: CardType::Attack,
+            },
         }
     }
 
@@ -413,6 +443,8 @@ impl Card {
             Card::BloodWall    => Some(Card::BloodWallPlus),
             Card::Bloodletting => Some(Card::BloodlettingPlus),
             Card::Hemokinesis  => Some(Card::HemokinesisPlus),
+            Card::BodySlam     => Some(Card::BodySlamPlus),
+            Card::Anger        => Some(Card::AngerPlus),
             _ => None,
         }
     }
@@ -491,6 +523,10 @@ impl Card {
             Card::BloodlettingPlus => "bloodletting-plus",
             Card::Hemokinesis    => "hemokinesis",
             Card::HemokinesisPlus => "hemokinesis-plus",
+            Card::BodySlam       => "body-slam",
+            Card::BodySlamPlus   => "body-slam-plus",
+            Card::Anger          => "anger",
+            Card::AngerPlus      => "anger-plus",
         }
     }
 
@@ -511,6 +547,8 @@ impl Card {
             Card::BloodWall, Card::BloodWallPlus,
             Card::Bloodletting, Card::BloodlettingPlus,
             Card::Hemokinesis, Card::HemokinesisPlus,
+            Card::BodySlam, Card::BodySlamPlus,
+            Card::Anger, Card::AngerPlus,
         ];
         all.into_iter().find(|c| c.id() == s)
     }
@@ -531,6 +569,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Taunt, Card::Thunderclap,
         Card::PommelStrike, Card::ShrugItOff,
         Card::Breakthrough, Card::BloodWall, Card::Bloodletting, Card::Hemokinesis,
+        Card::BodySlam, Card::Anger,
     ]
 }
 
@@ -1200,6 +1239,58 @@ mod tests {
         assert_eq!(state.player.block, Block(11));
     }
 
+    // --- Body Slam ---
+
+    #[test]
+    fn body_slam_deals_damage_equal_to_block() {
+        let mut state = combat_with_hand(vec![Card::BodySlam]);
+        state.player.block = Block(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
+    }
+
+    #[test]
+    fn body_slam_with_no_block_deals_zero_damage() {
+        let state = combat_with_hand(vec![Card::BodySlam]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(20));
+    }
+
+    #[test]
+    fn body_slam_plus_costs_0_energy() {
+        assert_eq!(Card::BodySlamPlus.energy_cost(), Energy(0));
+    }
+
+    // --- Anger ---
+
+    #[test]
+    fn anger_deals_6_damage() {
+        let state = combat_with_hand(vec![Card::Anger]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(14));
+    }
+
+    #[test]
+    fn anger_adds_copy_to_discard() {
+        let state = combat_with_hand(vec![Card::Anger]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.discard_pile.iter().filter(|c| **c == Card::Anger).count(), 2);
+    }
+
+    #[test]
+    fn anger_plus_deals_8_damage() {
+        let state = combat_with_hand(vec![Card::AngerPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+    }
+
+    #[test]
+    fn anger_plus_adds_anger_plus_copy_to_discard() {
+        let state = combat_with_hand(vec![Card::AngerPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.discard_pile.iter().filter(|c| **c == Card::AngerPlus).count(), 2);
+    }
+
     // --- Breakthrough ---
 
     #[test]
@@ -1371,5 +1462,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::BloodlettingPlus => bloodletting::apply(state, events, 3, 3),
         Card::Hemokinesis    => hemokinesis::apply(state, events, 2, 15, target),
         Card::HemokinesisPlus => hemokinesis::apply(state, events, 2, 20, target),
+        Card::BodySlam    => body_slam::apply(state, events, target),
+        Card::BodySlamPlus => body_slam::apply(state, events, target),
+        Card::Anger    => anger::apply(state, events, 6, Card::Anger, target),
+        Card::AngerPlus => anger::apply(state, events, 8, Card::AngerPlus, target),
     }
 }
