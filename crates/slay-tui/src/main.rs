@@ -19,6 +19,15 @@ fn main() {
         io::stdout().flush().ok();
 
         let input = line.expect("failed to read input");
+        if let GameState::Combat { state: cs, .. } = &state {
+            match input.trim() {
+                "z" => { render_pile("Draw pile", &cs.player.draw_pile); continue; }
+                "x" => { render_pile("Discard pile", &cs.player.discard_pile); continue; }
+                "c" => { render_pile("Exhaust pile", &cs.player.exhaust_pile); continue; }
+                _ => {}
+            }
+        }
+
         let Some(command) = slay_tui::command::parse(&input, &state) else {
             println!("Unknown command.\n");
             continue;
@@ -183,7 +192,22 @@ fn render_combat(state: &CombatState) {
             );
         }
     }
-    println!("Commands: [1-{}] play card  |  end / e  end turn", state.player.hand.len().max(1));
+    println!(
+        "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
+        state.player.hand.len().max(1)
+    );
+}
+
+fn render_pile(label: &str, pile: &[slay_core::Card]) {
+    if pile.is_empty() {
+        println!("{label}: (empty)");
+    } else {
+        println!("{label} ({}):", pile.len());
+        for card in pile {
+            println!("  - {}", card.name());
+        }
+    }
+    println!();
 }
 
 fn print_events(events: &[Event]) {
