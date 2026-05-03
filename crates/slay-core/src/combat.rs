@@ -89,8 +89,9 @@ pub fn apply_command(
             }
         }
         Command::Block => {
-            state.player.block = Block(state.player.block.0 + 5);
-            events.push(Event::PlayerBlocked { amount: 5 });
+            let amount = 5;
+            state.player.block = Block(state.player.block.0 + amount);
+            events.push(Event::PlayerBlocked { amount });
         }
         Command::EndTurn => {
             events.push(Event::TurnEnded);
@@ -114,7 +115,7 @@ fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
     let absorbed = amount.min(block.0).max(0);
     block.0 -= absorbed;
     let remainder = amount - absorbed;
-    hp.0 -= remainder;
+    hp.0 = (hp.0 - remainder).max(0);
     remainder
 }
 
@@ -223,6 +224,25 @@ mod tests {
         state.player.hp = Hp(1);
         let (_, events) = apply_command(state, Command::EndTurn).unwrap();
         assert!(events.contains(&Event::PlayerDied));
+    }
+
+    // --- HP clamping ---
+
+    #[test]
+    fn enemy_hp_does_not_go_below_zero() {
+        let mut state = combat();
+        state.enemy.hp = Hp(1);
+        let (state, _) = apply_command(state, Command::Attack).unwrap();
+        assert_eq!(state.enemy.hp, Hp(0));
+    }
+
+    #[test]
+    fn player_hp_does_not_go_below_zero() {
+        // EndTurn triggers enemy attack (8 damage); with 1 HP result should be Hp(0) not Hp(-7)
+        let mut state = combat();
+        state.player.hp = Hp(1);
+        let (state, _) = apply_command(state, Command::EndTurn).unwrap();
+        assert_eq!(state.player.hp, Hp(0));
     }
 
     // --- Command rejection ---
