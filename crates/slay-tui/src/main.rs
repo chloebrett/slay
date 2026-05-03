@@ -136,11 +136,16 @@ fn render_rest(rs: &RestSiteState) {
     println!("HP: {}/{}", rs.player.hp.0, rs.player.max_hp.0);
     println!("[rest] Heal for {heal} HP  (to {healed_to})");
     println!();
-    println!("Deck (upgrade N to upgrade a card):");
-    for (i, card) in rs.player.deck.iter().enumerate() {
-        let can_upgrade = card.upgrade().is_some();
-        let marker = if can_upgrade { " " } else { "×" };
-        println!("  {marker}[{}] {}", i + 1, card.name());
+    let upgradeable: Vec<_> = rs.player.deck.iter().enumerate()
+        .filter(|(_, c)| c.upgrade().is_some())
+        .collect();
+    if upgradeable.is_empty() {
+        println!("(no cards can be upgraded)");
+    } else {
+        println!("Deck (upgrade N to upgrade a card):");
+        for (i, card) in &upgradeable {
+            println!("  [{}] {}", i + 1, card.name());
+        }
     }
 }
 
