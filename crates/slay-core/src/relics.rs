@@ -4,16 +4,22 @@ use crate::types::Hp;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Relic {
     Strawberry,
+    Pear,
+    Mango,
 }
 
 pub fn grant_relic(player: &mut Player, relic: Relic) {
     match &relic {
-        Relic::Strawberry => {
-            player.max_hp = Hp(player.max_hp.0 + 7);
-            player.hp = Hp(player.hp.0 + 7);
-        }
+        Relic::Strawberry => raise_max_hp(player, 7),
+        Relic::Pear       => raise_max_hp(player, 10),
+        Relic::Mango      => raise_max_hp(player, 14),
     }
     player.relics.push(relic);
+}
+
+fn raise_max_hp(player: &mut Player, amount: i32) {
+    player.max_hp = Hp(player.max_hp.0 + amount);
+    player.hp = Hp(player.hp.0 + amount);
 }
 
 #[cfg(test)]
@@ -62,6 +68,22 @@ mod tests {
         grant_relic(&mut player, Relic::Strawberry);
         assert_eq!(player.hp, Hp(57));
         assert_eq!(player.max_hp, Hp(87));
+    }
+
+    #[test]
+    fn pear_raises_max_hp_by_10() {
+        let mut player = test_player();
+        grant_relic(&mut player, Relic::Pear);
+        assert_eq!(player.max_hp, Hp(90));
+        assert_eq!(player.hp, Hp(90));
+    }
+
+    #[test]
+    fn mango_raises_max_hp_by_14() {
+        let mut player = test_player();
+        grant_relic(&mut player, Relic::Mango);
+        assert_eq!(player.max_hp, Hp(94));
+        assert_eq!(player.hp, Hp(94));
     }
 
     #[test]
