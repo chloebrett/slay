@@ -1,7 +1,6 @@
-use crate::combat::{CombatState, Event, Target};
+use crate::combat::{CombatState, Event, Target, apply_status};
 use crate::status::StatusEffect;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>) {
-    *state.enemy.statuses.entry(StatusEffect::Strength).or_insert(0) -= 2;
-    events.push(Event::StatusApplied { target: Target::Enemy, status: StatusEffect::Strength, stacks: -2 });
+    apply_status(&mut state.enemy.statuses, Target::Enemy, StatusEffect::Strength, -2, events);
 }

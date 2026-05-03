@@ -1,13 +1,28 @@
 use crate::cards::{Card, starter_deck};
-use crate::combat::{
-    apply_combat_command, CombatPhase, CombatState, CommandError, Event, Player,
-};
+use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
 use crate::enemies::EnemyKind;
 use crate::rng::Rng;
 use crate::status::StatusMap;
 use crate::types::{Block, Energy, Hp};
 
-pub use crate::combat::Command;
+#[derive(Debug, Clone, PartialEq)]
+pub enum Command {
+    PlayCard(usize),
+    EndTurn,
+    EndEnemyTurn,
+    ChooseNode(usize),
+    Rest,
+    ChooseCardReward(usize),
+    SkipReward,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommandError {
+    CombatOver,
+    InvalidCard,
+    NotEnoughEnergy,
+    InvalidPhase,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MapNode {
@@ -78,19 +93,8 @@ fn enemy_for_floor(floor: usize) -> EnemyKind {
     }
 }
 
-fn card_reward_pool() -> Vec<Card> {
-    vec![
-        Card::Bash,
-        Card::Clothesline,
-        Card::Inflame,
-        Card::DeadlyPoison,
-        Card::Strike,
-        Card::Defend,
-    ]
-}
-
 fn generate_rewards(rng: &mut impl Rng) -> Vec<Card> {
-    let mut pool = card_reward_pool();
+    let mut pool = crate::cards::reward_pool();
     rng.shuffle(&mut pool);
     pool.into_iter().take(3).collect()
 }

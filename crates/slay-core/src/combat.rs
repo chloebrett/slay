@@ -1,6 +1,7 @@
 use crate::cards::Card;
 use crate::enemies::{self, EnemyKind, Intent};
 use crate::rng::Rng;
+use crate::run::{Command, CommandError};
 use crate::status::{StatusEffect, StatusMap, drain_poison, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
@@ -117,24 +118,6 @@ fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Command {
-    PlayCard(usize),
-    EndTurn,
-    EndEnemyTurn,
-    ChooseNode(usize),
-    Rest,
-    ChooseCardReward(usize),
-    SkipReward,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum CommandError {
-    CombatOver,
-    InvalidCard,
-    NotEnoughEnergy,
-    InvalidPhase,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
@@ -274,6 +257,17 @@ fn apply_card(card: &Card, state: &mut CombatState, events: &mut Vec<Event>) {
     crate::cards::apply(card, state, events);
 }
 
+pub(crate) fn apply_status(
+    statuses: &mut StatusMap,
+    target: Target,
+    effect: StatusEffect,
+    stacks: i32,
+    events: &mut Vec<Event>,
+) {
+    *statuses.entry(effect).or_insert(0) += stacks;
+    events.push(Event::StatusApplied { target, status: effect, stacks });
+}
+
 pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
     let absorbed = amount.min(block.0).max(0);
     block.0 -= absorbed;
@@ -286,6 +280,7 @@ pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
 mod tests {
     use super::*;
     use crate::rng::NoOpRng;
+    use crate::run::{Command, CommandError};
 
     fn rng() -> NoOpRng {
         NoOpRng

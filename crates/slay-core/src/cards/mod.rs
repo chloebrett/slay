@@ -109,6 +109,10 @@ impl Card {
     }
 }
 
+pub fn reward_pool() -> Vec<Card> {
+    vec![Card::Bash, Card::Clothesline, Card::Inflame, Card::DeadlyPoison, Card::Strike, Card::Defend]
+}
+
 pub fn starter_deck() -> Vec<Card> {
     let mut deck = Vec::new();
     for _ in 0..5 {
