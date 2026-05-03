@@ -1,6 +1,6 @@
 use slay_core::{
-    apply_command, new_run, CardRewardState, CombatPhase, CombatState, Enemy, EnemyKind, Event,
-    GameState, Intent, MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
+    apply_command, new_run, CardRewardState, CardType, CombatPhase, CombatState, Enemy, EnemyKind,
+    Event, GameState, Intent, MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
 };
 use std::io::{self, BufRead, Write};
 
@@ -154,14 +154,23 @@ fn render_card_reward(cr: &CardRewardState) {
     println!("Choose a card to add to your deck:");
     for (i, card) in cr.options.iter().enumerate() {
         println!(
-            "  [{}] {} ({}) — {}",
+            "  [{}] {}{} ({}) — {}",
             i + 1,
+            card_type_icon(card.card_type()),
             card.name(),
             card.energy_cost().0,
             card.description(),
         );
     }
     println!("(type a number to pick, or 'skip' / 's' to take nothing)");
+}
+
+fn card_type_icon(card_type: CardType) -> &'static str {
+    match card_type {
+        CardType::Attack => "⚔️ ",
+        CardType::Skill  => "🪄 ",
+        CardType::Power  => "🔮 ",
+    }
 }
 
 fn enemy_icon(enemy: &Enemy) -> &'static str {
@@ -210,9 +219,10 @@ fn render_combat(state: &CombatState) {
             let prefix = if affordable { " " } else { "❌" };
             let desc = card.effective_description(&state.player.statuses, target_statuses);
             println!(
-                "  {}[{}] {} ({}) — {}",
+                "  {}[{}] {}{} ({}) — {}",
                 prefix,
                 i + 1,
+                card_type_icon(card.card_type()),
                 card.name(),
                 card.energy_cost().0,
                 desc,
