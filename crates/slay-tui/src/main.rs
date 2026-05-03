@@ -109,7 +109,15 @@ fn describe_intent(intent: &Intent) -> String {
 fn describe(event: &Event) -> String {
     match event {
         Event::CardPlayed { card } => format!("You play {}.", card.name()),
-        Event::PlayerAttacked { damage } => format!("You deal {damage} damage."),
+        Event::PlayerAttacked { raw, damage } => {
+            if *damage == 0 {
+                format!("You attack {raw}. (fully blocked)")
+            } else if *damage < *raw {
+                format!("You deal {damage} damage. ({} blocked by enemy)", raw - damage)
+            } else {
+                format!("You deal {damage} damage.")
+            }
+        }
         Event::PlayerBlocked { amount } => format!("You gain {amount} block."),
         Event::EnemyAttacked { raw, damage } => {
             if *damage == 0 {

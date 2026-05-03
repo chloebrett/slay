@@ -120,7 +120,7 @@ pub enum CommandError {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     CardPlayed { card: Card },
-    PlayerAttacked { damage: i32 },
+    PlayerAttacked { raw: i32, damage: i32 },
     PlayerBlocked { amount: i32 },
     EnemyAttacked { raw: i32, damage: i32 },
     EnemyDefended { amount: i32 },
@@ -373,7 +373,7 @@ mod tests {
     fn strike_emits_player_attacked_event() {
         let state = combat_with_hand(vec![Card::Strike]);
         let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerAttacked { damage: 6 }));
+        assert!(events.contains(&Event::PlayerAttacked { raw: 6, damage: 6 }));
     }
 
     #[test]
