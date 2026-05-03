@@ -172,7 +172,7 @@ pub(crate) fn apply_combat_command(
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
             events.push(Event::CardPlayed { card: card.clone() });
-            apply_card(&card, &mut state, &mut events);
+            crate::cards::apply(&card, &mut state, &mut events);
             if card.exhausts() {
                 events.push(Event::CardExhausted { card: card.clone() });
                 state.player.exhaust_pile.push(card.clone());
@@ -251,10 +251,6 @@ fn execute_intent(state: &mut CombatState, events: &mut Vec<Event>) {
             events.push(Event::EnemyDefended { amount: n });
         }
     }
-}
-
-fn apply_card(card: &Card, state: &mut CombatState, events: &mut Vec<Event>) {
-    crate::cards::apply(card, state, events);
 }
 
 pub(crate) fn apply_status(

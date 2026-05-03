@@ -21,12 +21,16 @@ pub enum Card {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum CardDescription {
+    Static(&'static str),
+    WithDamage { template: &'static str, base: i32 },
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct CardDef {
     pub name: &'static str,
-    /// Description template: use `{damage}` as a placeholder where the damage number goes.
-    pub description: &'static str,
+    pub description: CardDescription,
     pub energy_cost: Energy,
-    pub base_damage: Option<i32>,
 }
 
 impl Card {
@@ -34,45 +38,38 @@ impl Card {
         match self {
             Card::Strike => CardDef {
                 name: "Strike",
-                description: "Deal {damage} damage.",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 6 },
                 energy_cost: Energy(1),
-                base_damage: Some(6),
             },
             Card::Defend => CardDef {
                 name: "Defend",
-                description: "Gain 5 block.",
+                description: CardDescription::Static("Gain 5 block."),
                 energy_cost: Energy(1),
-                base_damage: None,
             },
             Card::Bash => CardDef {
                 name: "Bash",
-                description: "Deal {damage} damage. Apply 2 Vulnerable.",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Vulnerable.", base: 8 },
                 energy_cost: Energy(2),
-                base_damage: Some(8),
             },
             Card::Clothesline => CardDef {
                 name: "Clothesline",
-                description: "Deal {damage} damage. Apply 2 Weak.",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Weak.", base: 12 },
                 energy_cost: Energy(2),
-                base_damage: Some(12),
             },
             Card::Inflame => CardDef {
                 name: "Inflame",
-                description: "Gain 2 Strength.",
+                description: CardDescription::Static("Gain 2 Strength."),
                 energy_cost: Energy(1),
-                base_damage: None,
             },
             Card::DeadlyPoison => CardDef {
                 name: "Deadly Poison",
-                description: "Apply 5 Poison.",
+                description: CardDescription::Static("Apply 5 Poison."),
                 energy_cost: Energy(1),
-                base_damage: None,
             },
             Card::Disarm => CardDef {
                 name: "Disarm",
-                description: "Enemy loses 2 Strength. Exhaust.",
+                description: CardDescription::Static("Enemy loses 2 Strength. Exhaust."),
                 energy_cost: Energy(1),
-                base_damage: None,
             },
         }
     }
@@ -84,28 +81,31 @@ impl Card {
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
 
-    /// Description with base damage values substituted (no emphasis).
     pub fn description(&self) -> String {
-        let def = self.def();
-        match def.base_damage {
-            None => def.description.to_string(),
-            Some(base) => def.description.replace("{damage}", &base.to_string()),
+        match self.def().description {
+            CardDescription::Static(s) => s.to_string(),
+            CardDescription::WithDamage { template, base } => {
+                template.replace("{damage}", &base.to_string())
+            }
         }
     }
 
-    /// Description with effective damage substituted; uses `*N*` emphasis when modified by statuses.
     pub fn effective_description(&self, attacker: &StatusMap, defender: &StatusMap) -> String {
-        let def = self.def();
-        let Some(base) = def.base_damage else {
-            return def.description.to_string();
-        };
-        let eff = resolve_damage(base, attacker, defender);
-        let num = if eff != base { format!("*{eff}*") } else { eff.to_string() };
-        def.description.replace("{damage}", &num)
+        match self.def().description {
+            CardDescription::Static(s) => s.to_string(),
+            CardDescription::WithDamage { template, base } => {
+                let eff = resolve_damage(base, attacker, defender);
+                let num = if eff != base { format!("*{eff}*") } else { eff.to_string() };
+                template.replace("{damage}", &num)
+            }
+        }
     }
 
     pub fn effective_damage(&self, attacker: &StatusMap, defender: &StatusMap) -> Option<i32> {
-        self.def().base_damage.map(|base| resolve_damage(base, attacker, defender))
+        match self.def().description {
+            CardDescription::WithDamage { base, .. } => Some(resolve_damage(base, attacker, defender)),
+            CardDescription::Static(_) => None,
+        }
     }
 }
 
