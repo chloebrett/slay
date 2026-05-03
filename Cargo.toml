@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/slay-core",
+    "crates/slay-tui",
+]
+resolver = "2"
