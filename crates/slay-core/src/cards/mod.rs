@@ -1,4 +1,5 @@
 mod bash;
+mod cleave;
 mod clothesline;
 mod deadly_poison;
 mod defend;
@@ -24,6 +25,8 @@ pub enum Card {
     DeadlyPoison,
     DeadlyPoisonPlus,
     Disarm,
+    Cleave,
+    CleavePlus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -128,6 +131,18 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Skill,
             },
+            Card::Cleave => CardDef {
+                name: "Cleave",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies.", base: 8 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
+            Card::CleavePlus => CardDef {
+                name: "Cleave+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies.", base: 11 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
         }
     }
 
@@ -143,6 +158,7 @@ impl Card {
             Card::Clothesline => Some(Card::ClotheslinePlus),
             Card::Inflame => Some(Card::InflamePlus),
             Card::DeadlyPoison => Some(Card::DeadlyPoisonPlus),
+            Card::Cleave => Some(Card::CleavePlus),
             _ => None,
         }
     }
@@ -181,7 +197,7 @@ impl Card {
 }
 
 pub fn reward_pool() -> Vec<Card> {
-    vec![Card::Bash, Card::Clothesline, Card::Inflame, Card::DeadlyPoison, Card::Strike, Card::Defend]
+    vec![Card::Bash, Card::Clothesline, Card::Inflame, Card::DeadlyPoison, Card::Cleave, Card::Strike, Card::Defend]
 }
 
 pub fn starter_deck() -> Vec<Card> {
@@ -202,7 +218,7 @@ pub fn starter_deck() -> Vec<Card> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::{combat_with_hand, apply_combat_command, CombatPhase, Event, Target};
+    use crate::combat::{combat_with_hand, combat_with_two_enemies, apply_combat_command, CombatPhase, Event, Target};
     use crate::run::{Command, CommandError};
     use crate::status::StatusEffect;
     use crate::types::{Block, Energy, Hp};
@@ -539,6 +555,41 @@ mod tests {
         let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(events.contains(&Event::CardExhausted { card: Card::Disarm }));
     }
+
+    // --- Cleave ---
+
+    #[test]
+    fn cleave_deals_8_damage_to_single_enemy() {
+        let state = combat_with_hand(vec![Card::Cleave]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+    }
+
+    #[test]
+    fn cleave_deals_8_damage_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Cleave]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+        assert_eq!(state.enemies[1].hp, Hp(12));
+    }
+
+    #[test]
+    fn cleave_plus_deals_11_damage_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::CleavePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(9));
+        assert_eq!(state.enemies[1].hp, Hp(9));
+    }
+
+    #[test]
+    fn cleave_card_type_is_attack() {
+        assert_eq!(Card::Cleave.card_type(), CardType::Attack);
+    }
+
+    #[test]
+    fn upgrading_cleave_gives_cleave_plus() {
+        assert_eq!(Card::Cleave.upgrade(), Some(Card::CleavePlus));
+    }
 }
 
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize) {
@@ -556,5 +607,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::DeadlyPoison      => deadly_poison::apply(state, events, 5, target),
         Card::DeadlyPoisonPlus  => deadly_poison::apply(state, events, 7, target),
         Card::Disarm => disarm::apply(state, events, target),
+        Card::Cleave     => cleave::apply(state, events, 8),
+        Card::CleavePlus => cleave::apply(state, events, 11),
     }
 }
