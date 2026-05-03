@@ -1,5 +1,6 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
+use crate::potions::{Potion, MAX_POTIONS};
 use crate::enemies::EnemyKind;
 use crate::relics::{
     apply_combat_start_relics, apply_end_of_combat_relics, apply_rest_relics,
@@ -29,6 +30,8 @@ pub enum Command {
     WinCombat,
     AddCard(Card),
     AddRelic(Relic),
+    AddPotion(Potion),
+    UsePotion(usize, usize), // slot index, target enemy index
     Spawn(Vec<EnemyKind>),
 }
 
@@ -115,6 +118,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
         deck,
         gold: 0,
         relics: Vec::new(),
+        potions: Vec::new(),
     };
     let _ = rng;
     GameState::Map(MapState { player, floor: 0, next_enemies: None, scenario: Scenario::Main })
@@ -135,6 +139,7 @@ pub fn new_simple_run() -> GameState {
         deck: Vec::new(),
         gold: 0,
         relics: Vec::new(),
+        potions: Vec::new(),
     };
     GameState::Map(MapState { player, floor: 0, next_enemies: None, scenario: Scenario::Simple })
 }
@@ -236,6 +241,13 @@ pub fn apply_command(
                 let events = crate::relics::grant_relic(&mut p, relic, rng);
                 Ok((GameState::Map(MapState { player: p, floor, next_enemies: None, scenario }), events))
             }
+            Command::AddPotion(potion) => {
+                let mut p = player;
+                if p.potions.len() < MAX_POTIONS {
+                    p.potions.push(potion);
+                }
+                Ok((GameState::Map(MapState { player: p, floor, next_enemies: None, scenario }), vec![]))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
@@ -261,6 +273,12 @@ pub fn apply_command(
             Command::AddRelic(relic) => {
                 let events = crate::relics::grant_relic(&mut combat_state.player, relic, rng);
                 Ok((GameState::Combat { state: combat_state, floor, scenario }, events))
+            }
+            Command::AddPotion(potion) => {
+                if combat_state.player.potions.len() < MAX_POTIONS {
+                    combat_state.player.potions.push(potion);
+                }
+                Ok((GameState::Combat { state: combat_state, floor, scenario }, vec![]))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
             | Command::SkipFloor | Command::UpgradeCard(_) => {
@@ -401,6 +419,7 @@ mod tests {
             deck: starter_deck(),
             gold: 0,
             relics: Vec::new(),
+            potions: Vec::new(),
         }
     }
 
@@ -1504,5 +1523,39 @@ mod tests {
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         assert!(matches!(state, GameState::Map(_)), "expected Map, got {state:?}");
+    }
+
+    // --- Potions ---
+
+    #[test]
+    fn add_potion_on_map_adds_to_player() {
+        let state = new_simple_run();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::FirePotion), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.potions, vec![Potion::FirePotion]);
+    }
+
+    #[test]
+    fn add_potion_rejected_when_slots_full() {
+        let state = new_simple_run();
+        let mut state = state;
+        for _ in 0..MAX_POTIONS {
+            (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        }
+        (state, _) = apply_command(state, Command::AddPotion(Potion::FirePotion), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.potions.len(), MAX_POTIONS);
+        assert!(!map.player.potions.contains(&Potion::FirePotion));
+    }
+
+    #[test]
+    fn potions_persist_through_combat() {
+        let state = new_simple_run();
+        let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::Louse]), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.potions, vec![Potion::BlockPotion]);
     }
 }

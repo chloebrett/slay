@@ -1,4 +1,4 @@
-use slay_core::{Card, Command, EnemyKind, GameState, Relic};
+use slay_core::{Card, Command, EnemyKind, GameState, Potion, Relic};
 
 pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     let s = input.trim().to_lowercase();
@@ -42,6 +42,24 @@ fn parse_combat(s: &str, debug: bool) -> Option<Command> {
         }
         if let Some(id) = s.strip_prefix("relic ") {
             return Relic::from_id(id.trim()).map(Command::AddRelic);
+        }
+        if let Some(id) = s.strip_prefix("potion ") {
+            return Potion::from_id(id.trim()).map(Command::AddPotion);
+        }
+    }
+    if let Some(rest) = s.strip_prefix("use ") {
+        let parts: Vec<&str> = rest.trim().splitn(2, ' ').collect();
+        if let Ok(n) = parts[0].parse::<usize>() {
+            if n > 0 {
+                let target = if parts.len() > 1 {
+                    let t: usize = parts[1].trim().parse().ok()?;
+                    if t == 0 { return None; }
+                    t - 1
+                } else {
+                    0
+                };
+                return Some(Command::UsePotion(n - 1, target));
+            }
         }
     }
     let num_str = s.strip_prefix("play ").unwrap_or(s);
@@ -101,7 +119,7 @@ mod tests {
                 energy: Energy(3), max_energy: Energy(3),
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
-                deck: vec![], gold: 0, relics: vec![],
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
             },
             floor: 0,
             next_enemies: None,
@@ -148,5 +166,57 @@ mod tests {
         let state = map_state();
         assert_eq!(parse("spawn louse", &state, false), Some(Command::Spawn(vec![EnemyKind::Louse])));
         // just verify it parses in map — other phases return None via their own parse fns
+    }
+
+    fn combat_state() -> GameState {
+        use slay_core::{CombatPhase, CombatState, Enemy, EnemyKind, Move, Scenario};
+        GameState::Combat {
+            state: CombatState {
+                player: Player {
+                    hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                    energy: Energy(3), max_energy: Energy(3),
+                    hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                    exhaust_pile: vec![], statuses: StatusMap::new(),
+                    deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                },
+                enemies: vec![Enemy {
+                    kind: EnemyKind::Louse,
+                    hp: Hp(20), max_hp: Hp(20), block: Block(0),
+                    move_: Move::LouseBite, last_move: None,
+                    statuses: StatusMap::new(),
+                }],
+                turn: 1,
+                phase: CombatPhase::PlayerTurn,
+            },
+            floor: 0,
+            scenario: Scenario::Main,
+        }
+    }
+
+    #[test]
+    fn use_potion_parses_slot_1() {
+        let state = combat_state();
+        assert_eq!(parse("use 1", &state, false), Some(Command::UsePotion(0, 0)));
+    }
+
+    #[test]
+    fn use_potion_parses_slot_with_target() {
+        let state = combat_state();
+        assert_eq!(parse("use 2 1", &state, false), Some(Command::UsePotion(1, 0)));
+    }
+
+    #[test]
+    fn use_potion_zero_returns_none() {
+        let state = combat_state();
+        assert_eq!(parse("use 0", &state, false), None);
+    }
+
+    #[test]
+    fn debug_potion_command_adds_by_id() {
+        let state = combat_state();
+        assert_eq!(
+            parse("potion fire-potion", &state, true),
+            Some(Command::AddPotion(Potion::FirePotion))
+        );
     }
 }

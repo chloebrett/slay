@@ -356,6 +356,7 @@ mod tests {
             deck: vec![],
             gold: 0,
             relics: vec![],
+            potions: vec![],
         }
     }
 

@@ -136,10 +136,20 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
         GameState::GameOver { .. } => None,
     };
     let line = match player {
-        Some(p) => format!(
-            "🧙  HP {}/{}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards",
-            p.hp.0, p.max_hp.0, p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len()
-        ),
+        Some(p) => {
+            let potions: Vec<String> = p.potions.iter().enumerate()
+                .map(|(i, pot)| format!("[{}]{}", i + 1, pot.name()))
+                .collect();
+            let potion_str = if potions.is_empty() {
+                String::new()
+            } else {
+                format!("   🧪 {}", potions.join(" "))
+            };
+            format!(
+                "🧙  HP {}/{}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
+                p.hp.0, p.max_hp.0, p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
+            )
+        }
         None => String::new(),
     };
     let para = Paragraph::new(line).style(Style::default().fg(Color::White));

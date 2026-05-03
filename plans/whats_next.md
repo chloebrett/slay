@@ -8,6 +8,8 @@
 - ✅ Jaw Worm (Chomp/Bellow/Thrash with probabilistic RNG)
 - ✅ Small Spike Slime (Flame Tackle + Dazed to discard)
 - ✅ Red Louse (Bite/Grow probabilistic, no-repeat)
+- ✅ Green Louse, Small Acid Slime, Blue Slaver, Red Slaver (+ Entangle status)
+- ✅ Potions (9 types: Fire, Explosive, Block, Strength, Swift, Fear, Weak, Blood, Energy)
 
 ## Directions
 
@@ -57,9 +59,9 @@ The ratatui UI works but has room to grow:
 - Animations: brief flash on damage taken/dealt
 - Mouse support: click a card to play, click an enemy to target
 
-### Potions
+### Potions ✅
 
-`Vec<Potion>` on Player, `Command::UsePotion(usize)`, dropped after combat.
+9 potions live. `Player.potions: Vec<Potion>` (max 3). `Command::UsePotion(slot, target)` during combat. `Command::AddPotion` for debug/rewards. Potions persist between floors. Next: potion drops as combat reward option.
 
 ### Merchant
 

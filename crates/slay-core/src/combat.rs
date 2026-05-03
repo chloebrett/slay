@@ -1,9 +1,10 @@
 use crate::cards::Card;
 use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
+use crate::potions::Potion;
 use crate::relics::Relic;
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_damage, tick_ritual, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_block, resolve_damage, tick_ritual, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +22,7 @@ pub struct Player {
     pub deck: Vec<Card>,
     pub gold: i32,
     pub relics: Vec<Relic>,
+    pub potions: Vec<Potion>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,6 +81,7 @@ impl CombatState {
             deck,
             gold: 0,
             relics: Vec::new(),
+            potions: Vec::new(),
         };
         Self::from_player(player, vec![EnemyKind::Louse], rng)
     }
@@ -162,6 +165,7 @@ pub enum Event {
     CardExhausted { card: Card },
     CardUpgraded { from: Card, to: Card },
     StatusCardAddedToDiscard { card: Card },
+    PotionUsed { potion: Potion },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -255,6 +259,17 @@ pub(crate) fn apply_combat_command(
             }
             state.phase = CombatPhase::EnemyTurn;
         }
+        Command::UsePotion(slot, target_idx) => {
+            if state.phase != CombatPhase::PlayerTurn {
+                return Err(CommandError::InvalidPhase);
+            }
+            if slot >= state.player.potions.len() {
+                return Err(CommandError::InvalidCard);
+            }
+            let potion = state.player.potions.remove(slot);
+            apply_potion(potion, target_idx, &mut state, &mut events, rng);
+            events.push(Event::PotionUsed { potion });
+        }
         Command::ChooseNode(_)
         | Command::Rest
         | Command::ChooseCardReward(_)
@@ -264,6 +279,7 @@ pub(crate) fn apply_combat_command(
         | Command::WinCombat
         | Command::AddCard(_)
         | Command::AddRelic(_)
+        | Command::AddPotion(_)
         | Command::Spawn(_) => {
             return Err(CommandError::InvalidPhase);
         }
@@ -355,6 +371,71 @@ pub(crate) fn damage_player(state: &mut CombatState, events: &mut Vec<Event>, am
     events.push(Event::PlayerSelfDamaged { amount });
 }
 
+fn apply_potion(
+    potion: Potion,
+    target_idx: usize,
+    state: &mut CombatState,
+    events: &mut Vec<Event>,
+    rng: &mut impl Rng,
+) {
+    match potion {
+        Potion::FirePotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            let dmg = resolve_damage(20, &StatusMap::new(), &state.enemies[target].statuses);
+            let e = &mut state.enemies[target];
+            let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+            events.push(Event::EnemyAttacked { raw: dmg, damage: dealt });
+            if state.enemies[target].hp <= Hp(0) {
+                events.push(Event::EnemyDied);
+            }
+        }
+        Potion::ExplosivePotion => {
+            for i in 0..state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { continue; }
+                let dmg = resolve_damage(10, &StatusMap::new(), &state.enemies[i].statuses);
+                let e = &mut state.enemies[i];
+                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+                events.push(Event::EnemyAttacked { raw: dmg, damage: dealt });
+                if state.enemies[i].hp <= Hp(0) {
+                    events.push(Event::EnemyDied);
+                }
+            }
+        }
+        Potion::BlockPotion => {
+            let gained = resolve_block(12, &state.player.statuses);
+            state.player.block.0 += gained;
+            events.push(Event::PlayerBlocked { amount: gained });
+        }
+        Potion::StrengthPotion => {
+            apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 2, events);
+        }
+        Potion::SwiftPotion => {
+            draw_cards(&mut state.player, 3, rng);
+            events.push(Event::CardsDrawn { count: 3 });
+        }
+        Potion::FearPotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Vulnerable, 3, events);
+        }
+        Potion::WeakPotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Weak, 3, events);
+        }
+        Potion::BloodPotion => {
+            let heal = (state.player.max_hp.0 * 20 / 100).max(1);
+            state.player.hp.0 = (state.player.hp.0 + heal).min(state.player.max_hp.0);
+            events.push(Event::Healed { amount: heal });
+        }
+        Potion::EnergyPotion => {
+            state.player.energy.0 += 2;
+            events.push(Event::EnergyGained { amount: 2 });
+        }
+    }
+    if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+        state.phase = CombatPhase::Victory;
+    }
+}
+
 #[cfg(test)]
 pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
     CombatState {
@@ -372,6 +453,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             deck: Vec::new(),
             gold: 0,
             relics: Vec::new(),
+            potions: Vec::new(),
         },
         enemies: vec![Enemy {
             kind: EnemyKind::Louse,
@@ -413,6 +495,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
             deck: Vec::new(),
             gold: 0,
             relics: Vec::new(),
+            potions: Vec::new(),
         },
         enemies: vec![louse(), louse()],
         turn: 1,
@@ -423,6 +506,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::potions::Potion;
     use crate::rng::NoOpRng;
     use crate::run::{Command, CommandError};
 
@@ -998,5 +1082,141 @@ mod tests {
         enemy.statuses.insert(StatusEffect::Weak, 1);
         let player_statuses = StatusMap::new();
         assert_eq!(enemy.effective_intent(&player_statuses), Intent::Attack(6));
+    }
+
+    // --- Potions ---
+
+    fn combat_with_potion(potion: Potion) -> CombatState {
+        let mut state = combat_with_hand(vec![]);
+        state.player.potions.push(potion);
+        state
+    }
+
+    fn combat_with_potion_and_enemy_hp(potion: Potion, enemy_hp: i32) -> CombatState {
+        let mut state = combat_with_potion(potion);
+        state.enemies[0].hp = Hp(enemy_hp);
+        state.enemies[0].max_hp = Hp(enemy_hp);
+        state
+    }
+
+    #[test]
+    fn fire_potion_deals_20_damage_to_target() {
+        let state = combat_with_potion(Potion::FirePotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(0));
+    }
+
+    #[test]
+    fn fire_potion_applies_vulnerable_scaling() {
+        let mut state = combat_with_potion_and_enemy_hp(Potion::FirePotion, 50);
+        state.enemies[0].statuses.insert(StatusEffect::Vulnerable, 1);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(50 - 30)); // 20 * 3/2 = 30
+    }
+
+    #[test]
+    fn fire_potion_kills_enemy_and_flags_victory() {
+        let state = combat_with_potion(Potion::FirePotion);
+        let (state, events) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Victory);
+        assert!(events.contains(&Event::EnemyDied));
+    }
+
+    #[test]
+    fn explosive_potion_deals_10_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![]);
+        state.player.potions.push(Potion::ExplosivePotion);
+        for e in &mut state.enemies { e.hp = Hp(15); e.max_hp = Hp(15); }
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(5));
+        assert_eq!(state.enemies[1].hp, Hp(5));
+    }
+
+    #[test]
+    fn block_potion_grants_12_block() {
+        let state = combat_with_potion(Potion::BlockPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(12));
+    }
+
+    #[test]
+    fn strength_potion_grants_2_strength() {
+        let state = combat_with_potion(Potion::StrengthPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
+    }
+
+    #[test]
+    fn swift_potion_draws_3_cards() {
+        let mut state = combat_with_potion(Potion::SwiftPotion);
+        state.player.draw_pile = vec![Card::Strike; 5];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+    }
+
+    #[test]
+    fn fear_potion_applies_3_vulnerable_to_target() {
+        let state = combat_with_potion_and_enemy_hp(Potion::FearPotion, 50);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&3));
+    }
+
+    #[test]
+    fn weak_potion_applies_3_weak_to_target() {
+        let state = combat_with_potion_and_enemy_hp(Potion::WeakPotion, 50);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&3));
+    }
+
+    #[test]
+    fn energy_potion_grants_2_energy() {
+        let state = combat_with_potion(Potion::EnergyPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(5));
+    }
+
+    #[test]
+    fn blood_potion_heals_20_pct_of_max_hp() {
+        let mut state = combat_with_potion(Potion::BloodPotion);
+        state.player.hp = Hp(60); // max is 80, 20% = 16
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(76));
+    }
+
+    #[test]
+    fn blood_potion_cannot_overheal() {
+        let mut state = combat_with_potion(Potion::BloodPotion);
+        state.player.hp = Hp(79); // heals 16 but capped at 80
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn potion_is_consumed_after_use() {
+        let state = combat_with_potion(Potion::EnergyPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(state.player.potions.is_empty());
+    }
+
+    #[test]
+    fn use_potion_emits_potion_used_event() {
+        let state = combat_with_potion(Potion::EnergyPotion);
+        let (_, events) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::PotionUsed { potion: Potion::EnergyPotion }));
+    }
+
+    #[test]
+    fn cannot_use_potion_out_of_bounds() {
+        let state = combat_with_hand(vec![]);
+        let result = apply_command(state, Command::UsePotion(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn cannot_use_potion_during_enemy_turn() {
+        let state = combat_with_potion(Potion::EnergyPotion);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let result = apply_command(state, Command::UsePotion(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidPhase));
     }
 }

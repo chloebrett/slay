@@ -2,12 +2,14 @@ mod cards;
 mod combat;
 pub mod relics;
 mod enemies;
+mod potions;
 mod rng;
 pub mod run;
 pub(crate) mod status;
 mod types;
 
 pub use cards::{Card, CardDef, CardType, reward_pool, starter_deck};
+pub use potions::{Potion, MAX_POTIONS};
 pub use combat::{CombatPhase, CombatState, Enemy, Event, Player, Target};
 pub use relics::{Relic, grant_relic};
 pub use enemies::{EnemyKind, Intent, Move};
