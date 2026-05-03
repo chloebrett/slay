@@ -1,6 +1,7 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
 use crate::enemies::EnemyKind;
+use crate::relics::apply_end_of_combat_relics;
 use crate::rng::Rng;
 use crate::status::StatusMap;
 use crate::types::{Block, Energy, Hp};
@@ -158,8 +159,9 @@ pub fn apply_command(
 
         GameState::Combat { state: mut combat_state, floor } => match command {
             Command::WinCombat => {
-                let events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
+                let mut events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
                 let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
+                apply_end_of_combat_relics(&mut combat_state.player, &mut events);
                 let player = player_after_combat(combat_state.player, GOLD_PER_COMBAT);
                 if is_boss {
                     Ok((GameState::GameOver { victory: true }, events))
@@ -183,7 +185,9 @@ pub fn apply_command(
                         let mut events = events;
                         events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
                         let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
-                        let player = player_after_combat(new_combat.player, GOLD_PER_COMBAT);
+                        let mut victory_player = new_combat.player;
+                        apply_end_of_combat_relics(&mut victory_player, &mut events);
+                        let player = player_after_combat(victory_player, GOLD_PER_COMBAT);
                         if is_boss {
                             Ok((GameState::GameOver { victory: true }, events))
                         } else {
@@ -248,6 +252,7 @@ mod tests {
     use super::*;
     use crate::combat::Enemy;
     use crate::enemies::Intent;
+    use crate::relics::Relic;
     use crate::rng::NoOpRng;
 
     fn rng() -> NoOpRng {
@@ -848,5 +853,55 @@ mod tests {
         let state = combat_at_floor(4);
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         assert_eq!(state, GameState::GameOver { victory: true });
+    }
+
+    // --- burning blood ---
+
+    fn combat_with_burning_blood_at_floor(floor: usize, hp: i32) -> GameState {
+        let mut player = make_player();
+        player.hp = Hp(hp);
+        player.relics.push(Relic::BurningBlood);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![Card::Strike],
+                draw_pile: Vec::new(),
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(1),
+                max_hp: Hp(20),
+                block: Block(0),
+                intent: Intent::Attack(8),
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+        };
+        GameState::Combat { state: cs, floor }
+    }
+
+    #[test]
+    fn burning_blood_heals_6_hp_on_combat_victory() {
+        let state = combat_with_burning_blood_at_floor(0, 50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.hp, Hp(56));
+    }
+
+    #[test]
+    fn burning_blood_heals_6_hp_on_win_combat_command() {
+        let state = combat_with_burning_blood_at_floor(0, 50);
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.hp, Hp(56));
+    }
+
+    #[test]
+    fn burning_blood_cannot_overheal_on_victory() {
+        let state = combat_with_burning_blood_at_floor(0, 78);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert_eq!(cr.player.hp, Hp(80));
     }
 }
