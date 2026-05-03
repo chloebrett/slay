@@ -12,11 +12,17 @@ use crate::types::Energy;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Card {
     Strike,
+    StrikePlus,
     Defend,
+    DefendPlus,
     Bash,
+    BashPlus,
     Clothesline,
+    ClotheslinePlus,
     Inflame,
+    InflamePlus,
     DeadlyPoison,
+    DeadlyPoisonPlus,
     Disarm,
 }
 
@@ -50,9 +56,21 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Attack,
             },
+            Card::StrikePlus => CardDef {
+                name: "Strike+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 9 },
+                energy_cost: Energy(1),
+                card_type: CardType::Attack,
+            },
             Card::Defend => CardDef {
                 name: "Defend",
                 description: CardDescription::Static("Gain 5 block."),
+                energy_cost: Energy(1),
+                card_type: CardType::Skill,
+            },
+            Card::DefendPlus => CardDef {
+                name: "Defend+",
+                description: CardDescription::Static("Gain 8 block."),
                 energy_cost: Energy(1),
                 card_type: CardType::Skill,
             },
@@ -62,9 +80,21 @@ impl Card {
                 energy_cost: Energy(2),
                 card_type: CardType::Attack,
             },
+            Card::BashPlus => CardDef {
+                name: "Bash+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 3 Vulnerable.", base: 10 },
+                energy_cost: Energy(2),
+                card_type: CardType::Attack,
+            },
             Card::Clothesline => CardDef {
                 name: "Clothesline",
                 description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Weak.", base: 12 },
+                energy_cost: Energy(2),
+                card_type: CardType::Attack,
+            },
+            Card::ClotheslinePlus => CardDef {
+                name: "Clothesline+",
+                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 3 Weak.", base: 14 },
                 energy_cost: Energy(2),
                 card_type: CardType::Attack,
             },
@@ -74,9 +104,21 @@ impl Card {
                 energy_cost: Energy(1),
                 card_type: CardType::Power,
             },
+            Card::InflamePlus => CardDef {
+                name: "Inflame+",
+                description: CardDescription::Static("Gain 3 Strength."),
+                energy_cost: Energy(1),
+                card_type: CardType::Power,
+            },
             Card::DeadlyPoison => CardDef {
                 name: "Deadly Poison",
                 description: CardDescription::Static("Apply 5 Poison."),
+                energy_cost: Energy(1),
+                card_type: CardType::Skill,
+            },
+            Card::DeadlyPoisonPlus => CardDef {
+                name: "Deadly Poison+",
+                description: CardDescription::Static("Apply 7 Poison."),
                 energy_cost: Energy(1),
                 card_type: CardType::Skill,
             },
@@ -91,6 +133,18 @@ impl Card {
 
     pub fn exhausts(&self) -> bool {
         matches!(self, Card::Disarm)
+    }
+
+    pub fn upgrade(&self) -> Option<Card> {
+        match self {
+            Card::Strike => Some(Card::StrikePlus),
+            Card::Defend => Some(Card::DefendPlus),
+            Card::Bash => Some(Card::BashPlus),
+            Card::Clothesline => Some(Card::ClotheslinePlus),
+            Card::Inflame => Some(Card::InflamePlus),
+            Card::DeadlyPoison => Some(Card::DeadlyPoisonPlus),
+            _ => None,
+        }
     }
 
     pub fn card_type(&self) -> CardType { self.def().card_type }
@@ -362,6 +416,106 @@ mod tests {
         assert!(state.player.exhaust_pile.is_empty());
     }
 
+    // --- Upgraded effects ---
+
+    #[test]
+    fn strike_plus_deals_9_damage() {
+        let state = combat_with_hand(vec![Card::StrikePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(11));
+    }
+
+    #[test]
+    fn defend_plus_grants_8_block() {
+        let state = combat_with_hand(vec![Card::DefendPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(8));
+    }
+
+    #[test]
+    fn bash_plus_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::BashPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(10));
+    }
+
+    #[test]
+    fn bash_plus_applies_3_vulnerable() {
+        let state = combat_with_hand(vec![Card::BashPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&3));
+    }
+
+    #[test]
+    fn clothesline_plus_deals_14_damage() {
+        let state = combat_with_hand(vec![Card::ClotheslinePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(6));
+    }
+
+    #[test]
+    fn clothesline_plus_applies_3_weak() {
+        let state = combat_with_hand(vec![Card::ClotheslinePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&3));
+    }
+
+    #[test]
+    fn inflame_plus_grants_3_strength() {
+        let state = combat_with_hand(vec![Card::InflamePlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&3));
+    }
+
+    #[test]
+    fn deadly_poison_plus_applies_7_poison() {
+        let state = combat_with_hand(vec![Card::DeadlyPoisonPlus]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&7));
+    }
+
+    // --- Card::upgrade() ---
+
+    #[test]
+    fn upgrading_strike_gives_strike_plus() {
+        assert_eq!(Card::Strike.upgrade(), Some(Card::StrikePlus));
+    }
+
+    #[test]
+    fn upgrading_defend_gives_defend_plus() {
+        assert_eq!(Card::Defend.upgrade(), Some(Card::DefendPlus));
+    }
+
+    #[test]
+    fn upgrading_bash_gives_bash_plus() {
+        assert_eq!(Card::Bash.upgrade(), Some(Card::BashPlus));
+    }
+
+    #[test]
+    fn upgrading_clothesline_gives_clothesline_plus() {
+        assert_eq!(Card::Clothesline.upgrade(), Some(Card::ClotheslinePlus));
+    }
+
+    #[test]
+    fn upgrading_inflame_gives_inflame_plus() {
+        assert_eq!(Card::Inflame.upgrade(), Some(Card::InflamePlus));
+    }
+
+    #[test]
+    fn upgrading_deadly_poison_gives_deadly_poison_plus() {
+        assert_eq!(Card::DeadlyPoison.upgrade(), Some(Card::DeadlyPoisonPlus));
+    }
+
+    #[test]
+    fn upgrading_plus_card_returns_none() {
+        assert_eq!(Card::StrikePlus.upgrade(), None);
+    }
+
+    #[test]
+    fn disarm_cannot_be_upgraded() {
+        assert_eq!(Card::Disarm.upgrade(), None);
+    }
+
     // --- Disarm ---
 
     #[test]
@@ -389,12 +543,18 @@ mod tests {
 
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>) {
     match card {
-        Card::Strike => strike::apply(state, events),
-        Card::Defend => defend::apply(state, events),
-        Card::Bash => bash::apply(state, events),
-        Card::Clothesline => clothesline::apply(state, events),
-        Card::Inflame => inflame::apply(state, events),
-        Card::DeadlyPoison => deadly_poison::apply(state, events),
+        Card::Strike      => strike::apply(state, events, 6),
+        Card::StrikePlus  => strike::apply(state, events, 9),
+        Card::Defend      => defend::apply(state, events, 5),
+        Card::DefendPlus  => defend::apply(state, events, 8),
+        Card::Bash        => bash::apply(state, events, 8, 2),
+        Card::BashPlus    => bash::apply(state, events, 10, 3),
+        Card::Clothesline      => clothesline::apply(state, events, 12, 2),
+        Card::ClotheslinePlus  => clothesline::apply(state, events, 14, 3),
+        Card::Inflame     => inflame::apply(state, events, 2),
+        Card::InflamePlus => inflame::apply(state, events, 3),
+        Card::DeadlyPoison      => deadly_poison::apply(state, events, 5),
+        Card::DeadlyPoisonPlus  => deadly_poison::apply(state, events, 7),
         Card::Disarm => disarm::apply(state, events),
     }
 }

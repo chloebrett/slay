@@ -138,6 +138,7 @@ pub enum Event {
     Healed { amount: i32 },
     CardAdded { card: Card },
     CardExhausted { card: Card },
+    CardUpgraded { from: Card, to: Card },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -206,7 +207,10 @@ pub(crate) fn apply_combat_command(
         Command::ChooseNode(_)
         | Command::Rest
         | Command::ChooseCardReward(_)
-        | Command::SkipReward => {
+        | Command::SkipReward
+        | Command::UpgradeCard(_)
+        | Command::SkipFloor
+        | Command::WinCombat => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {

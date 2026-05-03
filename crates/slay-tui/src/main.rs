@@ -1,14 +1,16 @@
 use slay_core::{
-    apply_command, new_run, CardRewardState, CombatPhase, CombatState, Event, GameState, Intent,
-    MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
+    apply_command, new_run, Card, CardRewardState, CombatPhase, CombatState, Event, GameState,
+    Intent, MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
 };
 use std::io::{self, BufRead, Write};
 
 fn main() {
+    let debug = std::env::args().any(|a| a == "--debug");
     let mut rng = ThreadRng::new();
     let mut state = new_run(&mut rng);
 
     println!("{}", slay_core::welcome());
+    if debug { println!("[debug mode]"); }
     println!();
 
     render(&state);
@@ -28,7 +30,7 @@ fn main() {
             }
         }
 
-        let Some(command) = slay_tui::command::parse(&input, &state) else {
+        let Some(command) = slay_tui::command::parse(&input, &state, debug) else {
             println!("Unknown command.\n");
             continue;
         };
@@ -135,6 +137,13 @@ fn render_rest(rs: &RestSiteState) {
     println!("=== Rest Site ===");
     println!("HP: {}/{}", rs.player.hp.0, rs.player.max_hp.0);
     println!("[rest] Heal for {heal} HP  (to {healed_to})");
+    println!();
+    println!("Deck (upgrade N to upgrade a card):");
+    for (i, card) in rs.player.deck.iter().enumerate() {
+        let can_upgrade = card.upgrade().is_some();
+        let marker = if can_upgrade { " " } else { "×" };
+        println!("  {marker}[{}] {}", i + 1, card.name());
+    }
 }
 
 fn render_card_reward(cr: &CardRewardState) {
@@ -291,5 +300,6 @@ fn describe(event: &Event) -> String {
         Event::Healed { amount } => format!("You heal for {amount} HP."),
         Event::CardAdded { card } => format!("{} added to your deck.", card.name()),
         Event::CardExhausted { card } => format!("{} was exhausted.", card.name()),
+        Event::CardUpgraded { from, to } => format!("{} upgraded to {}.", from.name(), to.name()),
     }
 }

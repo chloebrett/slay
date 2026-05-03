@@ -1,16 +1,22 @@
 use slay_core::{
     apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
-    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, RestSiteState, StatusMap,
+    EnemyKind, Energy, GameState, Hp, Intent, MapState, NoOpRng, Player, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
     state: GameState,
     rng: NoOpRng,
+    debug: bool,
 }
 
 impl TestHarness {
     fn with_state(state: GameState) -> Self {
-        Self { state, rng: NoOpRng }
+        Self { state, rng: NoOpRng, debug: false }
+    }
+
+    fn debug(mut self) -> Self {
+        self.debug = true;
+        self
     }
 
     fn with_hand(hand: Vec<Card>) -> Self {
@@ -43,13 +49,13 @@ impl TestHarness {
             },
             floor: 0,
         };
-        Self { state, rng: NoOpRng }
+        Self { state, rng: NoOpRng, debug: false }
     }
 
     // Issues a player command, then auto-drains any EnemyTurn phase — same behavior
     // as the TUI loop.
     fn send(&mut self, input: &str) -> Result<(), String> {
-        let command = slay_tui::command::parse(input, &self.state)
+        let command = slay_tui::command::parse(input, &self.state, self.debug)
             .ok_or_else(|| format!("unknown command: '{input}'"))?;
         let (new_state, _) = apply_command(self.state.clone(), command, &mut self.rng)
             .map_err(|e| format!("{e:?}"))?;
@@ -366,6 +372,56 @@ fn disarm_goes_to_exhaust_pile_after_play() {
     let GameState::Combat { state, .. } = &game.state else { panic!("not in combat") };
     assert!(state.player.discard_pile.is_empty());
     assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
+}
+
+// --- Rest site: upgrade ---
+
+#[test]
+fn upgrade_at_rest_site_replaces_card_in_deck() {
+    use slay_core::{MapState, RestSiteState};
+    let player = Player {
+        hp: Hp(80), max_hp: Hp(80), block: Block(0),
+        energy: Energy(3), max_energy: Energy(3),
+        hand: Vec::new(), draw_pile: Vec::new(),
+        discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+        statuses: StatusMap::new(),
+        deck: vec![Card::Strike, Card::Defend],
+        gold: 0,
+    };
+    let state = GameState::RestSite(RestSiteState { player, floor: 3 });
+    let mut game = TestHarness::with_state(state);
+    game.send("upgrade 1").unwrap(); // upgrade deck[0] = Strike → StrikePlus
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.player.deck[0], Card::StrikePlus);
+}
+
+// --- Debug mode ---
+
+#[test]
+fn win_command_rejected_without_debug_flag() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]);
+    assert!(game.send("win").is_err());
+}
+
+#[test]
+fn skip_command_rejected_without_debug_flag() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+    assert!(game.send("skip").is_err());
+}
+
+#[test]
+fn win_command_kills_enemy_in_debug_mode() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]).debug();
+    game.send("win").unwrap();
+    assert!(game.is_victory());
+}
+
+#[test]
+fn skip_floor_advances_map_in_debug_mode() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    game.send("skip").unwrap();
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.floor, 1);
 }
 
 // --- Defeat ---

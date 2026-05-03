@@ -14,6 +14,9 @@ pub enum Command {
     Rest,
     ChooseCardReward(usize),
     SkipReward,
+    UpgradeCard(usize),
+    SkipFloor,
+    WinCombat,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -144,11 +147,26 @@ pub fn apply_command(
                     )),
                 }
             }
+            Command::SkipFloor => {
+                Ok((GameState::Map(MapState { player, floor: floor + 1 }), Vec::new()))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
         GameState::Combat { state: combat_state, floor } => match command {
-            Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_) => {
+            Command::WinCombat => {
+                let events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
+                let is_boss = matches!(MAP_NODES.get(floor), Some(MapNode::Boss));
+                let player = player_after_combat(combat_state.player, GOLD_PER_COMBAT);
+                if is_boss {
+                    Ok((GameState::GameOver { victory: true }, events))
+                } else {
+                    let options = generate_rewards(rng);
+                    Ok((GameState::CardReward(CardRewardState { player, floor: floor + 1, options }), events))
+                }
+            }
+            Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
+            | Command::SkipFloor | Command::UpgradeCard(_) => {
                 Err(CommandError::InvalidPhase)
             }
             cmd => {
@@ -184,6 +202,13 @@ pub fn apply_command(
                 let heal = (player.max_hp.0 * 30 / 100).max(1);
                 player.hp.0 = (player.hp.0 + heal).min(player.max_hp.0);
                 let events = vec![Event::Healed { amount: heal }];
+                Ok((GameState::Map(MapState { player, floor: floor + 1 }), events))
+            }
+            Command::UpgradeCard(idx) => {
+                let from = player.deck.get(idx).cloned().ok_or(CommandError::InvalidCard)?;
+                let to = from.upgrade().ok_or(CommandError::InvalidCard)?;
+                player.deck[idx] = to.clone();
+                let events = vec![Event::CardUpgraded { from, to }];
                 Ok((GameState::Map(MapState { player, floor: floor + 1 }), events))
             }
             _ => Err(CommandError::InvalidPhase),
@@ -684,6 +709,100 @@ mod tests {
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert!(cs.player.exhaust_pile.is_empty());
     }
+
+    // --- rest site: upgrade ---
+
+    #[test]
+    fn upgrade_replaces_card_in_deck_with_plus_version() {
+        // deck[0] = Strike (from starter_deck); upgrade it → StrikePlus
+        let state = GameState::RestSite(RestSiteState { player: make_player(), floor: 3 });
+        let (state, _) = apply_command(state, Command::UpgradeCard(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.deck[0], Card::StrikePlus);
+    }
+
+    #[test]
+    fn upgrade_advances_to_map_at_next_floor() {
+        let state = GameState::RestSite(RestSiteState { player: make_player(), floor: 3 });
+        let (state, _) = apply_command(state, Command::UpgradeCard(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.floor, 4);
+    }
+
+    #[test]
+    fn upgrade_emits_card_upgraded_event() {
+        let state = GameState::RestSite(RestSiteState { player: make_player(), floor: 3 });
+        let (_, events) = apply_command(state, Command::UpgradeCard(0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardUpgraded { .. })));
+    }
+
+    #[test]
+    fn upgrade_invalid_index_returns_error() {
+        let state = GameState::RestSite(RestSiteState { player: make_player(), floor: 3 });
+        let result = apply_command(state, Command::UpgradeCard(99), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn upgrade_non_upgradeable_card_returns_error() {
+        // starter_deck last card is Disarm (index 11), which cannot be upgraded
+        let state = GameState::RestSite(RestSiteState { player: make_player(), floor: 3 });
+        let result = apply_command(state, Command::UpgradeCard(11), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    // --- debug: WinCombat ---
+
+    #[test]
+    fn win_combat_kills_enemy_and_goes_to_card_reward() {
+        let state = combat_at_floor(0);
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        assert!(matches!(state, GameState::CardReward(_)));
+    }
+
+    #[test]
+    fn win_combat_awards_gold() {
+        let state = combat_at_floor(0);
+        let (_, events) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        assert!(events.contains(&Event::GoldEarned { amount: 50 }));
+    }
+
+    #[test]
+    fn win_combat_on_boss_floor_ends_run_with_victory() {
+        let state = combat_at_floor(4);
+        let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        assert_eq!(state, GameState::GameOver { victory: true });
+    }
+
+    // --- debug: SkipFloor ---
+
+    #[test]
+    fn skip_floor_from_map_advances_floor() {
+        let state = new_run(&mut rng()); // Map at floor 0
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.floor, 1);
+    }
+
+    #[test]
+    fn skip_floor_rejected_from_combat() {
+        let state = combat_at_floor(0);
+        assert_eq!(
+            apply_command(state, Command::SkipFloor, &mut rng()),
+            Err(CommandError::InvalidPhase)
+        );
+    }
+
+    #[test]
+    fn win_combat_rejected_from_map() {
+        let state = new_run(&mut rng());
+        assert_eq!(
+            apply_command(state, Command::WinCombat, &mut rng()),
+            Err(CommandError::InvalidPhase)
+        );
+    }
+
+    // --- combat_commands_rejected_in_card_reward_state ---
 
     #[test]
     fn combat_commands_rejected_in_card_reward_state() {
