@@ -1,6 +1,6 @@
 use slay_core::{
-    apply_command, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy, EnemyKind,
-    Energy, GameState, Hp, Intent, NoOpRng, Player, StatusMap,
+    apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
+    EnemyKind, Energy, GameState, Hp, Intent, NoOpRng, Player, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -9,6 +9,10 @@ struct TestHarness {
 }
 
 impl TestHarness {
+    fn with_state(state: GameState) -> Self {
+        Self { state, rng: NoOpRng }
+    }
+
     fn with_hand(hand: Vec<Card>) -> Self {
         let state = GameState::Combat {
             state: CombatState {
@@ -202,4 +206,177 @@ fn enemy_block_from_defend_absorbs_player_attack() {
         _ => panic!("not in combat"),
     };
     assert_eq!(enemy_block2, slay_core::Block(0));
+}
+
+// --- Card rewards ---
+
+#[test]
+fn choosing_card_reward_adds_card_to_deck() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]);
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.enemy.hp = Hp(1);
+        state.player.deck = vec![Card::Strike; 5];
+    }
+    game.send("play 1").unwrap(); // kills enemy → CardReward
+    assert!(matches!(game.state, GameState::CardReward(_)));
+    game.send("1").unwrap(); // pick first option → Map
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.player.deck.len(), 6);
+}
+
+#[test]
+fn skipping_reward_leaves_deck_unchanged() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike]);
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.enemy.hp = Hp(1);
+        state.player.deck = vec![Card::Strike; 5];
+    }
+    game.send("play 1").unwrap(); // kills enemy → CardReward
+    game.send("skip").unwrap(); // skip → Map
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.player.deck.len(), 5);
+}
+
+// --- Rest site ---
+
+#[test]
+fn rest_heals_player_hp() {
+    let state = GameState::RestSite(RestSiteState {
+        player: Player {
+            hp: Hp(50),
+            max_hp: Hp(80),
+            block: Block(0),
+            energy: Energy(3),
+            max_energy: Energy(3),
+            hand: Vec::new(),
+            draw_pile: Vec::new(),
+            discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
+            statuses: StatusMap::new(),
+            deck: Vec::new(),
+            gold: 0,
+        },
+        floor: 3,
+    });
+    let mut game = TestHarness::with_state(state);
+    game.send("rest").unwrap();
+    let GameState::Map(map) = &game.state else { panic!("expected Map") };
+    assert_eq!(map.player.hp.0, 74); // 50 + 30% of 80 (24)
+}
+
+// --- Full run ---
+
+fn set_instant_win(state: &mut GameState) {
+    if let GameState::Combat { state: cs, .. } = state {
+        cs.enemy.hp = Hp(1);
+        cs.player.hand = vec![Card::Strike];
+        cs.player.energy = Energy(1);
+    }
+}
+
+#[test]
+fn full_run_reaches_victory() {
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+
+    for _ in 0..3 {
+        game.send("1").unwrap(); // enter combat
+        set_instant_win(&mut game.state);
+        game.send("play 1").unwrap(); // kill → CardReward
+        game.send("skip").unwrap(); // skip → Map
+    }
+
+    game.send("1").unwrap(); // enter rest site
+    game.send("rest").unwrap(); // rest → Map floor 4
+
+    game.send("1").unwrap(); // enter boss
+    set_instant_win(&mut game.state);
+    game.send("play 1").unwrap(); // kill boss → GameOver
+
+    assert!(matches!(game.state, GameState::GameOver { victory: true }));
+}
+
+// --- Status effect combos ---
+
+#[test]
+fn bash_then_strike_benefits_from_vulnerable() {
+    // Bash: 8 dmg + 2 Vuln → enemy 12 HP. Strike: 6 * 3/2 = 9 dmg → enemy 3 HP.
+    let mut game = TestHarness::with_hand(vec![Card::Bash, Card::Strike]);
+    game.send("play 1").unwrap(); // Bash — Strike shifts to slot 1
+    game.send("play 1").unwrap(); // Strike with Vulnerable
+    assert_eq!(game.enemy_hp(), 3);
+}
+
+#[test]
+fn clothesline_reduces_enemy_attack_damage() {
+    // Clothesline: 12 dmg + 2 Weak → enemy 8 HP. End turn: enemy attacks 8 * 3/4 = 6.
+    let mut game = TestHarness::with_hand(vec![Card::Clothesline]);
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.player.draw_pile = vec![Card::Strike; 5];
+    }
+    game.send("play 1").unwrap();
+    game.send("end").unwrap();
+    assert_eq!(game.player_hp(), 74); // 80 - 6
+}
+
+#[test]
+fn deadly_poison_drains_enemy_hp_over_multiple_turns() {
+    let mut game = TestHarness::with_hand(vec![Card::DeadlyPoison]);
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.player.draw_pile = vec![Card::Strike; 10];
+    }
+    game.send("play 1").unwrap(); // apply 5 poison — no immediate damage
+    assert_eq!(game.enemy_hp(), 20);
+    game.send("end").unwrap(); // poison tick: 5 dmg → enemy 15
+    assert_eq!(game.enemy_hp(), 15);
+    game.send("end").unwrap(); // poison tick: 4 dmg → enemy 11
+    assert_eq!(game.enemy_hp(), 11);
+}
+
+#[test]
+fn disarm_reduces_enemy_attack_damage() {
+    // Disarm: enemy loses 2 Strength. Enemy base attack 8, so 8 + (-2) = 6.
+    let mut game = TestHarness::with_hand(vec![Card::Disarm]);
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.player.draw_pile = vec![Card::Strike; 5];
+    }
+    game.send("play 1").unwrap();
+    game.send("end").unwrap();
+    assert_eq!(game.player_hp(), 74); // 80 - 6
+}
+
+// --- Energy management ---
+
+#[test]
+fn playing_card_without_energy_returns_error() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike; 4]);
+    game.send("play 1").unwrap(); // energy 2
+    game.send("play 1").unwrap(); // energy 1
+    game.send("play 1").unwrap(); // energy 0
+    let result = game.send("play 1"); // no energy left
+    assert!(result.is_err());
+    assert_eq!(game.player_hp(), 80); // state unchanged
+}
+
+// --- Exhaust pile ---
+
+#[test]
+fn disarm_goes_to_exhaust_pile_after_play() {
+    let mut game = TestHarness::with_hand(vec![Card::Disarm]);
+    game.send("play 1").unwrap();
+    let GameState::Combat { state, .. } = &game.state else { panic!("not in combat") };
+    assert!(state.player.discard_pile.is_empty());
+    assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
+}
+
+// --- Defeat ---
+
+#[test]
+fn player_dies_when_hp_reaches_zero() {
+    let mut game = TestHarness::with_hand(Vec::new());
+    if let GameState::Combat { state, .. } = &mut game.state {
+        state.player.hp = Hp(1); // one enemy attack (8 dmg) will kill
+        state.player.draw_pile = vec![Card::Strike; 5];
+    }
+    game.send("end").unwrap(); // enemy attacks → player dead → GameOver
+    assert!(matches!(game.state, GameState::GameOver { victory: false }));
 }
