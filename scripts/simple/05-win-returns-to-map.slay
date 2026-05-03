@@ -1,0 +1,4 @@
+# Win combat in Simple scenario — should return to map, not card reward.
+spawn louse
+enter
+win

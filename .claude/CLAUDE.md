@@ -152,6 +152,27 @@ For detailed guidance on expectations and documentation, load the `expectations`
 - [cargo-nextest](https://nexte.st/)
 - [insta snapshot testing](https://insta.rs/)
 
+## Project-Specific: Slay the Spire
+
+**Architecture reference:** `plans/architecture.md` — read this before making structural changes.
+
+**Snapshot tests** cover TUI output end-to-end. Run them after any change to render functions, event descriptions, or state transition logic:
+```
+cargo test -p slay-tui --test scripts
+```
+
+If snapshots fail after an intentional output change, review and accept:
+```
+INSTA_UPDATE=always cargo test -p slay-tui --test scripts
+```
+
+To add a new scenario, create a `scripts/simple/<name>.slay` file and generate its snapshot:
+```
+INSTA_UPDATE=new cargo test -p slay-tui --test scripts
+```
+
+Always commit `.snap` files alongside the `.slay` scripts that produce them.
+
 ## Summary
 
 The key is to write clean, testable, functional code that evolves through small, safe increments. Every change should be driven by a test that describes the desired behavior, and the implementation should be the simplest thing that makes that test pass. When in doubt, favor simplicity and readability over cleverness.

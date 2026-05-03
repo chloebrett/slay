@@ -1,0 +1,7 @@
+# Add a Defend, enter combat vs Louse.
+# End turn with block up; verify enemy attack is partially/fully absorbed.
+spawn louse
+enter
+add defend
+1
+end

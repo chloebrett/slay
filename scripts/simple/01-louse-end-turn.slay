@@ -1,0 +1,5 @@
+# Spawn a louse and end the turn without playing cards.
+# Verifies the initial combat render and enemy attack.
+spawn louse
+enter
+end

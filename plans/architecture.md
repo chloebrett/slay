@@ -9,11 +9,16 @@ This document describes the current implementation as a spec. Read it to underst
 ```
 slay/
   Cargo.toml                  ← workspace root
+  scripts/
+    simple/                   ← deterministic .slay scripts for snapshot tests
+      01-louse-end-turn.slay
+      02-add-strike-kill-louse.slay
+      ...
   crates/
     slay-core/                ← pure game engine; no I/O, no terminal
       src/
         lib.rs                ← public re-exports; the crate's API surface
-        run.rs                ← GameState, Command, CommandError, apply_command, MAP_NODES
+        run.rs                ← GameState, Command, CommandError, apply_command, MAP_NODES, Scenario
         combat.rs             ← CombatState, apply_combat_command, Player, Enemy, Event
         cards/
           mod.rs              ← Card enum, CardDef, CardDescription, dispatch, reward_pool, starter_deck
@@ -25,18 +30,21 @@ slay/
           deadly_poison.rs    ← deadly_poison::apply
           disarm.rs           ← disarm::apply
         enemies/
-          mod.rs              ← EnemyKind, EnemyDef, Intent, next_intent dispatch
+          mod.rs              ← EnemyKind, EnemyDef, Intent, next_intent dispatch; id()/from_id()
           louse.rs            ← louse::DEF, louse::next_intent
         status.rs             ← StatusEffect, StatusMap, resolve_damage, tick_statuses, drain_poison
         types.rs              ← Hp, Block, Energy newtypes
-        rng.rs                ← Rng trait, ThreadRng, NoOpRng
+        rng.rs                ← Rng trait, ThreadRng, NoOpRng, AnyRng
     slay-tui/
       src/
-        main.rs               ← event loop, render functions, describe(Event)
+        main.rs               ← CLI entry point; delegates to game::run_game
+        game.rs               ← run_game(state, reader, writer, rng, debug) — the full game loop
         command.rs            ← text + GameState context → Command (parse)
-        lib.rs                ← re-exports command module for integration tests
+        lib.rs                ← re-exports command and game modules
       tests/
         integration.rs        ← TestHarness; command sequences → GameState assertions
+        scripts.rs            ← insta snapshot harness; discovers scripts/simple/*.slay
+      tests/snapshots/        ← committed insta snapshot files (auto-managed)
 ```
 
 **Hard constraint on `slay-core`:** No terminal, I/O, or display code. No `println!`. A hypothetical `slay-gui` could depend on `slay-core` unchanged.
@@ -74,6 +82,7 @@ pub enum Command {
 
     // Map navigation
     ChooseNode(usize),     // currently always 0 (only one choice per floor)
+    Spawn(Vec<EnemyKind>), // debug/Simple: override next combat's enemies
 
     // Rest site
     Rest,
@@ -81,6 +90,12 @@ pub enum Command {
     // Card reward
     ChooseCardReward(usize), // 0-indexed option
     SkipReward,
+
+    // Debug
+    WinCombat,             // instantly win the current combat
+    SkipFloor,             // advance past current floor without fighting
+    AddCard(Card),         // add a card to hand mid-combat
+    AddRelic(Relic),       // grant a relic
 }
 ```
 
@@ -100,13 +115,35 @@ pub enum CommandError {
 
 ---
 
+## Scenario
+
+```rust
+// run.rs
+pub enum Scenario { Main, Simple }
+```
+
+`Scenario` is stored on `MapState` and `GameState::Combat` so it flows through the whole run.
+
+| Scenario | Starter deck | RNG | After combat win |
+|---|---|---|---|
+| `Main` | `starter_deck()` (5×Strike, 3×Defend, …) | `ThreadRng` | `CardReward` |
+| `Simple` | empty | `NoOpRng` | back to `Map` (no reward) |
+
+**`Simple` is for deterministic snapshot testing.** Scripts use `spawn <enemy...>` to control which enemies appear. Because the deck starts empty, scripts add cards explicitly via `add <card>` (debug command) before entering combat. Because RNG is `NoOpRng`, card draw order, shuffle order, and reward generation are fully deterministic.
+
+Entry points:
+- `new_run(rng)` → `Scenario::Main`, populated deck
+- `new_simple_run()` → `Scenario::Simple`, empty deck
+
+---
+
 ## GameState and Transitions
 
 ```rust
 // run.rs
 pub enum GameState {
     Map(MapState),
-    Combat { state: CombatState, floor: usize },
+    Combat { state: CombatState, floor: usize, scenario: Scenario },
     RestSite(RestSiteState),
     CardReward(CardRewardState),
     GameOver { victory: bool },
@@ -115,17 +152,22 @@ pub enum GameState {
 
 ### Transition table
 
-| Current state | Command | Next state |
-|---|---|---|
-| `Map` | `ChooseNode(0)` → Combat node | `Combat { floor }` |
-| `Map` | `ChooseNode(0)` → Rest node | `RestSite { floor }` |
-| `Combat` | any → `Victory` (non-boss) | `CardReward { floor+1 }` |
-| `Combat` | any → `Victory` (boss) | `GameOver { victory: true }` |
-| `Combat` | any → `Defeat` | `GameOver { victory: false }` |
-| `RestSite` | `Rest` | `Map { floor+1 }` |
-| `CardReward` | `ChooseCardReward(i)` | `Map { same floor }` |
-| `CardReward` | `SkipReward` | `Map { same floor }` |
-| `GameOver` | any | `Err(CombatOver)` |
+| Current state | Command | Next state (Main) | Next state (Simple) |
+|---|---|---|---|
+| `Map` | `ChooseNode(0)` → Combat node | `Combat { floor }` | `Combat { floor }` |
+| `Map` | `ChooseNode(0)` → Rest node | `RestSite { floor }` | `RestSite { floor }` |
+| `Map` | `Spawn(enemies)` | stays `Map` (queues enemies) | stays `Map` (queues enemies) |
+| `Combat` | any → `Victory` (non-boss) | `CardReward { floor+1 }` | `Map { same floor }` |
+| `Combat` | any → `Victory` (boss) | `GameOver { victory: true }` | `GameOver { victory: true }` |
+| `Combat` | any → `Defeat` | `GameOver { victory: false }` | `GameOver { victory: false }` |
+| `RestSite` | `Rest` | `Map { floor+1 }` | `Map { floor+1 }` |
+| `CardReward` | `ChooseCardReward(i)` | `Map { same floor }` | — (never reached) |
+| `CardReward` | `SkipReward` | `Map { same floor }` | — (never reached) |
+| `GameOver` | any | `Err(CombatOver)` | `Err(CombatOver)` |
+
+### Enemy spawn queue
+
+`MapState.next_enemies: Option<Vec<EnemyKind>>` holds the override set by `Command::Spawn`. `ChooseNode(0)` consumes it (or falls back to `enemies_for_floor(floor)` if `None`). After use, `next_enemies` is cleared back to `None`.
 
 ### Map layout
 
@@ -340,13 +382,20 @@ pub trait Rng { fn shuffle<T>(&mut self, slice: &mut [T]); }
 
 pub struct ThreadRng(rand::rngs::ThreadRng);  // production
 pub struct NoOpRng;                            // identity shuffle — tests
+
+pub enum AnyRng {
+    Thread(ThreadRng),
+    NoOp(NoOpRng),
+}
 ```
 
 All randomness routes through `shuffle`. Currently used for: shuffling draw pile, shuffling card reward pool. Production code passes `&mut ThreadRng`. Tests pass `&mut NoOpRng` for determinism.
 
+**`AnyRng` is the runtime-selectable wrapper.** The `Rng` trait is not object-safe (`shuffle<T>` is generic), so `Box<dyn Rng>` doesn't work. `AnyRng` uses enum dispatch instead — each arm delegates to the inner type. `main.rs` and `run_game` accept `&mut AnyRng`; `slay-core` tests use `&mut NoOpRng` directly.
+
 **`NoOpRng` is an identity shuffle** — slice order is unchanged. Test setup must account for this: draw order = reverse of deck construction order (drawn via `pop()`).
 
-**Extension point:** The `Rng` trait only exposes `shuffle`. When random number generation beyond shuffling is needed (e.g. random damage ranges, proc chances), add methods to the trait.
+**Extension point:** The `Rng` trait only exposes `shuffle`. When random number generation beyond shuffling is needed (e.g. random damage ranges, proc chances), add methods to the trait and a new `AnyRng` dispatch arm.
 
 ---
 
@@ -384,40 +433,97 @@ pub enum Event {
 
 ## TUI (`slay-tui`)
 
+### `game.rs` — the game loop
+
+```rust
+pub fn run_game(
+    state: GameState,
+    reader: impl BufRead,
+    writer: &mut impl Write,
+    rng: &mut AnyRng,
+    debug: bool,
+)
+```
+
+The full game loop as a pure function over I/O types. `main.rs` calls it with stdin/stdout and `ThreadRng`. Tests and the snapshot harness call it with byte slices and `Vec<u8>`.
+
+Loop logic:
+1. Render current state.
+2. Read a line. Skip blank lines and `#`-prefixed comment lines.
+3. Echo `> {line}`.
+4. Check for pile inspection shortcuts (`z`/`x`/`c` in combat) → print pile, continue.
+5. Parse input → `Command`; on `None` print "Unknown command."
+6. Call `apply_command`; on `Err` print error.
+7. Auto-drain `EnemyTurn`: loop `EndEnemyTurn` until phase is no longer `EnemyTurn`.
+8. Check for `GameOver`; print outcome and break.
+9. Print events, re-render state.
+
 ### `command.rs`
 
 ```rust
-pub fn parse(input: &str, state: &GameState) -> Option<Command>
+pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command>
 ```
 
 Context-aware: the same input ("1") means different things in different states. Returns `None` on unknown input; the main loop prints "Unknown command." and re-prompts. Does not mutate state.
 
-| State | Input | Command |
-|---|---|---|
-| Map | `"1"` | `ChooseNode(0)` |
-| Combat | `"1"`–`"N"`, `"play N"` | `PlayCard(N-1)` |
-| Combat | `"end"`, `"e"`, `"end turn"`, `"pass"` | `EndTurn` |
-| RestSite | `"rest"`, `"r"` | `Rest` |
-| CardReward | `"1"`–`"N"`, `"pick N"` | `ChooseCardReward(N-1)` |
-| CardReward | `"skip"`, `"s"` | `SkipReward` |
+| State | Input | Command | Debug only |
+|---|---|---|---|
+| Map | `""`, `"enter"` | `ChooseNode(0)` | |
+| Map | `"spawn <ids...>"` | `Spawn(Vec<EnemyKind>)` | |
+| Map | `"skip"` | `SkipFloor` | ✓ |
+| Map | `"relic <id>"` | `AddRelic(relic)` | ✓ |
+| Combat | `"1"`–`"N"`, `"play N"` | `PlayCard(N-1)` | |
+| Combat | `"end"`, `"e"`, `"end turn"`, `"pass"` | `EndTurn` | |
+| Combat | `"win"` | `WinCombat` | ✓ |
+| Combat | `"add <id>"` | `AddCard(card)` | ✓ |
+| Combat | `"relic <id>"` | `AddRelic(relic)` | ✓ |
+| RestSite | `"rest"`, `"r"` | `Rest` | |
+| RestSite | `"upgrade N"`, `"u N"` | `UpgradeCard(N-1)` | |
+| CardReward | `"1"`–`"N"`, `"pick N"` | `ChooseCardReward(N-1)` | |
+| CardReward | `"skip"`, `"s"` | `SkipReward` | |
 
-Pile inspection (`"z"`, `"x"`, `"c"`) is handled directly in `main.rs` before `parse` is called — it is a display operation, not a `Command`.
+Pile inspection (`"z"`, `"x"`, `"c"`) is handled in `game::run_game` before `parse` is called — it is a display operation, not a `Command`.
+
+**`spawn` is always available on the Map** (not debug-gated) so that `.slay` scripts work without `--debug`. Other commands that bypass game mechanics require `--debug`.
 
 ### `main.rs`
 
-The event loop:
-1. Render current state.
-2. Read a line.
-3. Check for pile inspection shortcuts (`z`/`x`/`c` in combat) → print pile, re-prompt.
-4. Parse input → `Command`; on `None` print "Unknown command."
-5. Call `apply_command`; on `Err` print error.
-6. Auto-drain `EnemyTurn`: loop `EndEnemyTurn` until phase is no longer `EnemyTurn`.
-7. Check for `GameOver`; break if so.
-8. Print events, re-render state.
+Thin CLI entry point. Parses `--debug` and `--script <path>` flags, constructs `AnyRng::Thread`, calls `new_run`, opens stdin or the script file as a `Box<dyn BufRead>`, then delegates to `run_game`.
 
 ### Integration tests (`tests/integration.rs`)
 
 `TestHarness` wraps `GameState` and exposes `send(input: &str)` which parses and applies a command, then auto-drains `EnemyTurn` — mirroring the main loop. Used for end-to-end verification of the full stack.
+
+### Snapshot tests (`tests/scripts.rs`)
+
+Discovers every `scripts/simple/*.slay` file at test time and runs each through `run_game` with `NoOpRng` and a `Vec<u8>` writer. The full TUI output is compared against a committed snapshot via `insta`.
+
+**Running snapshot tests:**
+```
+cargo test -p slay-tui --test scripts
+```
+
+**After changing TUI output** (e.g. new render field, new event description), snapshots will fail. Review and accept:
+```
+cargo insta review            # interactive review tool
+# or, to accept all at once:
+INSTA_UPDATE=always cargo test -p slay-tui --test scripts
+```
+
+**Adding a new scenario:** write a `scripts/simple/<name>.slay` file and run `INSTA_UPDATE=new cargo test -p slay-tui --test scripts` to generate its snapshot. Commit both the script and the `.snap` file.
+
+**`.slay` script format:**
+```
+# Lines starting with # are comments (echoed to output)
+# Blank lines are silently skipped
+
+spawn louse cultist     # override next combat's enemies (Map phase only)
+enter                   # enter the current node (same as pressing Enter)
+add strike              # add a card to hand (debug; always available in scripts)
+1                       # play card 1
+end                     # end turn
+win                     # instantly win combat (debug)
+```
 
 ---
 
@@ -428,10 +534,14 @@ The event loop:
 | Damage formula | `status.rs` tests | `resolve_damage` math in isolation |
 | Per-card effects | `cards/mod.rs` tests | What each card does when played |
 | Combat engine | `combat.rs` tests | Drawing, energy, phases, block, turn cycle, status tick-down |
-| Run/progression | `run.rs` tests | Map transitions, rest, rewards, gold, floor progression |
+| Run/progression | `run.rs` tests | Map transitions, rest, rewards, gold, floor progression, Scenario |
+| Enemy IDs | `enemies/mod.rs` tests | `id()`/`from_id()` round-trip for all variants |
 | TUI integration | `slay-tui/tests/integration.rs` | Text commands → `GameState` assertions through the full stack |
+| TUI snapshot | `slay-tui/tests/scripts.rs` | Full TUI output from `.slay` scripts, compared via `insta` |
 
-All `slay-core` tests use `NoOpRng`. No mocks — tests exercise real code paths.
+All `slay-core` tests use `NoOpRng` directly. Snapshot tests use `AnyRng::NoOp`. No mocks — tests exercise real code paths.
+
+**Run snapshot tests after any TUI output change.** They will catch regressions in render layout, event descriptions, or state transition messages.
 
 ---
 

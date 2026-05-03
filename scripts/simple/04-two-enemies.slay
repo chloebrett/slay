@@ -1,0 +1,4 @@
+# Spawn two enemies and verify targeting display.
+spawn louse cultist
+enter
+end

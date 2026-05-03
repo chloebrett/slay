@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 indexmap = { workspace = true }
 slay-core = { path = "../slay-core" }
+
+[dev-dependencies]
+insta = "=1.40.0"

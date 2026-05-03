@@ -1,0 +1,10 @@
+# Add a Strike, enter combat vs a Louse, and kill it with two strikes.
+spawn louse
+enter
+add strike
+add strike
+add strike
+1
+1
+1
+end

@@ -1,0 +1,99 @@
+---
+source: crates/slay-tui/tests/scripts.rs
+expression: output
+---
+Slay the Spire
+⚙️  debug mode
+
+🗺️  Map
+🪙 0   ❤️  80/80   🃏 0 cards
+
+    5. 💀 Boss
+    4. 🔥 Rest Site
+    3. ⚔️  Combat
+    2. ⚔️  Combat
+  ▶ 1. ⚔️  Combat
+
+[Enter ↵] ⚔️  Combat
+# Add a Strike, enter combat vs a Louse, and kill it with two strikes.
+> spawn louse
+
+🗺️  Map
+🪙 0   ❤️  80/80   🃏 0 cards
+
+    5. 💀 Boss
+    4. 🔥 Rest Site
+    3. ⚔️  Combat
+    2. ⚔️  Combat
+  ▶ 1. ⚔️  Combat
+
+[Enter ↵] ⚔️  Combat
+> enter
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand: (empty)
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> add strike
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> add strike
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+   [2] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-2] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> add strike
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+   [2] ⚔️ Strike (1) — Deal 6 damage.
+   [3] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-3] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> 1
+▶ You play Strike.
+⚔️  You deal 6 damage.
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 2/3  (Turn 1)
+🐛 Louse ❤️  14/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+   [2] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-2] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> 1
+▶ You play Strike.
+⚔️  You deal 6 damage.
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 1/3  (Turn 1)
+🐛 Louse ❤️  8/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> 1
+▶ You play Strike.
+⚔️  You deal 6 damage.
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 0/3  (Turn 1)
+🐛 Louse ❤️  2/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand: (empty)
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> end
+⚔️  Enemy attacks 8.
+👁  Enemy prepares: 🛡️  Defend 5.
+─── Turn 2 ───
+
+🧙 You  ❤️  72/80  🛡️ 0  ⚡ 3/3  (Turn 2)
+🐛 Louse ❤️  2/20  🛡️ 0  | 🛡️  Defend 5
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+   [2] ⚔️ Strike (1) — Deal 6 damage.
+   [3] ⚔️ Strike (1) — Deal 6 damage.
+Commands: [1-3] play card  |  end / e  end turn  |  z draw  x discard  c exhaust

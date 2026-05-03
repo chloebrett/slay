@@ -1,0 +1,62 @@
+---
+source: crates/slay-tui/tests/scripts.rs
+expression: output
+---
+Slay the Spire
+⚙️  debug mode
+
+🗺️  Map
+🪙 0   ❤️  80/80   🃏 0 cards
+
+    5. 💀 Boss
+    4. 🔥 Rest Site
+    3. ⚔️  Combat
+    2. ⚔️  Combat
+  ▶ 1. ⚔️  Combat
+
+[Enter ↵] ⚔️  Combat
+# Add a Defend, enter combat vs Louse.
+# End turn with block up; verify enemy attack is partially/fully absorbed.
+> spawn louse
+
+🗺️  Map
+🪙 0   ❤️  80/80   🃏 0 cards
+
+    5. 💀 Boss
+    4. 🔥 Rest Site
+    3. ⚔️  Combat
+    2. ⚔️  Combat
+  ▶ 1. ⚔️  Combat
+
+[Enter ↵] ⚔️  Combat
+> enter
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand: (empty)
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> add defend
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand:
+   [1] 🪄 Defend (1) — Gain 5 block.
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> 1
+▶ You play Defend.
+🛡️  You gain 5 block.
+
+🧙 You  ❤️  80/80  🛡️ 5  ⚡ 2/3  (Turn 1)
+🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🤚 Hand: (empty)
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> end
+⚔️  Enemy attacks 8. (5 blocked, 3 damage)
+👁  Enemy prepares: 🛡️  Defend 5.
+─── Turn 2 ───
+
+🧙 You  ❤️  77/80  🛡️ 0  ⚡ 3/3  (Turn 2)
+🐛 Louse ❤️  20/20  🛡️ 0  | 🛡️  Defend 5
+🤚 Hand:
+   [1] 🪄 Defend (1) — Gain 5 block.
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
