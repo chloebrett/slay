@@ -1,5 +1,6 @@
 use crate::cards::Card;
 use crate::enemies::{self, EnemyKind, Intent};
+use crate::relics::Relic;
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
 use crate::status::{StatusEffect, StatusMap, drain_poison, tick_statuses};
@@ -19,6 +20,7 @@ pub struct Player {
     pub statuses: StatusMap,
     pub deck: Vec<Card>,
     pub gold: i32,
+    pub relics: Vec<Relic>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -67,6 +69,7 @@ impl CombatState {
             statuses: StatusMap::new(),
             deck,
             gold: 0,
+            relics: Vec::new(),
         };
         Self::from_player(player, vec![EnemyKind::Louse], rng)
     }
@@ -331,6 +334,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             statuses: StatusMap::new(),
             deck: Vec::new(),
             gold: 0,
+            relics: Vec::new(),
         },
         enemies: vec![Enemy {
             kind: EnemyKind::Louse,
@@ -369,6 +373,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
             statuses: StatusMap::new(),
             deck: Vec::new(),
             gold: 0,
+            relics: Vec::new(),
         },
         enemies: vec![louse(), louse()],
         turn: 1,

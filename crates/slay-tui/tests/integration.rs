@@ -35,6 +35,7 @@ impl TestHarness {
                     statuses: StatusMap::new(),
                     deck: starter_deck(),
                     gold: 0,
+                    relics: vec![],
                 },
                 enemies: vec![Enemy {
                     kind: EnemyKind::Louse,
@@ -254,6 +255,7 @@ fn rest_heals_player_hp() {
             statuses: StatusMap::new(),
             deck: Vec::new(),
             gold: 0,
+            relics: vec![],
         },
         floor: 3,
     });
@@ -384,6 +386,7 @@ fn upgrade_at_rest_site_replaces_card_in_deck() {
         statuses: StatusMap::new(),
         deck: vec![Card::Strike, Card::Defend],
         gold: 0,
+        relics: vec![],
     };
     let state = GameState::RestSite(RestSiteState { player, floor: 3 });
     let mut game = TestHarness::with_state(state);

@@ -86,6 +86,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
         statuses: StatusMap::new(),
         deck,
         gold: 0,
+        relics: Vec::new(),
     };
     let _ = rng;
     GameState::Map(MapState { player, floor: 0 })
@@ -267,6 +268,7 @@ mod tests {
             statuses: StatusMap::new(),
             deck: starter_deck(),
             gold: 0,
+            relics: Vec::new(),
         }
     }
 
