@@ -82,6 +82,7 @@ pub fn describe_intent(intent: &Intent) -> String {
         Intent::Defend(n) => format!("🛡️  Defend {n}"),
         Intent::AttackDefend(d, b) => format!("⚔️🛡️  Attack {d} + Defend {b}"),
         Intent::Buff => "✨ Buff".into(),
+        Intent::Debuff => "💀 Debuff".into(),
     }
 }
 
@@ -93,6 +94,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Strength   => ("💪", "Strength"),
         StatusEffect::Ritual     => ("🔮", "Ritual"),
         StatusEffect::Dexterity  => ("🛡️", "Dexterity"),
+        StatusEffect::Entangle   => ("🕸️", "Entangle"),
     }
 }
 
@@ -120,12 +122,16 @@ pub fn card_type_icon(card_type: CardType) -> &'static str {
 
 pub fn enemy_icon(enemy: &Enemy) -> &'static str {
     match enemy.kind {
-        EnemyKind::Louse        => "🐛",
-        EnemyKind::Fungibeast   => "🍄",
-        EnemyKind::Cultist      => "🐦",
-        EnemyKind::JawWorm      => "🪱",
+        EnemyKind::Louse           => "🐛",
+        EnemyKind::Fungibeast      => "🍄",
+        EnemyKind::Cultist         => "🐦",
+        EnemyKind::JawWorm         => "🪱",
         EnemyKind::SmallSpikeSlime => "🫧",
-        EnemyKind::RedLouse     => "🦟",
+        EnemyKind::RedLouse        => "🦟",
+        EnemyKind::GreenLouse      => "🦟",
+        EnemyKind::SmallAcidSlime  => "🫧",
+        EnemyKind::BlueSlaver      => "⛓️",
+        EnemyKind::RedSlaver       => "⛓️",
     }
 }
 

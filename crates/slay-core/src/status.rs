@@ -8,11 +8,12 @@ pub enum StatusEffect {
     Strength,
     Ritual,
     Dexterity,
+    Entangle,
 }
 
 impl StatusEffect {
     fn ticks_at_end_of_turn(self) -> bool {
-        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak)
+        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle)
     }
 }
 

@@ -38,6 +38,7 @@ pub enum CommandError {
     InvalidCard,
     NotEnoughEnergy,
     InvalidPhase,
+    Entangled,
 }
 
 impl std::fmt::Display for CommandError {
@@ -47,6 +48,7 @@ impl std::fmt::Display for CommandError {
             CommandError::InvalidCard     => "No card at that position.",
             CommandError::InvalidPhase    => "Can't do that right now.",
             CommandError::CombatOver      => "Combat is already over.",
+            CommandError::Entangled       => "Entangled — cannot play Attack cards.",
         };
         f.write_str(msg)
     }

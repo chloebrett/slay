@@ -1,90 +1,89 @@
 # Monster Implementation Plan
 
-## Current state
+## Current state (6 enemies implemented)
 
-Two monsters exist (`Louse`, `Fungibeast`), both deterministic alternating-intent enemies.
-Each lives in `enemies/<name>.rs` with a `DEF: EnemyDef` and a `next_intent(turn: u32) -> Intent`.
-`Intent` currently has two variants: `Attack(i32)` and `Defend(i32)`.
+| Enemy           | HP  | Moves                                              |
+|-----------------|-----|----------------------------------------------------|
+| Louse           | 20  | Bite (8 dmg) / Block (5 block) — alternating       |
+| Fungibeast      | 22  | Chomp (6 dmg) / Slam (10 dmg) — alternating        |
+| Cultist         | 50  | Incantation (Ritual +3) → Dark Strike (6 dmg) loop |
+| Jaw Worm        | 40  | Chomp (11) turn 1; then Bellow/Thrash/Chomp (prob) |
+| Small Spike Slime | 10 | Flame Tackle (5 dmg + Dazed to discard) — always  |
+| Red Louse       | 12  | Bite (6 dmg, 75%) / Grow (+3 Str, 25%), no-repeat  |
 
-`next_intent` is purely turn-based and deterministic — no RNG, no per-enemy state.
-
----
-
-## Infrastructure gaps
-
-The three monsters below are all achievable within the existing `Intent` model, but two
-new `Intent` variants are needed:
-
-| New variant | Used by |
-|---|---|
-| `Intent::Buff { strength: i32, block: i32 }` | Jaw Worm (Bellow) |
-| `Intent::Debuff` | Cultist (Incantation — purely cosmetic, no damage) |
-
-`Intent::Buff` needs wiring in `combat.rs`'s `EndEnemyTurn` handler: apply strength to the
-enemy's status map and block to `enemy.block`, same as player buffs.
-
-Cultist's Incantation applies **Ritual** (gain N Strength at the *end* of each enemy turn).
-That is a new `StatusEffect::Ritual(i32)` — needs a tick in the enemy status processing path.
-This can be deferred; Cultist is still interesting as Attack-only if Ritual is out of scope.
+Infrastructure in place: `Intent` (Attack/Defend/AttackDefend/Buff), `Effect` (DealDamage/GainBlock/GainStatus/ApplyStatus/AddToDiscard), `StatusEffect` (Vulnerable/Weak/Poison/Strength/Ritual/Dexterity), probabilistic RNG in `next_move`, `Card::Dazed`.
 
 ---
 
-## Monsters — in recommended order
+## Next enemies — in recommended order
 
-### 1. Cultist (simplest, no new infra needed if Ritual deferred)
+### 1. Green Louse (zero new infra)
 
-- **HP:** 48–54 (use midpoint 50 for now)
-- **Move pattern:** fixed sequence
-  - Turn 1: Incantation — in the simplified version, `Intent::Defend(0)` (cosmetic skip)
-  - Turn 2+: Dark Strike — `Intent::Attack(6)`
-- **New infra:** none (Ritual deferred)
-- **File:** `enemies/cultist.rs`
+- **HP:** 12 (midpoint of 11–17)
+- **Moves:** Bite (6 dmg, 75%) / Spit Web (2 Weak to player, 25%), no-repeat Grow-equivalent
+- **New infra:** none — `ApplyStatus(Weak, 2)` already works
+- **File:** `enemies/green_louse.rs`
+- **Notes:** Mirrors Red Louse; Spit Web uses `Effect::ApplyStatus(StatusEffect::Weak, 2)`.
+  Add both Louse variants to encounter pool alongside the existing `Louse`.
+  Curl Up (gains block equal to first hit) deferred — reactive hook not yet supported.
 
-With Ritual in scope:
-- Cultist gains `Strength +3` at the end of every enemy turn after Incantation.
-- Needs `StatusEffect::Ritual(i32)` ticked in `apply_enemy_end_of_turn_statuses`.
+### 2. Small Acid Slime (zero new infra)
 
-### 2. Jaw Worm (introduces Buff intent)
+- **HP:** 10 (midpoint of 8–12)
+- **Moves:** Tackle (3 dmg) / Lick (1 Weak to player) — alternating or probabilistic
+- **New infra:** none
+- **File:** `enemies/small_acid_slime.rs`
+- **Encounter:** pair with Small Spike Slime for a "Small Slimes" encounter
 
-- **HP:** 40–44 (use 40)
-- **Move pattern:** probabilistic, needs RNG in `next_intent`
-  - Turn 1: always Chomp — `Intent::Attack(11)`
-  - Turn 2+: Bellow (45%) / Thrash (30%) / Chomp (25%), no repeat of same move
+### 3. Blue Slaver (probabilistic, no new infra)
+
+- **HP:** 48 (midpoint of 46–50)
+- **Moves:** Stab (12 dmg, 60%) / Rake (7 dmg + 1 Weak, 40%), no-repeat
+- **New infra:** none — probabilistic RNG already used by Jaw Worm / Red Louse
+- **File:** `enemies/blue_slaver.rs`
+
+### 4. Red Slaver (introduces Entangle)
+
+- **HP:** 48 (midpoint of 46–50)
+- **Moves:**
+  - Turn 1: Stab (13 dmg)
+  - Subsequent: Stab (55%) / Scrape (8 dmg + 1 Vulnerable, 45%) / Entangle (one-time)
+  - Entangle: prevents player playing Attack cards this turn
 - **New infra:**
-  - `Intent::Buff { strength: i32, block: i32 }` variant
-  - `next_intent` signature changes to `next_intent(kind, turn, rng, last_intent) -> Intent`
-  - `EndEnemyTurn` handler applies buff intents before enemy acts
-
-### 3. Small Spike Slime (simplest slime, single move, introduces Dazed status)
-
-- **HP:** 10–14 (use 10)
-- **Move pattern:** always Flame Tackle — `Intent::AttackAndDebuff { damage: 5, effect: AddDazed }`
-  - Dazed: adds an unplayable 0-cost card to the player's discard pile
-- **New infra:**
-  - `StatusCard::Dazed` (unplayable, exhausts on draw or play)
-  - `Intent::AttackAndDebuff` variant (or just handle in card-play pipeline inline)
-  - Adding status cards to discard pile
+  - `StatusEffect::Entangle` — player variant, one-time use
+  - Check in `play_card` handler: if player has Entangle, reject Attack cards
+  - Entangle consumed (removed) at start of player turn after applying
+- **File:** `enemies/red_slaver.rs`
 
 ---
 
-## Sequencing
+## Multi-enemy encounters (deferred until map work)
 
-1. **Cultist (no Ritual)** — zero new infra. Add `cultist.rs`, wire into `EnemyKind`, add to
-   enemy pool for floors 1–3. Tests: HP, intent sequence.
+The following are interesting but require fighting multiple distinct enemies simultaneously.
+Worth deferring until the branching map / encounter system is more developed:
 
-2. **Jaw Worm** — adds `Intent::Buff` and probabilistic `next_intent`. Requires threading RNG
-   into `next_intent`. Tests: Bellow applies strength + block, Chomp damages, no-repeat rule.
+- **Slavers** — Red + Blue Slaver together
+- **Gang of Gremlins** — 5 different gremlin types (Fat, Mad, Shield, Sneaky, Wizard)
+  - Shield Gremlin Protect (blocks a random ally) needs target selection among enemies
+  - Mad Gremlin Angry (gains Strength when hit) needs a reactive "on-hit" hook
+- **Lots of Slimes** — Small Acid Slime × 2 + Small Spike Slime
 
-3. **Ritual status** — retroactively finish Cultist. Adds `StatusEffect::Ritual`. Tests: Cultist
-   Strength grows each turn, damage scales accordingly.
+---
 
-4. **Small Spike Slime** — adds status card machinery (Dazed in discard). Tests: Dazed appears
-   in discard, deck cycles through it.
+## Reactive powers (deferred)
+
+These require a new hook in the damage pipeline and are lower priority:
+
+| Power        | Enemy          | Description                                     |
+|--------------|----------------|-------------------------------------------------|
+| Curl Up      | Red/Green Louse | Gains block equal to first hit received        |
+| Angry        | Mad Gremlin    | Gains Strength each time it takes attack damage |
+| Split        | Large Slimes   | Spawns two medium slimes on death               |
 
 ---
 
 ## What to skip for now
 
-- Medium/Large slime split mechanic (complex mid-combat enemy spawning)
-- Green Louse Spit Web (Slimed cards — same status-card machinery as Dazed, easy follow-on)
-- Probabilistic HP ranges (pick a fixed value per enemy until a random-HP system is wanted)
+- Medium/Large Acid and Spike Slimes (split mechanic — spawns new enemies mid-combat)
+- Gremlin Nob, Lagavulin, Sentries (Act 1 elites — need multi-phase or multi-enemy logic)
+- Act 2 / Act 3 enemies (Snecko, Chosen, Darkling, etc.) — fun but low priority while Act 1 is thin

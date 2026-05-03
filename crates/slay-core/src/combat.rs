@@ -196,6 +196,11 @@ pub(crate) fn apply_combat_command(
             if state.player.energy < card.energy_cost() {
                 return Err(CommandError::NotEnoughEnergy);
             }
+            if card.card_type() == crate::cards::CardType::Attack
+                && state.player.statuses.contains_key(&StatusEffect::Entangle)
+            {
+                return Err(CommandError::Entangled);
+            }
             // Resolve target: use specified if alive, else first living; out-of-bounds is error
             let actual_target = if target_idx >= state.enemies.len() {
                 return Err(CommandError::InvalidCard);
@@ -529,6 +534,30 @@ mod tests {
         state.player.energy = Energy(0);
         let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::NotEnoughEnergy));
+    }
+
+    #[test]
+    fn entangle_prevents_playing_attack_cards() {
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.player.statuses.insert(StatusEffect::Entangle, 1);
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::Entangled));
+    }
+
+    #[test]
+    fn entangle_does_not_prevent_playing_skill_cards() {
+        let mut state = combat_with_hand(vec![Card::Defend]);
+        state.player.statuses.insert(StatusEffect::Entangle, 1);
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn entangle_expires_at_end_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Entangle, 1);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Entangle));
     }
 
     // --- Enemy attack (full turn cycle) ---
