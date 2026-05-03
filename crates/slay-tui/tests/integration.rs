@@ -1,17 +1,17 @@
 use slay_core::{
-    apply_command, new_run, starter_deck, Block, Card, CombatPhase, CombatState, Command, Enemy,
-    EnemyKind, Energy, GameState, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
+    new_run, starter_deck, AnyRng, Block, Card, CombatPhase, CombatState, Enemy, EnemyKind, Energy,
+    GameState, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
     state: GameState,
-    rng: NoOpRng,
+    rng: AnyRng,
     debug: bool,
 }
 
 impl TestHarness {
     fn with_state(state: GameState) -> Self {
-        Self { state, rng: NoOpRng, debug: false }
+        Self { state, rng: AnyRng::NoOp(NoOpRng), debug: false }
     }
 
     fn debug(mut self) -> Self {
@@ -52,33 +52,15 @@ impl TestHarness {
             floor: 0,
             scenario: slay_core::Scenario::Main,
         };
-        Self { state, rng: NoOpRng, debug: false }
+        Self { state, rng: AnyRng::NoOp(NoOpRng), debug: false }
     }
 
-    // Issues a player command, then auto-drains any EnemyTurn phase — same behavior
-    // as the TUI loop.
     fn send(&mut self, input: &str) -> Result<(), String> {
         let command = slay_tui::command::parse(input, &self.state, self.debug)
             .ok_or_else(|| format!("unknown command: '{input}'"))?;
-        let (new_state, _) = apply_command(self.state.clone(), command, &mut self.rng)
+        let (new_state, _) = slay_tui::engine::apply_and_drain(self.state.clone(), command, &mut self.rng)
             .map_err(|e| format!("{e:?}"))?;
         self.state = new_state;
-        loop {
-            let is_enemy_turn = matches!(
-                &self.state,
-                GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::EnemyTurn
-            );
-            if !is_enemy_turn {
-                break;
-            }
-            let (ns, _) = apply_command(
-                self.state.clone(),
-                Command::EndEnemyTurn,
-                &mut self.rng,
-            )
-            .map_err(|e| format!("{e:?}"))?;
-            self.state = ns;
-        }
         Ok(())
     }
 

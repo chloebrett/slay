@@ -32,10 +32,12 @@ slay/
         rng.rs                ← Rng trait, ThreadRng, NoOpRng, AnyRng
     slay-tui/
       src/
-        main.rs               ← CLI entry point; delegates to game::run_game
-        game.rs               ← run_game(state, reader, writer, rng, debug) — the full game loop
+        main.rs               ← CLI entry point; routes to tui or game based on flags + TTY
+        engine.rs             ← apply_and_drain + event/intent/status/icon formatters (shared)
+        game.rs               ← run_game(state, reader, writer, rng, debug) — plain text loop
+        tui.rs                ← run_tui(state, rng, debug) — ratatui interactive UI
         command.rs            ← text + GameState context → Command (parse)
-        lib.rs                ← re-exports command and game modules
+        lib.rs                ← re-exports command, engine, game, tui modules
       tests/
         integration.rs        ← TestHarness; command sequences → GameState assertions
         scripts.rs            ← insta snapshot harness; discovers tests/scripts/*.slay
@@ -432,7 +434,35 @@ pub enum Event {
 
 ## TUI (`slay-tui`)
 
-### `game.rs` — the game loop
+`slay-tui` ships **two renderers** that share all game logic and formatting:
+
+| Mode | Entry point | Backend | When used |
+|---|---|---|---|
+| Plain text | `game::run_game` | `impl Write` (stdout, `Vec<u8>`, file) | `--plain`, `--script <path>`, or stdout is not a TTY |
+| Ratatui | `tui::run_tui` | `crossterm` raw mode + alternate screen | Default when running interactively (TTY) |
+
+`main.rs` decides at startup which one to call. Both share `engine.rs` for command application and event/intent/icon formatting; only the rendering layer differs.
+
+### `engine.rs` — shared layer
+
+```rust
+pub fn apply_and_drain(
+    state: GameState, command: Command, rng: &mut AnyRng,
+) -> Result<(GameState, Vec<Event>), CommandError>
+```
+
+Applies one player command, then auto-drains all `EnemyTurn` ticks (issuing `EndEnemyTurn` until the phase is no longer `EnemyTurn`). Returns the final state and a flat `Vec<Event>` containing all events from the command and every drained tick. Both `run_game` and `run_tui` call this — there is no other path that drives the engine forward.
+
+Also exposes the formatting helpers used by both renderers:
+- `describe_event(&Event) -> String` — long-form text for the log panel / stdout
+- `describe_intent(&Intent) -> String` — what the enemy is about to do
+- `status_display(StatusEffect) -> (icon, name)` — emoji + label
+- `statuses_inline(&StatusMap) -> String` — compact `[💪3 🪫2]` rendering
+- `card_type_icon(CardType) -> &'static str`, `enemy_icon(&Enemy) -> &'static str`
+
+Test fixtures (`integration.rs::TestHarness::send`) also use `apply_and_drain` so the harness stays in sync with the game loop.
+
+### `game.rs` — plain text loop
 
 ```rust
 pub fn run_game(
@@ -444,7 +474,7 @@ pub fn run_game(
 )
 ```
 
-The full game loop as a pure function over I/O types. `main.rs` calls it with stdin/stdout and `ThreadRng`. Tests and the snapshot harness call it with byte slices and `Vec<u8>`.
+The plain text loop as a pure function over I/O types. `main.rs` calls it with stdin/stdout and `ThreadRng`. Snapshot tests call it with byte slices and `Vec<u8>`.
 
 Loop logic:
 1. Render current state.
@@ -452,10 +482,61 @@ Loop logic:
 3. Echo `> {line}`.
 4. Check for pile inspection shortcuts (`z`/`x`/`c` in combat) → print pile, continue.
 5. Parse input → `Command`; on `None` print "Unknown command."
-6. Call `apply_command`; on `Err` print error.
-7. Auto-drain `EnemyTurn`: loop `EndEnemyTurn` until phase is no longer `EnemyTurn`.
-8. Check for `GameOver`; print outcome and break.
-9. Print events, re-render state.
+6. Call `engine::apply_and_drain`; on `Err` print error message via `Display`.
+7. Check for `GameOver`; print outcome and break.
+8. Print events, re-render state.
+
+### `tui.rs` — ratatui loop
+
+```rust
+pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Result<()>
+```
+
+Takes over the terminal: enables raw mode, enters the alternate screen, installs a panic hook that restores the terminal even on panic. The main loop polls crossterm key events, accumulates typed characters into `TuiState.input_buf`, and on Enter dispatches through `command::parse` and `engine::apply_and_drain` — exactly the same path as `run_game`.
+
+`TuiState`:
+- `game: GameState` — the current state
+- `input_buf: String` — accumulated keystrokes
+- `event_log: VecDeque<String>` — last 200 event descriptions for the log panel
+- `last_error: Option<String>` — shown in red status line until next successful command
+- `show_pile: Option<PileView>` — when set, draws an overlay showing the chosen pile
+- `should_quit: bool` — set on game over
+
+**Layout** (every screen):
+```
+┌─ TOP BAR ─ Length(1) ─ HP/energy/block/gold/deck ────────────┐
+│                                                              │
+│   MAIN AREA (screen-specific) — Min(0)                        │
+│                                                              │
+├─ STATUS LINE — Length(1) — last error (red) or last event ───┤
+├─ INPUT BOX — Length(3) — "> " + input_buf ───────────────────┤
+└──────────────────────────────────────────────────────────────┘
+```
+
+Combat splits the main area horizontally 55/45: enemies + hand + pile counts on the left; scrollable log on the right. Other screens (map, rest, card reward, game over) use a single block.
+
+**Input handling:**
+```
+KeyCode::Char(c)        → input_buf.push(c)
+KeyCode::Backspace      → input_buf.pop()
+KeyCode::Enter          → handle_enter(rng)
+KeyCode::Esc / Ctrl+C   → break
+```
+
+`handle_enter`: intercept `z`/`x`/`c` to open a pile overlay; otherwise call `command::parse` then `engine::apply_and_drain`. On parse failure or command error, set `last_error` and clear the input buffer. On success, append events to `event_log`.
+
+**`render_frame(f: &mut Frame, tui: &TuiState)`** is a pure function. Tests use ratatui's `TestBackend` to render frames into an in-memory buffer and assert on cell contents — no real terminal needed.
+
+### `main.rs` routing
+
+```
+--script <path>            → run_game with file reader
+--plain                    → run_game with stdin (always)
+stdout/stdin not a TTY     → run_game with stdin (auto-fallback)
+otherwise                  → run_tui
+```
+
+`IsTerminal` is in `std::io` since Rust 1.70 — no external crate.
 
 ### `command.rs`
 
@@ -484,10 +565,6 @@ Context-aware: the same input ("1") means different things in different states. 
 Pile inspection (`"z"`, `"x"`, `"c"`) is handled in `game::run_game` before `parse` is called — it is a display operation, not a `Command`.
 
 **`spawn` is always available on the Map** (not debug-gated) so that `.slay` scripts work without `--debug`. Other commands that bypass game mechanics require `--debug`.
-
-### `main.rs`
-
-Thin CLI entry point. Parses `--debug` and `--script <path>` flags, constructs `AnyRng::Thread`, calls `new_run`, opens stdin or the script file as a `Box<dyn BufRead>`, then delegates to `run_game`.
 
 ### Integration tests (`tests/integration.rs`)
 

@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 indexmap = { workspace = true }
 slay-core = { path = "../slay-core" }
+ratatui = "=0.28.1"
+crossterm = "=0.28.1"
 
 [dev-dependencies]
 insta = "=1.40.0"

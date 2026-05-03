@@ -1,5 +1,7 @@
 pub mod command;
+pub mod engine;
 pub mod game;
+pub mod tui;
 
 #[cfg(test)]
 mod tests {
@@ -18,7 +20,7 @@ mod tests {
 
     #[test]
     fn combat_hud_shows_pile_counts() {
-        use slay_core::{Command, GameState, EnemyKind, Scenario, MapState, AnyRng, NoOpRng, new_simple_run};
+        use slay_core::{Command, EnemyKind, AnyRng, NoOpRng, new_simple_run};
         use slay_core::apply_command;
 
         let mut rng = AnyRng::NoOp(NoOpRng);

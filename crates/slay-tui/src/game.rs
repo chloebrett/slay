@@ -1,6 +1,8 @@
+use crate::engine::{
+    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, statuses_inline,
+};
 use slay_core::{
-    apply_command, AnyRng, CardRewardState, CardType, CombatPhase, CombatState, Enemy, EnemyKind,
-    Event, GameState, Intent, MapState, RestSiteState, StatusEffect, StatusMap, Target,
+    AnyRng, CardRewardState, CombatState, Event, GameState, MapState, RestSiteState, StatusMap,
 };
 use std::io::{BufRead, Write};
 
@@ -43,30 +45,10 @@ pub fn run_game(
             continue;
         };
 
-        match apply_command(state.clone(), command, rng) {
+        match apply_and_drain(state.clone(), command, rng) {
             Ok((new_state, events)) => {
                 state = new_state;
                 print_events(&events, writer);
-
-                loop {
-                    let is_enemy_turn = matches!(
-                        &state,
-                        GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::EnemyTurn
-                    );
-                    if !is_enemy_turn {
-                        break;
-                    }
-                    match apply_command(state.clone(), slay_core::Command::EndEnemyTurn, rng) {
-                        Ok((ns, evts)) => {
-                            state = ns;
-                            print_events(&evts, writer);
-                        }
-                        Err(e) => {
-                            let _ = writeln!(writer, "Internal error advancing enemy turn: {e:?}");
-                            break;
-                        }
-                    }
-                }
 
                 match &state {
                     GameState::GameOver { victory: true } => {
@@ -114,11 +96,7 @@ fn render_map(map: &MapState, w: &mut impl Write) {
     );
     let _ = writeln!(w);
     for (i, node) in nodes.iter().enumerate().rev() {
-        let (icon, name) = match node {
-            slay_core::MapNode::Combat => ("⚔️ ", "Combat"),
-            slay_core::MapNode::RestSite => ("🔥", "Rest Site"),
-            slay_core::MapNode::Boss => ("💀", "Boss"),
-        };
+        let (icon, name) = map_node_label(node);
         let marker = match i.cmp(&floor) {
             std::cmp::Ordering::Less    => "✓",
             std::cmp::Ordering::Equal   => "▶",
@@ -128,12 +106,16 @@ fn render_map(map: &MapState, w: &mut impl Write) {
     }
     let _ = writeln!(w);
     let node = nodes.get(floor).unwrap_or(&slay_core::MapNode::Combat);
-    let (icon, name) = match node {
+    let (icon, name) = map_node_label(node);
+    let _ = writeln!(w, "[Enter ↵] {icon} {name}");
+}
+
+fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
+    match node {
         slay_core::MapNode::Combat => ("⚔️ ", "Combat"),
         slay_core::MapNode::RestSite => ("🔥", "Rest Site"),
         slay_core::MapNode::Boss => ("💀", "Boss"),
-    };
-    let _ = writeln!(w, "[Enter ↵] {icon} {name}");
+    }
 }
 
 fn render_rest(rs: &RestSiteState, w: &mut impl Write) {
@@ -171,25 +153,6 @@ fn render_card_reward(cr: &CardRewardState, w: &mut impl Write) {
         );
     }
     let _ = writeln!(w, "(type a number to pick, or 'skip' / 's' to take nothing)");
-}
-
-fn card_type_icon(card_type: CardType) -> &'static str {
-    match card_type {
-        CardType::Attack => "⚔️ ",
-        CardType::Skill  => "🪄 ",
-        CardType::Power  => "🔮 ",
-    }
-}
-
-fn enemy_icon(enemy: &Enemy) -> &'static str {
-    match enemy.kind {
-        EnemyKind::Louse => "🐛",
-        EnemyKind::Fungibeast => "🍄",
-        EnemyKind::Cultist => "🐦",
-        EnemyKind::JawWorm => "🪱",
-        EnemyKind::SmallSpikeSlime => "🫧",
-        EnemyKind::RedLouse => "🦟",
-    }
 }
 
 fn render_combat(state: &CombatState, w: &mut impl Write) {
@@ -278,92 +241,9 @@ fn render_pile(label: &str, pile: &[slay_core::Card], w: &mut impl Write) {
 
 fn print_events(events: &[Event], w: &mut impl Write) {
     for event in events {
-        let msg = describe(event);
+        let msg = describe_event(event);
         if !msg.is_empty() {
             let _ = writeln!(w, "{msg}");
         }
-    }
-}
-
-fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
-    match status {
-        StatusEffect::Vulnerable => ("🎯", "Vulnerable"),
-        StatusEffect::Weak       => ("🪫", "Weak"),
-        StatusEffect::Poison     => ("🟢", "Poison"),
-        StatusEffect::Strength   => ("💪", "Strength"),
-        StatusEffect::Ritual     => ("🔮", "Ritual"),
-        StatusEffect::Dexterity  => ("🛡️", "Dexterity"),
-    }
-}
-
-fn statuses_inline(statuses: &StatusMap) -> String {
-    if statuses.is_empty() {
-        return String::new();
-    }
-    let parts: Vec<String> = statuses
-        .iter()
-        .map(|(s, n)| {
-            let (icon, _) = status_display(*s);
-            format!("{icon}{n}")
-        })
-        .collect();
-    format!("  [{}]", parts.join(" "))
-}
-
-fn describe_intent(intent: &Intent) -> String {
-    match intent {
-        Intent::Attack(n) => format!("⚔️  Attack {n}"),
-        Intent::Defend(n) => format!("🛡️  Defend {n}"),
-        Intent::AttackDefend(d, b) => format!("⚔️🛡️  Attack {d} + Defend {b}"),
-        Intent::Buff => "✨ Buff".into(),
-    }
-}
-
-fn describe(event: &Event) -> String {
-    match event {
-        Event::CardPlayed { card } => format!("▶ You play {}.", card.name()),
-        Event::PlayerAttacked { raw, damage } => {
-            if *damage == 0 {
-                format!("⚔️  You attack {raw}. (fully blocked)")
-            } else if *damage < *raw {
-                format!("⚔️  You deal {damage} damage. ({} blocked by enemy)", raw - damage)
-            } else {
-                format!("⚔️  You deal {damage} damage.")
-            }
-        }
-        Event::PlayerBlocked { amount } => format!("🛡️  You gain {amount} block."),
-        Event::EnemyAttacked { raw, damage } => {
-            if *damage == 0 {
-                format!("⚔️  Enemy attacks {raw}. (fully blocked)")
-            } else if *damage < *raw {
-                format!("⚔️  Enemy attacks {raw}. ({} blocked, {damage} damage)", raw - damage)
-            } else {
-                format!("⚔️  Enemy attacks {damage}.")
-            }
-        }
-        Event::EnemyDefended { amount } => format!("🛡️  Enemy gains {amount} block."),
-        Event::IntentRevealed { intent } => format!("👁  Enemy prepares: {}.", describe_intent(intent)),
-        Event::PlayerBlockExpired { amount } => format!("🛡️  Your {amount} block expired."),
-        Event::EnemyDied => "💀 Enemy slain!".into(),
-        Event::PlayerDied => "💀 You have been slain.".into(),
-        Event::EnemyPoisoned { damage } => format!("{} Poison deals {damage} to enemy.", status_display(StatusEffect::Poison).0),
-        Event::TurnEnded => String::new(),
-        Event::TurnStarted { turn } => format!("─── Turn {turn} ───"),
-        Event::StatusApplied { target, status, stacks } => {
-            let (icon, name) = status_display(*status);
-            match target {
-                Target::Player => format!("{icon} You gain {stacks} {name}."),
-                Target::Enemy => format!("{icon} Enemy gains {stacks} {name}."),
-            }
-        }
-        Event::GoldEarned { amount } => format!("🪙 You earn {amount} gold."),
-        Event::Healed { amount } => format!("❤️‍🩹 You heal for {amount} HP."),
-        Event::PlayerSelfDamaged { amount } => format!("🩸 You lose {amount} HP."),
-        Event::EnergyGained { amount } => format!("⚡ You gain {amount} energy."),
-        Event::CardsDrawn { count } => format!("🃏 You draw {count} card{}.", if *count == 1 { "" } else { "s" }),
-        Event::CardAdded { card } => format!("✨ {} added to your deck.", card.name()),
-        Event::CardExhausted { card } => format!("🔥 {} was exhausted.", card.name()),
-        Event::CardUpgraded { from, to } => format!("⬆️  {} upgraded to {}.", from.name(), to.name()),
-        Event::StatusCardAddedToDiscard { card } => format!("🃏 {} added to your discard.", card.name()),
     }
 }

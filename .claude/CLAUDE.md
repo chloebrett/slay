@@ -156,22 +156,52 @@ For detailed guidance on expectations and documentation, load the `expectations`
 
 **Architecture reference:** `plans/architecture.md` — read this before making structural changes.
 
-**Snapshot tests** cover TUI output end-to-end. Run them after any change to render functions, event descriptions, or state transition logic:
+### Two renderers, one shared core
+
+`slay-tui` has two render paths:
+- `game::run_game` — plain text, `impl Write`. Used by `--plain`, `--script`, and snapshot tests.
+- `tui::run_tui` — ratatui interactive UI. Default when stdout is a TTY.
+
+Both go through `engine::apply_and_drain` and share all formatting helpers in `engine.rs`. **When changing how the game looks**, update the shared formatters in `engine.rs` (e.g. `describe_event`) — both renderers pick up the change automatically.
+
+### Running the game
+
+```
+cargo run                                       # ratatui UI (interactive)
+cargo run -- --plain                            # plain text via stdin
+cargo run -- --script path/to/file.slay         # plain text from script
+cargo run -- --debug                            # enable debug commands
+```
+
+### Snapshot tests
+
+Snapshot tests cover the **plain text renderer** end-to-end (they use `run_game` directly). Run after any change to render functions, event descriptions, state transitions, or the shared formatters in `engine.rs`:
 ```
 cargo test -p slay-tui --test scripts
 ```
 
-If snapshots fail after an intentional output change, review and accept:
+If snapshots fail after an intentional output change, accept:
 ```
 INSTA_UPDATE=always cargo test -p slay-tui --test scripts
 ```
 
-To add a new scenario, create a `crates/slay-tui/tests/scripts/<name>.slay` file and generate its snapshot:
+Add a new scenario:
 ```
+# 1. Create crates/slay-tui/tests/scripts/<name>.slay
+# 2. Generate its snapshot:
 INSTA_UPDATE=new cargo test -p slay-tui --test scripts
 ```
 
 Always commit `.snap` files alongside the `.slay` scripts that produce them.
+
+### TUI tests
+
+The ratatui path is tested via ratatui's `TestBackend` — see `crates/slay-tui/src/tui.rs::tests`. These render frames into an in-memory cell buffer and assert on text content. No real terminal needed:
+```
+cargo test -p slay-tui --lib tui::
+```
+
+When changing `tui.rs` layout or widgets, update or add a test that asserts the expected text appears in the rendered buffer.
 
 ## Summary
 
