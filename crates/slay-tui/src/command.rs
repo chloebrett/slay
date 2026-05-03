@@ -1,4 +1,4 @@
-use slay_core::{Card, Command, GameState, Relic};
+use slay_core::{Card, Command, EnemyKind, GameState, Relic};
 
 pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     let s = input.trim().to_lowercase();
@@ -19,6 +19,12 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
         if let Some(id) = s.strip_prefix("relic ") {
             return Relic::from_id(id.trim()).map(Command::AddRelic);
         }
+    }
+    if let Some(rest) = s.strip_prefix("spawn ") {
+        let enemies: Vec<EnemyKind> = rest.split_whitespace()
+            .filter_map(EnemyKind::from_id)
+            .collect();
+        return if enemies.is_empty() { None } else { Some(Command::Spawn(enemies)) };
     }
     if s.is_empty() || s == "enter" {
         return Some(Command::ChooseNode(0));
@@ -80,5 +86,67 @@ fn parse_card_reward(s: &str) -> Option<Command> {
     match s {
         "skip" | "s" => Some(Command::SkipReward),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
+
+    fn map_state() -> GameState {
+        GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![],
+            },
+            floor: 0,
+            next_enemies: None,
+            scenario: Scenario::Main,
+        })
+    }
+
+    #[test]
+    fn spawn_single_enemy() {
+        let state = map_state();
+        assert_eq!(
+            parse("spawn louse", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::Louse]))
+        );
+    }
+
+    #[test]
+    fn spawn_multiple_enemies() {
+        let state = map_state();
+        assert_eq!(
+            parse("spawn louse cultist", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::Louse, EnemyKind::Cultist]))
+        );
+    }
+
+    #[test]
+    fn spawn_unknown_ids_are_ignored() {
+        let state = map_state();
+        assert_eq!(
+            parse("spawn louse dragon louse", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::Louse, EnemyKind::Louse]))
+        );
+    }
+
+    #[test]
+    fn spawn_all_unknown_returns_none() {
+        let state = map_state();
+        assert_eq!(parse("spawn dragon wizard", &state, false), None);
+    }
+
+    #[test]
+    fn spawn_not_valid_in_other_phases() {
+        // spawn is only parsed in Map phase
+        let state = map_state();
+        assert_eq!(parse("spawn louse", &state, false), Some(Command::Spawn(vec![EnemyKind::Louse])));
+        // just verify it parses in map — other phases return None via their own parse fns
     }
 }

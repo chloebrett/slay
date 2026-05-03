@@ -50,6 +50,7 @@ impl TestHarness {
                 phase: CombatPhase::PlayerTurn,
             },
             floor: 0,
+            scenario: slay_core::Scenario::Main,
         };
         Self { state, rng: NoOpRng, debug: false }
     }
