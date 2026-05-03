@@ -273,6 +273,36 @@ pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
 }
 
 #[cfg(test)]
+pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
+    CombatState {
+        player: Player {
+            hp: Hp(80),
+            max_hp: Hp(80),
+            block: Block(0),
+            energy: Energy(3),
+            max_energy: Energy(3),
+            hand,
+            draw_pile: Vec::new(),
+            discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
+            statuses: StatusMap::new(),
+            deck: Vec::new(),
+            gold: 0,
+        },
+        enemy: Enemy {
+            kind: EnemyKind::Louse,
+            hp: Hp(20),
+            max_hp: Hp(20),
+            block: Block(0),
+            intent: Intent::Attack(8),
+            statuses: StatusMap::new(),
+        },
+        turn: 1,
+        phase: CombatPhase::PlayerTurn,
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::rng::NoOpRng;
@@ -288,37 +318,6 @@ mod tests {
         rng: &mut impl Rng,
     ) -> Result<(CombatState, Vec<Event>), CommandError> {
         super::apply_combat_command(state, cmd, rng)
-    }
-
-    // Creates a state with a known hand, empty piles, full energy — no shuffle needed.
-    // Default enemy intent is Attack(8) so legacy tests that bundle EndTurn keep working.
-    fn combat_with_hand(hand: Vec<Card>) -> CombatState {
-        CombatState {
-            player: Player {
-                hp: Hp(80),
-                max_hp: Hp(80),
-                block: Block(0),
-                energy: Energy(3),
-                max_energy: Energy(3),
-                hand,
-                draw_pile: Vec::new(),
-                discard_pile: Vec::new(),
-                exhaust_pile: Vec::new(),
-                statuses: StatusMap::new(),
-                deck: Vec::new(),
-                gold: 0,
-            },
-            enemy: Enemy {
-                kind: EnemyKind::Louse,
-                hp: Hp(20),
-                max_hp: Hp(20),
-                block: Block(0),
-                intent: Intent::Attack(8),
-                statuses: StatusMap::new(),
-            },
-            turn: 1,
-            phase: CombatPhase::PlayerTurn,
-        }
     }
 
     // Runs EndTurn followed by EndEnemyTurn — for tests that don't care about
@@ -421,62 +420,6 @@ mod tests {
         state.player.energy = Energy(0);
         let result = apply_command(state, Command::PlayCard(0), &mut rng());
         assert_eq!(result, Err(CommandError::NotEnoughEnergy));
-    }
-
-    // --- Strike ---
-
-    #[test]
-    fn strike_deals_6_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(14));
-    }
-
-    #[test]
-    fn strike_emits_player_attacked_event() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerAttacked { raw: 6, damage: 6 }));
-    }
-
-    #[test]
-    fn strike_killing_enemy_yields_victory() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.phase, CombatPhase::Victory);
-    }
-
-    #[test]
-    fn strike_killing_enemy_emits_enemy_died_event() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.hp = Hp(1);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::EnemyDied));
-    }
-
-    #[test]
-    fn strike_moves_to_discard_after_play() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.hand.len(), 0);
-        assert_eq!(state.player.discard_pile, vec![Card::Strike]);
-    }
-
-    // --- Defend ---
-
-    #[test]
-    fn defend_grants_5_block() {
-        let state = combat_with_hand(vec![Card::Defend]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(5));
-    }
-
-    #[test]
-    fn defend_emits_player_blocked_event() {
-        let state = combat_with_hand(vec![Card::Defend]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerBlocked { amount: 5 }));
     }
 
     // --- Enemy attack (full turn cycle) ---
@@ -699,57 +642,6 @@ mod tests {
     // --- Phase 4: status effects ---
 
     #[test]
-    fn bash_deals_8_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(12));
-    }
-
-    #[test]
-    fn bash_costs_2_energy() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.energy, Energy(1));
-    }
-
-    #[test]
-    fn bash_applies_2_vulnerable_to_enemy() {
-        use crate::status::StatusEffect;
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&2));
-    }
-
-    #[test]
-    fn bash_emits_status_applied_event() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::StatusApplied {
-            target: Target::Enemy,
-            status: crate::status::StatusEffect::Vulnerable,
-            stacks: 2,
-        }));
-    }
-
-    #[test]
-    fn vulnerable_enemy_takes_50_percent_more_damage_from_strike() {
-        use crate::status::StatusEffect;
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(11)); // 20 - (6 * 3/2 = 9) = 11
-    }
-
-    #[test]
-    fn vulnerable_damage_boost_reflected_in_event() {
-        use crate::status::StatusEffect;
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerAttacked { raw: 9, damage: 9 }));
-    }
-
-    #[test]
     fn vulnerable_ticks_down_after_enemy_turn() {
         use crate::status::StatusEffect;
         let mut state = combat_with_hand(Vec::new());
@@ -769,30 +661,6 @@ mod tests {
     }
 
     #[test]
-    fn clothesline_deals_12_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(8));
-    }
-
-    #[test]
-    fn clothesline_applies_2_weak_to_enemy() {
-        use crate::status::StatusEffect;
-        let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&2));
-    }
-
-    #[test]
-    fn weak_enemy_deals_25_percent_less_damage() {
-        use crate::status::StatusEffect;
-        let mut state = combat_with_hand(Vec::new());
-        state.enemy.statuses.insert(StatusEffect::Weak, 2);
-        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(74)); // 80 - (8 * 3/4 = 6) = 74
-    }
-
-    #[test]
     fn weak_ticks_down_after_enemy_turn() {
         use crate::status::StatusEffect;
         let mut state = combat_with_hand(Vec::new());
@@ -802,20 +670,6 @@ mod tests {
     }
 
     // --- Phase 4.5: poison ---
-
-    #[test]
-    fn deadly_poison_applies_5_poison_to_enemy() {
-        let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Poison), Some(&5));
-    }
-
-    #[test]
-    fn deadly_poison_deals_no_direct_damage() {
-        let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(20));
-    }
 
     #[test]
     fn poison_deals_damage_at_start_of_enemy_turn() {
@@ -874,30 +728,6 @@ mod tests {
     // --- Phase 4.5: strength ---
 
     #[test]
-    fn inflame_grants_2_strength_to_player() {
-        let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
-    }
-
-    #[test]
-    fn strength_increases_strike_damage() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.player.statuses.insert(StatusEffect::Strength, 2);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(12)); // 20 - (6 + 2) = 12
-    }
-
-    #[test]
-    fn strength_applies_before_vulnerable_multiplier() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.player.statuses.insert(StatusEffect::Strength, 2);
-        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.hp, Hp(8)); // 20 - ((6 + 2) * 3/2 = 12) = 8
-    }
-
-    #[test]
     fn strength_does_not_expire_at_end_of_turn() {
         let mut state = combat_with_hand(Vec::new());
         state.player.statuses.insert(StatusEffect::Strength, 2);
@@ -939,36 +769,4 @@ mod tests {
         assert!(events.contains(&Event::IntentRevealed { intent: Intent::Defend(5) }));
     }
 
-    // --- Exhaust mechanic ---
-
-    #[test]
-    fn disarm_applies_minus_2_strength_to_enemy() {
-        use crate::status::StatusEffect;
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.enemy.statuses.get(&StatusEffect::Strength), Some(&-2));
-    }
-
-    #[test]
-    fn disarm_goes_to_exhaust_pile_not_discard() {
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
-        assert!(state.player.discard_pile.is_empty());
-    }
-
-    #[test]
-    fn disarm_emits_card_exhausted_event() {
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::CardExhausted { card: Card::Disarm }));
-    }
-
-    #[test]
-    fn strike_goes_to_discard_not_exhaust() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
-        assert_eq!(state.player.discard_pile, vec![Card::Strike]);
-        assert!(state.player.exhaust_pile.is_empty());
-    }
 }

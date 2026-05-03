@@ -33,8 +33,8 @@ pub fn tick_statuses(statuses: &mut StatusMap) {
     });
 }
 
-/// Triggers poison on an entity: returns damage dealt and decrements the stack.
-/// Returns 0 if no poison. Caller is responsible for applying damage to HP.
+/// Drains poison: returns damage dealt and decrements the stack.
+/// Returns 0 if no poison. Caller applies the damage to HP.
 pub fn drain_poison(statuses: &mut StatusMap) -> i32 {
     let damage = statuses.get(&StatusEffect::Poison).copied().unwrap_or(0);
     if damage == 0 {
@@ -46,4 +46,44 @@ pub fn drain_poison(statuses: &mut StatusMap) -> i32 {
         *statuses.get_mut(&StatusEffect::Poison).unwrap() -= 1;
     }
     damage
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn empty() -> StatusMap { StatusMap::new() }
+
+    fn map_with(effect: StatusEffect, stacks: i32) -> StatusMap {
+        let mut m = StatusMap::new();
+        m.insert(effect, stacks);
+        m
+    }
+
+    // --- resolve_damage ---
+
+    #[test]
+    fn vulnerable_multiplies_damage_by_3_over_2() {
+        let defender = map_with(StatusEffect::Vulnerable, 2);
+        assert_eq!(resolve_damage(6, &empty(), &defender), 9); // 6 * 3/2
+    }
+
+    #[test]
+    fn weak_multiplies_damage_by_3_over_4() {
+        let attacker = map_with(StatusEffect::Weak, 2);
+        assert_eq!(resolve_damage(8, &attacker, &empty()), 6); // 8 * 3/4
+    }
+
+    #[test]
+    fn strength_adds_flat_bonus_to_damage() {
+        let attacker = map_with(StatusEffect::Strength, 2);
+        assert_eq!(resolve_damage(6, &attacker, &empty()), 8); // 6 + 2
+    }
+
+    #[test]
+    fn strength_applies_before_vulnerable_multiplier() {
+        let attacker = map_with(StatusEffect::Strength, 2);
+        let defender = map_with(StatusEffect::Vulnerable, 2);
+        assert_eq!(resolve_damage(6, &attacker, &defender), 12); // (6 + 2) * 3/2
+    }
 }
