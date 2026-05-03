@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use crate::cards::Card;
 use crate::enemies::{self, EnemyKind, Intent};
 use crate::rng::Rng;
+use crate::status::{StatusEffect, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,6 +16,7 @@ pub struct Player {
     pub hand: Vec<Card>,
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
+    pub statuses: HashMap<StatusEffect, i32>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +26,7 @@ pub struct Enemy {
     pub max_hp: Hp,
     pub block: Block,
     pub intent: Intent,
+    pub statuses: HashMap<StatusEffect, i32>,
 }
 
 impl Enemy {
@@ -59,6 +64,7 @@ impl CombatState {
                 hand: Vec::new(),
                 draw_pile: starter_deck(),
                 discard_pile: Vec::new(),
+                statuses: HashMap::new(),
             },
             enemy: Enemy {
                 kind,
@@ -66,6 +72,7 @@ impl CombatState {
                 max_hp,
                 block: Block(0),
                 intent,
+                statuses: HashMap::new(),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
@@ -78,12 +85,9 @@ impl CombatState {
 
 fn starter_deck() -> Vec<Card> {
     let mut deck = Vec::new();
-    for _ in 0..5 {
-        deck.push(Card::Strike);
-    }
-    for _ in 0..4 {
-        deck.push(Card::Defend);
-    }
+    for _ in 0..5 { deck.push(Card::Strike); }
+    for _ in 0..3 { deck.push(Card::Defend); }
+    deck.push(Card::Bash);
     deck
 }
 
@@ -124,12 +128,19 @@ pub enum Event {
     PlayerBlocked { amount: i32 },
     EnemyAttacked { raw: i32, damage: i32 },
     EnemyDefended { amount: i32 },
+    StatusApplied { target: Target, status: StatusEffect, stacks: i32 },
     IntentRevealed { intent: Intent },
     PlayerBlockExpired { amount: i32 },
     TurnEnded,
     TurnStarted { turn: u32 },
     EnemyDied,
     PlayerDied,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Target {
+    Player,
+    Enemy,
 }
 
 pub fn apply_command(
@@ -167,6 +178,7 @@ pub fn apply_command(
             }
             events.push(Event::TurnEnded);
             state.player.discard_pile.append(&mut state.player.hand);
+            tick_statuses(&mut state.player.statuses);
             state.phase = CombatPhase::EnemyTurn;
         }
         Command::EndEnemyTurn => {
@@ -175,6 +187,7 @@ pub fn apply_command(
             }
             state.enemy.block = Block(0);
             execute_intent(&mut state, &mut events);
+            tick_statuses(&mut state.enemy.statuses);
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
@@ -201,8 +214,9 @@ pub fn apply_command(
 fn execute_intent(state: &mut CombatState, events: &mut Vec<Event>) {
     match state.enemy.intent {
         Intent::Attack(n) => {
-            let damage = deal_damage(n, &mut state.player.hp, &mut state.player.block);
-            events.push(Event::EnemyAttacked { raw: n, damage });
+            let effective = crate::status::resolve_damage(n, &state.enemy.statuses, &state.player.statuses);
+            let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
+            events.push(Event::EnemyAttacked { raw: effective, damage });
         }
         Intent::Defend(n) => {
             state.enemy.block = Block(state.enemy.block.0 + n);
@@ -245,6 +259,7 @@ mod tests {
                 hand,
                 draw_pile: Vec::new(),
                 discard_pile: Vec::new(),
+                statuses: HashMap::new(),
             },
             enemy: Enemy {
                 kind: EnemyKind::Louse,
@@ -252,6 +267,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
+                statuses: HashMap::new(),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
@@ -631,6 +647,111 @@ mod tests {
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         // Block should still be 5 at the start of player's next turn
         assert_eq!(state.enemy.block, Block(5));
+    }
+
+    // --- Phase 4: status effects ---
+
+    #[test]
+    fn bash_deals_8_damage_to_enemy() {
+        let state = combat_with_hand(vec![Card::Bash]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(12));
+    }
+
+    #[test]
+    fn bash_costs_2_energy() {
+        let state = combat_with_hand(vec![Card::Bash]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(1));
+    }
+
+    #[test]
+    fn bash_applies_2_vulnerable_to_enemy() {
+        use crate::status::StatusEffect;
+        let state = combat_with_hand(vec![Card::Bash]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&2));
+    }
+
+    #[test]
+    fn bash_emits_status_applied_event() {
+        let state = combat_with_hand(vec![Card::Bash]);
+        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::StatusApplied {
+            target: Target::Enemy,
+            status: crate::status::StatusEffect::Vulnerable,
+            stacks: 2,
+        }));
+    }
+
+    #[test]
+    fn vulnerable_enemy_takes_50_percent_more_damage_from_strike() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(11)); // 20 - (6 * 3/2 = 9) = 11
+    }
+
+    #[test]
+    fn vulnerable_damage_boost_reflected_in_event() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(vec![Card::Strike]);
+        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        let (_, events) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::PlayerAttacked { raw: 9, damage: 9 }));
+    }
+
+    #[test]
+    fn vulnerable_ticks_down_after_enemy_turn() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Vulnerable), Some(&1));
+    }
+
+    #[test]
+    fn vulnerable_expires_after_two_enemy_turns() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Vulnerable, 2);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(!state.enemy.statuses.contains_key(&StatusEffect::Vulnerable));
+    }
+
+    #[test]
+    fn clothesline_deals_12_damage_to_enemy() {
+        let state = combat_with_hand(vec![Card::Clothesline]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.hp, Hp(8));
+    }
+
+    #[test]
+    fn clothesline_applies_2_weak_to_enemy() {
+        use crate::status::StatusEffect;
+        let state = combat_with_hand(vec![Card::Clothesline]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&2));
+    }
+
+    #[test]
+    fn weak_enemy_deals_25_percent_less_damage() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Weak, 2);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(74)); // 80 - (8 * 3/4 = 6) = 74
+    }
+
+    #[test]
+    fn weak_ticks_down_after_enemy_turn() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(Vec::new());
+        state.enemy.statuses.insert(StatusEffect::Weak, 2);
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert_eq!(state.enemy.statuses.get(&StatusEffect::Weak), Some(&1));
     }
 
     // --- Phase guards ---

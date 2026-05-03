@@ -1,4 +1,5 @@
-use slay_core::{apply_command, Command, CombatPhase, CombatState, Event, Intent, ThreadRng};
+use slay_core::{apply_command, Command, CombatPhase, CombatState, Event, Intent, StatusEffect, Target, ThreadRng};
+use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 
 fn main() {
@@ -63,22 +64,28 @@ fn print_events(events: &[Event]) {
 }
 
 fn render(state: &CombatState) {
+    let enemy_statuses = format_statuses(&state.enemy.statuses);
+    let enemy_status_str = if enemy_statuses.is_empty() { String::new() } else { format!("  [{enemy_statuses}]") };
     println!(
-        "[ {} ] HP: {}/{}  Block: {}  | Intent: {}",
+        "[ {} ] HP: {}/{}  Block: {}  | Intent: {}{}",
         state.enemy.name(),
         state.enemy.hp.0,
         state.enemy.max_hp.0,
         state.enemy.block.0,
         describe_intent(&state.enemy.intent),
+        enemy_status_str,
     );
+    let player_statuses = format_statuses(&state.player.statuses);
+    let player_status_str = if player_statuses.is_empty() { String::new() } else { format!("  [{player_statuses}]") };
     println!(
-        "[ You  ] HP: {}/{}  Block: {}  Energy: {}/{}  (Turn {})",
+        "[ You  ] HP: {}/{}  Block: {}  Energy: {}/{}  (Turn {}){}",
         state.player.hp.0,
         state.player.max_hp.0,
         state.player.block.0,
         state.player.energy.0,
         state.player.max_energy.0,
-        state.turn
+        state.turn,
+        player_status_str,
     );
     if state.player.hand.is_empty() {
         println!("Hand: (empty)");
@@ -97,6 +104,21 @@ fn render(state: &CombatState) {
             );
         }
     }
+}
+
+fn format_statuses(statuses: &HashMap<StatusEffect, i32>) -> String {
+    let mut parts: Vec<String> = statuses
+        .iter()
+        .map(|(s, n)| {
+            let name = match s {
+                StatusEffect::Vulnerable => "Vuln",
+                StatusEffect::Weak => "Weak",
+            };
+            format!("{name} {n}")
+        })
+        .collect();
+    parts.sort();
+    parts.join(", ")
 }
 
 fn describe_intent(intent: &Intent) -> String {
@@ -135,5 +157,16 @@ fn describe(event: &Event) -> String {
         Event::PlayerDied => "You have been slain.".into(),
         Event::TurnEnded => String::new(),
         Event::TurnStarted { turn } => format!("--- Turn {turn} ---"),
+        Event::StatusApplied { target, status, stacks } => {
+            let who = match target {
+                Target::Player => "You",
+                Target::Enemy => "Enemy",
+            };
+            let name = match status {
+                StatusEffect::Vulnerable => "Vulnerable",
+                StatusEffect::Weak => "Weak",
+            };
+            format!("{who} gains {stacks} {name}.")
+        }
     }
 }
