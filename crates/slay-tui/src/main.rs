@@ -1,5 +1,5 @@
 use slay_core::{
-    apply_command, new_run, Card, CardRewardState, CombatPhase, CombatState, Event, GameState,
+    apply_command, new_run, CardRewardState, CombatPhase, CombatState, Event, GameState,
     Intent, MapState, RestSiteState, StatusEffect, StatusMap, Target, ThreadRng,
 };
 use std::io::{self, BufRead, Write};
@@ -113,12 +113,10 @@ fn render_map(map: &MapState) {
             slay_core::MapNode::RestSite => "Rest Site",
             slay_core::MapNode::Boss => "Boss",
         };
-        let marker = if i < floor {
-            "  -"
-        } else if i == floor {
-            "  >"
-        } else {
-            "   "
+        let marker = match i.cmp(&floor) {
+            std::cmp::Ordering::Less => "  -",
+            std::cmp::Ordering::Equal => "  >",
+            std::cmp::Ordering::Greater => "   ",
         };
         println!("{marker} {}. {name}", i + 1);
     }
