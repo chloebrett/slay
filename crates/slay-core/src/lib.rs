@@ -11,7 +11,7 @@ pub use combat::{
 };
 pub use enemies::{EnemyKind, Intent};
 pub use rng::{NoOpRng, Rng, ThreadRng};
-pub use status::StatusEffect;
+pub use status::{StatusEffect, StatusMap};
 pub use types::{Block, Energy, Hp};
 
 pub fn welcome() -> &'static str {

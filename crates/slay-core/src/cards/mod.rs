@@ -3,6 +3,7 @@ mod clothesline;
 mod defend;
 mod strike;
 
+use crate::status::{StatusMap, resolve_damage};
 use crate::types::Energy;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -18,6 +19,7 @@ pub struct CardDef {
     pub name: &'static str,
     pub description: &'static str,
     pub energy_cost: Energy,
+    pub base_damage: Option<i32>,
 }
 
 impl Card {
@@ -27,21 +29,25 @@ impl Card {
                 name: "Strike",
                 description: "Deal 6 damage.",
                 energy_cost: Energy(1),
+                base_damage: Some(6),
             },
             Card::Defend => CardDef {
                 name: "Defend",
                 description: "Gain 5 block.",
                 energy_cost: Energy(1),
+                base_damage: None,
             },
             Card::Bash => CardDef {
                 name: "Bash",
                 description: "Deal 8 damage. Apply 2 Vulnerable.",
                 energy_cost: Energy(2),
+                base_damage: Some(8),
             },
             Card::Clothesline => CardDef {
                 name: "Clothesline",
                 description: "Deal 12 damage. Apply 2 Weak.",
                 energy_cost: Energy(2),
+                base_damage: Some(12),
             },
         }
     }
@@ -49,6 +55,10 @@ impl Card {
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn description(&self) -> &'static str { self.def().description }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
+
+    pub fn effective_damage(&self, attacker: &StatusMap, defender: &StatusMap) -> Option<i32> {
+        self.def().base_damage.map(|base| resolve_damage(base, attacker, defender))
+    }
 }
 
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>) {

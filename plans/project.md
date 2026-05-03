@@ -349,7 +349,7 @@ fn block_reduces_incoming_damage() {
 - New card: `Bash` (2 energy, 8 damage + 2× Vulnerable).
 - Note: split this into two phases (4 and 4.5). First phase: just 'vulnerable' and 'weak'. Add 'bash', and 'clothesline'. Clothesline costs 2 energy, deals 12 damage, and applies 2 weak. Put one of each clothesline and bash into the player draw pile (but not straight away into hand).
 - Are we drawing 5 cards per turn yet? We should be if not.
-- For 4.5: add "deadly poison" (applies 5 poison to enemy).
+- For 4.5: add "deadly poison" (applies 5 poison to enemy). Also add "inflame" (gain 2 strength). Poison damage occurs at the start of the enemy turn (before it attacks). If poison kills the enemy, then the enemy action doesn't happen. Poison damage is unaffected by weak or vulnerable. Enemy poison decreases by 1 at the start of the player's turn. Strength can be positive or negative. It increases the base damage, and then modifiers like vulnerable etc are added on top. Strength does not decrease between turns like other status effects. Strength is capped at -999 and +999.
 
 ---
 
@@ -365,6 +365,15 @@ fn block_reduces_incoming_damage() {
 - Rest site: `Command::Rest` (heal 30% max HP) or `Command::Smith(usize)` (upgrade a card).
 - Second enemy type.
 - `GameState` becomes an enum wrapping `CombatState`, `MapState`, etc.
+
+Notes from chloe:
+
+- Let's make the only rest site option 'rest' right now, since we don't have card upgrades yet.
+- Let's make the boss just another louse, for simplicity, then we can do a phase 5.5 after.
+
+### 5.5
+
+- Introduce card upgrades. Attack: 6 -> 9 damage. Defend: 5 -> 8
 
 ---
 

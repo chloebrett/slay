@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
 use crate::cards::Card;
 use crate::enemies::{self, EnemyKind, Intent};
 use crate::rng::Rng;
-use crate::status::{StatusEffect, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, tick_statuses};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +14,7 @@ pub struct Player {
     pub hand: Vec<Card>,
     pub draw_pile: Vec<Card>,
     pub discard_pile: Vec<Card>,
-    pub statuses: HashMap<StatusEffect, i32>,
+    pub statuses: StatusMap,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,7 +24,7 @@ pub struct Enemy {
     pub max_hp: Hp,
     pub block: Block,
     pub intent: Intent,
-    pub statuses: HashMap<StatusEffect, i32>,
+    pub statuses: StatusMap,
 }
 
 impl Enemy {
@@ -64,7 +62,7 @@ impl CombatState {
                 hand: Vec::new(),
                 draw_pile: starter_deck(),
                 discard_pile: Vec::new(),
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             enemy: Enemy {
                 kind,
@@ -72,7 +70,7 @@ impl CombatState {
                 max_hp,
                 block: Block(0),
                 intent,
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,
@@ -171,6 +169,10 @@ pub fn apply_command(
             state.player.discard_pile.push(card.clone());
             events.push(Event::CardPlayed { card: card.clone() });
             apply_card(&card, &mut state, &mut events);
+            if state.enemy.hp <= Hp(0) {
+                state.phase = CombatPhase::Victory;
+                events.push(Event::EnemyDied);
+            }
         }
         Command::EndTurn => {
             if state.phase != CombatPhase::PlayerTurn {
@@ -259,7 +261,7 @@ mod tests {
                 hand,
                 draw_pile: Vec::new(),
                 discard_pile: Vec::new(),
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             enemy: Enemy {
                 kind: EnemyKind::Louse,
@@ -267,7 +269,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,

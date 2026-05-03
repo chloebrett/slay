@@ -1,8 +1,7 @@
 use slay_core::{
     Block, Card, Command, CombatPhase, CombatState, Enemy, EnemyKind, Energy, Hp, Intent, NoOpRng,
-    Player,
+    Player, StatusMap,
 };
-use std::collections::HashMap;
 
 struct TestHarness {
     state: CombatState,
@@ -21,7 +20,7 @@ impl TestHarness {
                 hand,
                 draw_pile: Vec::new(),
                 discard_pile: Vec::new(),
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             enemy: Enemy {
                 kind: EnemyKind::Louse,
@@ -29,7 +28,7 @@ impl TestHarness {
                 max_hp: Hp(20),
                 block: Block(0),
                 intent: Intent::Attack(8),
-                statuses: HashMap::new(),
+                statuses: StatusMap::new(),
             },
             turn: 1,
             phase: CombatPhase::PlayerTurn,

@@ -1,5 +1,4 @@
-use slay_core::{apply_command, Command, CombatPhase, CombatState, Event, Intent, StatusEffect, Target, ThreadRng};
-use std::collections::HashMap;
+use slay_core::{apply_command, Command, CombatPhase, CombatState, Event, Intent, StatusEffect, StatusMap, Target, ThreadRng};
 use std::io::{self, BufRead, Write};
 
 fn main() {
@@ -64,8 +63,7 @@ fn print_events(events: &[Event]) {
 }
 
 fn render(state: &CombatState) {
-    let enemy_statuses = format_statuses(&state.enemy.statuses);
-    let enemy_status_str = if enemy_statuses.is_empty() { String::new() } else { format!("  [{enemy_statuses}]") };
+    let enemy_status_str = statuses_inline(&state.enemy.statuses);
     println!(
         "[ {} ] HP: {}/{}  Block: {}  | Intent: {}{}",
         state.enemy.name(),
@@ -75,8 +73,7 @@ fn render(state: &CombatState) {
         describe_intent(&state.enemy.intent),
         enemy_status_str,
     );
-    let player_statuses = format_statuses(&state.player.statuses);
-    let player_status_str = if player_statuses.is_empty() { String::new() } else { format!("  [{player_statuses}]") };
+    let player_status_str = statuses_inline(&state.player.statuses);
     println!(
         "[ You  ] HP: {}/{}  Block: {}  Energy: {}/{}  (Turn {}){}",
         state.player.hp.0,
@@ -94,20 +91,31 @@ fn render(state: &CombatState) {
         for (i, card) in state.player.hand.iter().enumerate() {
             let affordable = card.energy_cost() <= state.player.energy;
             let prefix = if affordable { " " } else { "×" };
+            let eff = card.effective_damage(&state.player.statuses, &state.enemy.statuses);
+            let damage_hint = match (card.def().base_damage, eff) {
+                (Some(base), Some(eff)) if eff != base => {
+                    format!("  →{eff} vs {}", state.enemy.name())
+                }
+                _ => String::new(),
+            };
             println!(
-                "  {}[{}] {} ({}) — {}",
+                "  {}[{}] {} ({}) — {}{}",
                 prefix,
                 i + 1,
                 card.name(),
                 card.energy_cost().0,
-                card.description()
+                card.description(),
+                damage_hint,
             );
         }
     }
 }
 
-fn format_statuses(statuses: &HashMap<StatusEffect, i32>) -> String {
-    let mut parts: Vec<String> = statuses
+fn statuses_inline(statuses: &StatusMap) -> String {
+    if statuses.is_empty() {
+        return String::new();
+    }
+    let parts: Vec<String> = statuses
         .iter()
         .map(|(s, n)| {
             let name = match s {
@@ -117,8 +125,7 @@ fn format_statuses(statuses: &HashMap<StatusEffect, i32>) -> String {
             format!("{name} {n}")
         })
         .collect();
-    parts.sort();
-    parts.join(", ")
+    format!("  [{}]", parts.join(", "))
 }
 
 fn describe_intent(intent: &Intent) -> String {
