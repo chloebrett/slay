@@ -176,7 +176,7 @@ pub(crate) fn apply_combat_command(
             if card.exhausts() {
                 events.push(Event::CardExhausted { card: card.clone() });
                 state.player.exhaust_pile.push(card.clone());
-            } else if !card.is_power() {
+            } else if card.card_type() != crate::cards::CardType::Power {
                 state.player.discard_pile.push(card.clone());
             }
             if state.enemy.hp <= Hp(0) {

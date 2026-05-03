@@ -20,6 +20,13 @@ pub enum Card {
     Disarm,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CardType {
+    Attack,
+    Skill,
+    Power,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum CardDescription {
     Static(&'static str),
@@ -31,6 +38,7 @@ pub struct CardDef {
     pub name: &'static str,
     pub description: CardDescription,
     pub energy_cost: Energy,
+    pub card_type: CardType,
 }
 
 impl Card {
@@ -40,36 +48,43 @@ impl Card {
                 name: "Strike",
                 description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 6 },
                 energy_cost: Energy(1),
+                card_type: CardType::Attack,
             },
             Card::Defend => CardDef {
                 name: "Defend",
                 description: CardDescription::Static("Gain 5 block."),
                 energy_cost: Energy(1),
+                card_type: CardType::Skill,
             },
             Card::Bash => CardDef {
                 name: "Bash",
                 description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Vulnerable.", base: 8 },
                 energy_cost: Energy(2),
+                card_type: CardType::Attack,
             },
             Card::Clothesline => CardDef {
                 name: "Clothesline",
                 description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Weak.", base: 12 },
                 energy_cost: Energy(2),
+                card_type: CardType::Attack,
             },
             Card::Inflame => CardDef {
                 name: "Inflame",
                 description: CardDescription::Static("Gain 2 Strength."),
                 energy_cost: Energy(1),
+                card_type: CardType::Power,
             },
             Card::DeadlyPoison => CardDef {
                 name: "Deadly Poison",
                 description: CardDescription::Static("Apply 5 Poison."),
                 energy_cost: Energy(1),
+                card_type: CardType::Skill,
             },
             Card::Disarm => CardDef {
                 name: "Disarm",
                 description: CardDescription::Static("Enemy loses 2 Strength. Exhaust."),
                 energy_cost: Energy(1),
+                card_type: CardType::Skill,
             },
         }
     }
@@ -78,9 +93,7 @@ impl Card {
         matches!(self, Card::Disarm)
     }
 
-    pub fn is_power(&self) -> bool {
-        matches!(self, Card::Inflame)
-    }
+    pub fn card_type(&self) -> CardType { self.def().card_type }
 
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
@@ -287,6 +300,43 @@ mod tests {
         let state = combat_with_hand(vec![Card::DeadlyPoison]);
         let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
         assert_eq!(state.enemy.hp, Hp(20));
+    }
+
+    // --- CardType ---
+
+    #[test]
+    fn strike_card_type_is_attack() {
+        assert_eq!(Card::Strike.card_type(), CardType::Attack);
+    }
+
+    #[test]
+    fn bash_card_type_is_attack() {
+        assert_eq!(Card::Bash.card_type(), CardType::Attack);
+    }
+
+    #[test]
+    fn clothesline_card_type_is_attack() {
+        assert_eq!(Card::Clothesline.card_type(), CardType::Attack);
+    }
+
+    #[test]
+    fn defend_card_type_is_skill() {
+        assert_eq!(Card::Defend.card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn deadly_poison_card_type_is_skill() {
+        assert_eq!(Card::DeadlyPoison.card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn disarm_card_type_is_skill() {
+        assert_eq!(Card::Disarm.card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn inflame_card_type_is_power() {
+        assert_eq!(Card::Inflame.card_type(), CardType::Power);
     }
 
     // --- Inflame ---

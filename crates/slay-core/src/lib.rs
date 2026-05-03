@@ -6,7 +6,7 @@ pub mod run;
 pub(crate) mod status;
 mod types;
 
-pub use cards::{Card, reward_pool, starter_deck};
+pub use cards::{Card, CardDef, CardType, reward_pool, starter_deck};
 pub use combat::{CombatPhase, CombatState, Enemy, Event, Player, Target};
 pub use enemies::{EnemyKind, Intent};
 pub use rng::{NoOpRng, Rng, ThreadRng};
