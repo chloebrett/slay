@@ -78,6 +78,10 @@ impl Card {
         matches!(self, Card::Disarm)
     }
 
+    pub fn is_power(&self) -> bool {
+        matches!(self, Card::Inflame)
+    }
+
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
 
@@ -292,6 +296,20 @@ mod tests {
         let state = combat_with_hand(vec![Card::Inflame]);
         let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
+    }
+
+    #[test]
+    fn inflame_is_absorbed_not_discarded() {
+        let state = combat_with_hand(vec![Card::Inflame]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn inflame_is_absorbed_not_exhausted() {
+        let state = combat_with_hand(vec![Card::Inflame]);
+        let (state, _) = apply_command(state, Command::PlayCard(0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.is_empty());
     }
 
     // --- Disarm ---
