@@ -1,0 +1,786 @@
+[
+  {
+    "id": "AMETHYST_AUBERGINE",
+    "name": "Amethyst Aubergine",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Enemies drop [blue]15[/blue] additional [gold]Gold[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ANCHOR",
+    "name": "Anchor",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Start each combat with [blue]10[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BAG_OF_MARBLES",
+    "name": "Bag of Marbles",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, apply [blue]1[/blue] [gold]Vulnerable[/gold] to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BAG_OF_PREPARATION",
+    "name": "Bag of Preparation",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, draw [blue]2[/blue] additional cards.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BLOOD_VIAL",
+    "name": "Blood Vial",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, heal [green]2[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BOOK_OF_FIVE_RINGS",
+    "name": "Book of Five Rings",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Every [blue]5[/blue] cards you add to your [gold]Deck[/gold], heal [green]20[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BRONZE_SCALES",
+    "name": "Bronze Scales",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Start each combat with [blue]3[/blue] [gold]Thorns[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CENTENNIAL_PUZZLE",
+    "name": "Centennial Puzzle",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "The first time you lose HP each combat, draw [blue]3[/blue] cards.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "FESTIVE_POPPER",
+    "name": "Festive Popper",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, deal [blue]9[/blue] damage to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "GORGET",
+    "name": "Gorget",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, gain [blue]4[/blue] [gold]Plating[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "HAPPY_FLOWER",
+    "name": "Happy Flower",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Every [blue]3[/blue] turns, gain [energy:1].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "JUZU_BRACELET",
+    "name": "Juzu Bracelet",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Regular enemy combats are no longer encountered in [gold]?[/gold] rooms.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "LANTERN",
+    "name": "Lantern",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Start each combat with an additional [energy:1].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MEAL_TICKET",
+    "name": "Meal Ticket",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Whenever you enter a shop room, heal [green]15[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ODDLY_SMOOTH_STONE",
+    "name": "Oddly Smooth Stone",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Start each combat with [blue]1[/blue] [gold]Dexterity[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PENDULUM",
+    "name": "Pendulum",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Every [blue]3[/blue] turns, draw [blue]1[/blue] card.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "POTION_BELT",
+    "name": "Potion Belt",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Upon pickup, gain [blue]2[/blue] potion slots.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RED_MASK",
+    "name": "Red Mask",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "At the start of each combat, apply [blue]1[/blue] [gold]Weak[/gold] to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RED_SKULL",
+    "name": "Red Skull",
+    "rarity": "Common",
+    "pool": "ironclad",
+    "description": "While your HP is at or below [blue]50%[/blue], you have [blue]3[/blue] additional [gold]Strength[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "REGAL_PILLOW",
+    "name": "Regal Pillow",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Whenever you [gold]Rest[/gold], heal an additional [blue]15[/blue] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "STRAWBERRY",
+    "name": "Strawberry",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Upon pickup, raise your Max HP by [blue]7[/blue].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "STRIKE_DUMMY",
+    "name": "Strike Dummy",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Cards containing \u201cStrike\u201d deal [blue]3[/blue] additional damage.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "VAJRA",
+    "name": "Vajra",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Start each combat with [blue]1[/blue] [gold]Strength[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "VENERABLE_TEA_SET",
+    "name": "Venerable Tea Set",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Whenever you enter a [gold]Rest Site[/gold], start the next combat with an additional [energy:2].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "WAR_PAINT",
+    "name": "War Paint",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Upon pickup, [gold]Upgrade[/gold] [blue]2[/blue] random Skills.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "WHETSTONE",
+    "name": "Whetstone",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Upon pickup, [gold]Upgrade[/gold] [blue]2[/blue] random Attacks.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ART_OF_WAR",
+    "name": "Art of War",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "If you do not play any Attacks during your turn, gain an additional [energy:1] next turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BEATING_REMNANT",
+    "name": "Beating Remnant",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "You cannot lose more than [blue]20[/blue] HP in a single turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BELLOWS",
+    "name": "Bellows",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "The first [gold]Hand[/gold] you draw each combat is [gold]Upgraded[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CAPTAINS_WHEEL",
+    "name": "Captain's Wheel",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the start of your [blue]3rd[/blue] turn, gain [blue]18[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CHANDELIER",
+    "name": "Chandelier",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the start of your [blue]3rd[/blue] turn, gain [energy:3].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CHARONS_ASHES",
+    "name": "Charon's Ashes",
+    "rarity": "Rare",
+    "pool": "ironclad",
+    "description": "Whenever you [gold]Exhaust[/gold] a card, deal [blue]3[/blue] damage to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CLOAK_CLASP",
+    "name": "Cloak Clasp",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the end of your turn, gain [blue]1[/blue] [gold]Block[/gold] for each card in your [gold]Hand[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "DEMON_TONGUE",
+    "name": "Demon Tongue",
+    "rarity": "Rare",
+    "pool": "ironclad",
+    "description": "The first time you lose HP on your turn, heal HP equal to the amount lost.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "FROZEN_EGG",
+    "name": "Frozen Egg",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you add a Power into your [gold]Deck[/gold], [gold]Upgrade[/gold] it.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "GAMBLING_CHIP",
+    "name": "Gambling Chip",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the start of each combat, discard any number of cards then draw that many.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "GAME_PIECE",
+    "name": "Game Piece",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you play a Power, draw [blue]1[/blue] card.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "GIRYA",
+    "name": "Girya",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "You can now gain [gold]Strength[/gold] at [gold]Rest Sites[/gold]. ([blue]3[/blue] times max)",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ICE_CREAM",
+    "name": "Ice Cream",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Energy is now conserved between turns.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "INTIMIDATING_HELMET",
+    "name": "Intimidating Helmet",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you play a card that costs [energy:2] or more, gain [blue]4[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "KUNAI",
+    "name": "Kunai",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Every time you play [blue]3[/blue] Attacks in a single turn, gain [blue]1[/blue] [gold]Dexterity[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "LIZARD_TAIL",
+    "name": "Lizard Tail",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "When your HP would be reduced to [blue]0[/blue], heal to [green]50%[/green] of your Max HP instead (works once).",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MANGO",
+    "name": "Mango",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Upon pickup, raise your Max HP by [blue]14[/blue].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MEAT_ON_THE_BONE",
+    "name": "Meat on the Bone",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "If your HP is at or below [blue]50%[/blue] at the end of combat, heal [green]12[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MOLTEN_EGG",
+    "name": "Molten Egg",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you add an Attack card to your [gold]Deck[/gold], [gold]Upgrade[/gold] it.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MUMMIFIED_HAND",
+    "name": "Mummified Hand",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you play a Power, a random card in your [gold]Hand[/gold] is free to play that turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "OLD_COIN",
+    "name": "Old Coin",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Upon pickup, gain [blue]300[/blue] [gold]Gold[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "POCKETWATCH",
+    "name": "Pocketwatch",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you play [blue]3[/blue] or fewer cards during your turn, draw [blue]3[/blue] additional cards at the start of your next turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PRAYER_WHEEL",
+    "name": "Prayer Wheel",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Normal enemies drop an additional card reward.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RAINBOW_RING",
+    "name": "Rainbow Ring",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "The first time you play an Attack, Skill, and Power each turn, gain [blue]1[/blue] [gold]Strength[/gold] and [blue]1[/blue] [gold]Dexterity[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RAZOR_TOOTH",
+    "name": "Razor Tooth",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Every time you play an Attack or Skill, [gold]Upgrade[/gold] it for the remainder of combat.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RUINED_HELMET",
+    "name": "Ruined Helmet",
+    "rarity": "Rare",
+    "pool": "ironclad",
+    "description": "The first time you gain [gold]Strength[/gold] each combat, double the amount gained.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "SHOVEL",
+    "name": "Shovel",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "You can now dig at [gold]Rest Sites[/gold] to obtain a random [gold]Relic[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "SHURIKEN",
+    "name": "Shuriken",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Every time you play [blue]3[/blue] Attacks in a single turn, gain [blue]1[/blue] [gold]Strength[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "STONE_CALENDAR",
+    "name": "Stone Calendar",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the end of turn [blue]7[/blue], deal [blue]52[/blue] damage to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "STURDY_CLAMP",
+    "name": "Sturdy Clamp",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Up to [blue]10[/blue] [gold]Block[/gold] persists across turns.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "THE_COURIER",
+    "name": "The Courier",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "The merchant no longer runs out of cards, relics, or potions and his prices are reduced by [blue]20%[/blue].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "TOXIC_EGG",
+    "name": "Toxic Egg",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you add a Skill into your [gold]Deck[/gold], [gold]Upgrade[/gold] it.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "TUNGSTEN_ROD",
+    "name": "Tungsten Rod",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you would lose HP, lose [blue]1[/blue] less.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "UNCEASING_TOP",
+    "name": "Unceasing Top",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Whenever you have no cards in [gold]Hand[/gold] during your turn, draw a card.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "UNSETTLING_LAMP",
+    "name": "Unsettling Lamp",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Each combat, the first time you play a card that [gold]Debuffs[/gold] an enemy, double its effect.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "VEXING_PUZZLEBOX",
+    "name": "Vexing Puzzlebox",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "At the start of each combat, add a random card into your [gold]Hand[/gold]. It's free to play this turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "WHITE_BEAST_STATUE",
+    "name": "White Beast Statue",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Potions always appear in combat rewards.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "WHITE_STAR",
+    "name": "White Star",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "[gold]Elites[/gold] drop an additional [gold]Rare[/gold] card reward.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BLACK_BLOOD",
+    "name": "Black Blood",
+    "rarity": "Starter",
+    "pool": "ironclad",
+    "description": "At the end of combat, heal [green]12[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BURNING_BLOOD",
+    "name": "Burning Blood",
+    "rarity": "Starter",
+    "pool": "ironclad",
+    "description": "At the end of combat, heal [green]6[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "AKABEKO",
+    "name": "Akabeko",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of each combat, gain [blue]8[/blue] [gold]Vigor[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "BOWLER_HAT",
+    "name": "Bowler Hat",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [blue]25%[/blue] additional [gold]Gold[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "CANDELABRA",
+    "name": "Candelabra",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of your [blue]2nd[/blue] turn, gain [energy:2].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ETERNAL_FEATHER",
+    "name": "Eternal Feather",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "For every [blue]5[/blue] cards in your [gold]Deck[/gold], heal [green]3[/green] HP whenever you enter a [gold]Rest Site[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "GREMLIN_HORN",
+    "name": "Gremlin Horn",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Whenever an enemy dies, gain [energy:1] and draw [blue]1[/blue] card.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "HORN_CLEAT",
+    "name": "Horn Cleat",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of your [blue]2nd[/blue] turn, gain [blue]14[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "JOSS_PAPER",
+    "name": "Joss Paper",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every [blue]5[/blue] times you [gold]Exhaust[/gold] a card, draw [blue]1[/blue] card.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "KUSARIGAMA",
+    "name": "Kusarigama",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every time you play [blue]3[/blue] Attacks in a single turn, deal [blue]6[/blue] damage to a random enemy.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "LASTING_CANDY",
+    "name": "Lasting Candy",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every other combat, your card rewards gain an additional Power.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "LETTER_OPENER",
+    "name": "Letter Opener",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every time you play [blue]3[/blue] Skills in a single turn, deal [blue]5[/blue] damage to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "LUCKY_FYSH",
+    "name": "Lucky Fysh",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Whenever you add a card to your [gold]Deck[/gold], gain [blue]15[/blue] [gold]Gold[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MERCURY_HOURGLASS",
+    "name": "Mercury Hourglass",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of your turn, deal [blue]3[/blue] damage to ALL enemies.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "MINIATURE_CANNON",
+    "name": "Miniature Cannon",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "[gold]Upgraded[/gold] Attacks deal [blue]3[/blue] additional damage.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "NUNCHAKU",
+    "name": "Nunchaku",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every time you play [blue]10[/blue] Attacks, gain [energy:1].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ORICHALCUM",
+    "name": "Orichalcum",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "If you end your turn without [gold]Block[/gold], gain [blue]6[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "ORNAMENTAL_FAN",
+    "name": "Ornamental Fan",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every time you play [blue]3[/blue] Attacks in a single turn, gain [blue]4[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PANTOGRAPH",
+    "name": "Pantograph",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of each [gold]Boss[/gold] combat, heal [green]25[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PAPER_PHROG",
+    "name": "Paper Phrog",
+    "rarity": "Uncommon",
+    "pool": "ironclad",
+    "description": "Enemies with [gold]Vulnerable[/gold] take [blue]75%[/blue] more damage rather than [blue]50%[/blue].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PARRYING_SHIELD",
+    "name": "Parrying Shield",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "If you end a turn with at least [blue]10[/blue] [gold]Block[/gold], deal [blue]6[/blue] damage to a random enemy.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PEAR",
+    "name": "Pear",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Upon pickup, raise your Max HP by [blue]10[/blue].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PEN_NIB",
+    "name": "Pen Nib",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every [blue]10th[/blue] Attack you play deals double damage.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PERMAFROST",
+    "name": "Permafrost",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "The first time you play a Power each combat, gain [blue]7[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PETRIFIED_TOAD",
+    "name": "Petrified Toad",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of each combat, procure a [gold]Potion-Shaped Rock[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "PLANISPHERE",
+    "name": "Planisphere",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Whenever you enter a [gold]?[/gold] room, heal [green]5[/green] HP.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "REPTILE_TRINKET",
+    "name": "Reptile Trinket",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Whenever you use a potion, gain [blue]3[/blue] [gold]Strength[/gold] this turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "RIPPLE_BASIN",
+    "name": "Ripple Basin",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "If you did not play any Attacks during your turn, gain [blue]4[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "SELF_FORMING_CLAY",
+    "name": "Self-Forming Clay",
+    "rarity": "Uncommon",
+    "pool": "ironclad",
+    "description": "Whenever you lose HP in combat, gain [blue]3[/blue] [gold]Block[/gold] next turn.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "SPARKLING_ROUGE",
+    "name": "Sparkling Rouge",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of your [blue]3rd[/blue] turn, gain [blue]1[/blue] [gold]Strength[/gold] and [blue]1[/blue] [gold]Dexterity[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "STONE_CRACKER",
+    "name": "Stone Cracker",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "At the start of each combat, [gold]Upgrade[/gold] [blue]2[/blue] random cards in your [gold]Draw Pile[/gold] for the rest of combat.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "TINY_MAILBOX",
+    "name": "Tiny Mailbox",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Whenever you [gold]Rest[/gold], procure [blue]2[/blue] random potions.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "TUNING_FORK",
+    "name": "Tuning Fork",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Every time you play [blue]10[/blue] Skills, gain [blue]7[/blue] [gold]Block[/gold].",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  },
+  {
+    "id": "VAMBRACE",
+    "name": "Vambrace",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "The first time you gain [gold]Block[/gold] from a card each combat, double the amount gained.",
+    "flavor": "[red]Details for this relic will be revealed in the future...[/red]"
+  }
+]
