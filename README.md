@@ -27,10 +27,11 @@ The demo you see above was built in just one day! This was an experiment for me 
 
 **Run structure**
 
-- [x] Linear map: Combat x 3, Rest Site, Boss
+- [x] Branching map: 10-floor graph — Combats (floors 0–2, 4–5, 7–8 with 2 branches each), Shop (floor 3), Rest Site (floor 6), Boss (floor 9)
 - [x] Card rewards after combat (pick 1 of 3)
 - [x] Rest site: heal 30% HP or upgrade a card
 - [x] Gold drops, persistent across floors
+- [x] Shop — buy cards, relics, and potions
 - [x] 28 relics with real effects (Burning Blood, Orichalcum, Mercury Hourglass, Bag of Preparation, ...)
 
 ## How to run
@@ -42,21 +43,31 @@ cargo run -- --script path/to/file     # run a script of newline-separated comma
 cargo run -- --debug                   # unlocks win / skip / add / relic / potion commands
 ```
 
-Commands:
-— type a number to play a card
+Commands during combat:
 
+- type a number to play a card
 - `e` to end your turn
 - `use 1` to use your first potion
-- `z`/`x`/`c` peek at your draw, discard, and exhaust piles.
+- `z`/`x`/`c` peek at your draw, discard, and exhaust piles
+
+Commands on the map:
+
+- `1`/`2` to choose a branch at a combat floor
+- `enter` or `1` at single-option floors (Shop, Rest Site, Boss)
+
+Commands in the shop:
+
+- type a number to buy a card
+- `r` to buy the relic
+- `p` to buy the potion
+- `l` to leave
 
 ## What's next
 
 The big things that would make runs feel more like the real game:
 
-- Branching map — right now the map is a fixed linear path. Soon: a proper graph with Combat / Elite / Rest / Merchant / Event / Boss nodes, where you choose your route.
 - More cards — the Ironclad set has a lot more interesting decisions to make (exhaust synergies, multi-hit attacks, more powers). The full card list is mapped out in `plans/ironclad_cards.json`.
 - More relics — 28 are live, another ~60 are planned. The remaining tiers need card-play counters, HP-change hooks, and a couple of new status types (Thorns, Plating).
-- Shop — buy and remove cards, buy relics and potions.
 - TUI polish — colour-coded statuses, card cost colouring, mouse support.
 
 ## Legal disclaimer
