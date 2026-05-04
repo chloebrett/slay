@@ -632,7 +632,7 @@ pub(crate) fn render_to_string(tui: &TuiState, width: u16, height: u16) -> Strin
 mod tests {
     use super::*;
     use slay_core::{
-        AnyRng, Card, Command, EnemyKind, NoOpRng, new_run, new_simple_run,
+        AnyRng, Card, Command, EnemyKind, Grade, NoOpRng, new_run, new_simple_run,
     };
 
     fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
@@ -770,7 +770,7 @@ mod tests {
         let cr = GameState::CardReward(slay_core::CardRewardState {
             player,
             floor: 1,
-            options: vec![Card::Strike, Card::Defend, Card::Bash],
+            options: vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Bash(Grade::Base)],
             offered_potion: None,
             graph: slay_core::generate_map(&mut r),
             available_cols: vec![0, 1],
@@ -812,9 +812,9 @@ mod tests {
         let mut r = rng();
         state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::Louse]), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
-        state = apply_and_drain(state, Command::AddCard(Card::Strike), &mut r).unwrap().0;
-        state = apply_and_drain(state, Command::AddCard(Card::Defend), &mut r).unwrap().0;
-        state = apply_and_drain(state, Command::AddCard(Card::Bash), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::AddCard(Card::Strike(Grade::Base)), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::AddCard(Card::Defend(Grade::Base)), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::AddCard(Card::Bash(Grade::Base)), &mut r).unwrap().0;
 
         let mut tui = TuiState::new(state, true);
         tui.push_log("─── Turn 1 ───".to_string());

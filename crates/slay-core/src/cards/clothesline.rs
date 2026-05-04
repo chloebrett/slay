@@ -1,5 +1,7 @@
+use super::{CardDef, CardDescription, CardType, Grade};
 use crate::combat::{CombatState, Event, Target, apply_status, deal_damage};
 use crate::status::StatusEffect;
+use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, weak: i32, target: usize) {
     let raw = crate::status::resolve_damage(damage, &state.player.statuses, &state.enemies[target].statuses);
@@ -9,4 +11,16 @@ pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, weak
     };
     events.push(Event::PlayerAttacked { raw, damage: dealt });
     apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Weak, weak, events);
+}
+
+pub(super) fn def(grade: Grade) -> CardDef {
+    let (name, base, template) = match grade {
+        Grade::Base => ("Clothesline",  12, "Deal {damage} damage. Apply 2 Weak."),
+        Grade::Plus => ("Clothesline+", 14, "Deal {damage} damage. Apply 3 Weak."),
+    };
+    CardDef { name, description: CardDescription::WithDamage { template, base }, energy_cost: Energy(2), card_type: CardType::Attack }
+}
+
+pub(super) fn id(grade: Grade) -> &'static str {
+    match grade { Grade::Base => "clothesline", Grade::Plus => "clothesline-plus" }
 }

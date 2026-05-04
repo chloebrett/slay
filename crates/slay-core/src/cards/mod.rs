@@ -4,12 +4,15 @@ mod blood_wall;
 mod body_slam;
 mod bloodletting;
 mod breakthrough;
+mod bludgeon;
 mod cleave;
 mod clothesline;
+mod dazed;
 mod deadly_poison;
 mod defend;
 mod disarm;
 mod hemokinesis;
+mod impervious;
 mod inflame;
 mod iron_wave;
 mod mangle;
@@ -28,59 +31,37 @@ use crate::types::Energy;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Card {
-    Strike,
-    StrikePlus,
-    Defend,
-    DefendPlus,
-    Bash,
-    BashPlus,
-    Clothesline,
-    ClotheslinePlus,
-    Inflame,
-    InflamePlus,
-    DeadlyPoison,
-    DeadlyPoisonPlus,
+    Strike(Grade),
+    Defend(Grade),
+    Bash(Grade),
+    Clothesline(Grade),
+    Inflame(Grade),
+    DeadlyPoison(Grade),
     Disarm,
-    Cleave,
-    CleavePlus,
-    IronWave,
-    IronWavePlus,
-    Tremble,
-    TremblePlus,
-    TwinStrike,
-    TwinStrikePlus,
-    Bludgeon,
-    BludgeonPlus,
-    Impervious,
-    ImperviousPlus,
-    NotYet,
-    NotYetPlus,
-    Mangle,
-    ManglePlus,
-    Uppercut,
-    UppercutPlus,
-    Taunt,
-    TauntPlus,
-    Thunderclap,
-    ThunderclapPlus,
-    PommelStrike,
-    PommelStrikePlus,
-    ShrugItOff,
-    ShrugItOffPlus,
-    Breakthrough,
-    BreakthroughPlus,
-    BloodWall,
-    BloodWallPlus,
-    Bloodletting,
-    BloodlettingPlus,
-    Hemokinesis,
-    HemokinesisPlus,
-    BodySlam,
-    BodySlamPlus,
-    Anger,
-    AngerPlus,
+    Cleave(Grade),
+    IronWave(Grade),
+    Tremble(Grade),
+    TwinStrike(Grade),
+    Bludgeon(Grade),
+    Impervious(Grade),
+    NotYet(Grade),
+    Mangle(Grade),
+    Uppercut(Grade),
+    Taunt(Grade),
+    Thunderclap(Grade),
+    PommelStrike(Grade),
+    ShrugItOff(Grade),
+    Breakthrough(Grade),
+    BloodWall(Grade),
+    Bloodletting(Grade),
+    Hemokinesis(Grade),
+    BodySlam(Grade),
+    Anger(Grade),
     Dazed,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Grade { Base, Plus }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CardType {
@@ -106,318 +87,33 @@ pub struct CardDef {
 impl Card {
     pub fn def(&self) -> CardDef {
         match self {
-            Card::Strike => CardDef {
-                name: "Strike",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 6 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::StrikePlus => CardDef {
-                name: "Strike+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 9 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::Defend => CardDef {
-                name: "Defend",
-                description: CardDescription::Static("Gain 5 block."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::DefendPlus => CardDef {
-                name: "Defend+",
-                description: CardDescription::Static("Gain 8 block."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::Bash => CardDef {
-                name: "Bash",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Vulnerable.", base: 8 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::BashPlus => CardDef {
-                name: "Bash+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 3 Vulnerable.", base: 10 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::Clothesline => CardDef {
-                name: "Clothesline",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Weak.", base: 12 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::ClotheslinePlus => CardDef {
-                name: "Clothesline+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 3 Weak.", base: 14 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::Inflame => CardDef {
-                name: "Inflame",
-                description: CardDescription::Static("Gain 2 Strength."),
-                energy_cost: Energy(1),
-                card_type: CardType::Power,
-            },
-            Card::InflamePlus => CardDef {
-                name: "Inflame+",
-                description: CardDescription::Static("Gain 3 Strength."),
-                energy_cost: Energy(1),
-                card_type: CardType::Power,
-            },
-            Card::DeadlyPoison => CardDef {
-                name: "Deadly Poison",
-                description: CardDescription::Static("Apply 5 Poison."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::DeadlyPoisonPlus => CardDef {
-                name: "Deadly Poison+",
-                description: CardDescription::Static("Apply 7 Poison."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::Disarm => CardDef {
-                name: "Disarm",
-                description: CardDescription::Static("Enemy loses 2 Strength. Exhaust."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::Cleave => CardDef {
-                name: "Cleave",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies.", base: 8 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::CleavePlus => CardDef {
-                name: "Cleave+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies.", base: 11 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::IronWave => CardDef {
-                name: "Iron Wave",
-                description: CardDescription::WithDamage { template: "Gain 5 Block. Deal {damage} damage.", base: 5 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::IronWavePlus => CardDef {
-                name: "Iron Wave+",
-                description: CardDescription::WithDamage { template: "Gain 7 Block. Deal {damage} damage.", base: 7 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::Tremble => CardDef {
-                name: "Tremble",
-                description: CardDescription::Static("Apply 3 Vulnerable."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::TremblePlus => CardDef {
-                name: "Tremble+",
-                description: CardDescription::Static("Apply 4 Vulnerable."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::TwinStrike => CardDef {
-                name: "Twin Strike",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage twice.", base: 5 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::TwinStrikePlus => CardDef {
-                name: "Twin Strike+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage twice.", base: 7 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::Bludgeon => CardDef {
-                name: "Bludgeon",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 32 },
-                energy_cost: Energy(3),
-                card_type: CardType::Attack,
-            },
-            Card::BludgeonPlus => CardDef {
-                name: "Bludgeon+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage.", base: 42 },
-                energy_cost: Energy(3),
-                card_type: CardType::Attack,
-            },
-            Card::Impervious => CardDef {
-                name: "Impervious",
-                description: CardDescription::Static("Gain 30 Block. Exhaust."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::ImperviousPlus => CardDef {
-                name: "Impervious+",
-                description: CardDescription::Static("Gain 40 Block. Exhaust."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::NotYet => CardDef {
-                name: "Not Yet",
-                description: CardDescription::Static("Heal 10 HP."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::NotYetPlus => CardDef {
-                name: "Not Yet+",
-                description: CardDescription::Static("Heal 13 HP."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::Mangle => CardDef {
-                name: "Mangle",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Enemy loses 10 Strength.", base: 15 },
-                energy_cost: Energy(3),
-                card_type: CardType::Attack,
-            },
-            Card::ManglePlus => CardDef {
-                name: "Mangle+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Enemy loses 15 Strength.", base: 20 },
-                energy_cost: Energy(3),
-                card_type: CardType::Attack,
-            },
-            Card::Uppercut => CardDef {
-                name: "Uppercut",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 1 Weak. Apply 1 Vulnerable.", base: 13 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::UppercutPlus => CardDef {
-                name: "Uppercut+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Apply 2 Weak. Apply 2 Vulnerable.", base: 13 },
-                energy_cost: Energy(2),
-                card_type: CardType::Attack,
-            },
-            Card::Taunt => CardDef {
-                name: "Taunt",
-                description: CardDescription::Static("Gain 7 Block. Apply 1 Vulnerable."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::TauntPlus => CardDef {
-                name: "Taunt+",
-                description: CardDescription::Static("Gain 8 Block. Apply 2 Vulnerable."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::Thunderclap => CardDef {
-                name: "Thunderclap",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage and apply 1 Vulnerable to ALL enemies.", base: 4 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::ThunderclapPlus => CardDef {
-                name: "Thunderclap+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage and apply 1 Vulnerable to ALL enemies.", base: 7 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::PommelStrike => CardDef {
-                name: "Pommel Strike",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Draw 1 card.", base: 9 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::PommelStrikePlus => CardDef {
-                name: "Pommel Strike+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Draw 2 cards.", base: 10 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::ShrugItOff => CardDef {
-                name: "Shrug It Off",
-                description: CardDescription::Static("Gain 8 Block. Draw 1 card."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::ShrugItOffPlus => CardDef {
-                name: "Shrug It Off+",
-                description: CardDescription::Static("Gain 11 Block. Draw 1 card."),
-                energy_cost: Energy(1),
-                card_type: CardType::Skill,
-            },
-            Card::Breakthrough => CardDef {
-                name: "Breakthrough",
-                description: CardDescription::WithDamage { template: "Lose 1 HP. Deal {damage} damage to ALL enemies.", base: 9 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::BreakthroughPlus => CardDef {
-                name: "Breakthrough+",
-                description: CardDescription::WithDamage { template: "Lose 1 HP. Deal {damage} damage to ALL enemies.", base: 13 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::BloodWall => CardDef {
-                name: "Blood Wall",
-                description: CardDescription::Static("Lose 2 HP. Gain 16 Block."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::BloodWallPlus => CardDef {
-                name: "Blood Wall+",
-                description: CardDescription::Static("Lose 2 HP. Gain 20 Block."),
-                energy_cost: Energy(2),
-                card_type: CardType::Skill,
-            },
-            Card::Bloodletting => CardDef {
-                name: "Bloodletting",
-                description: CardDescription::Static("Lose 3 HP. Gain 2 Energy."),
-                energy_cost: Energy(0),
-                card_type: CardType::Skill,
-            },
-            Card::BloodlettingPlus => CardDef {
-                name: "Bloodletting+",
-                description: CardDescription::Static("Lose 3 HP. Gain 3 Energy."),
-                energy_cost: Energy(0),
-                card_type: CardType::Skill,
-            },
-            Card::Hemokinesis => CardDef {
-                name: "Hemokinesis",
-                description: CardDescription::WithDamage { template: "Lose 2 HP. Deal {damage} damage.", base: 15 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::HemokinesisPlus => CardDef {
-                name: "Hemokinesis+",
-                description: CardDescription::WithDamage { template: "Lose 2 HP. Deal {damage} damage.", base: 20 },
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::BodySlam => CardDef {
-                name: "Body Slam",
-                description: CardDescription::Static("Deal damage equal to your Block."),
-                energy_cost: Energy(1),
-                card_type: CardType::Attack,
-            },
-            Card::BodySlamPlus => CardDef {
-                name: "Body Slam+",
-                description: CardDescription::Static("Deal damage equal to your Block."),
-                energy_cost: Energy(0),
-                card_type: CardType::Attack,
-            },
-            Card::Anger => CardDef {
-                name: "Anger",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Add a copy to your Discard Pile.", base: 6 },
-                energy_cost: Energy(0),
-                card_type: CardType::Attack,
-            },
-            Card::AngerPlus => CardDef {
-                name: "Anger+",
-                description: CardDescription::WithDamage { template: "Deal {damage} damage. Add a copy to your Discard Pile.", base: 8 },
-                energy_cost: Energy(0),
-                card_type: CardType::Attack,
-            },
-            Card::Dazed => CardDef {
-                name: "Dazed",
-                description: CardDescription::Static("Unplayable. Exhaust."),
-                energy_cost: Energy(0),
-                card_type: CardType::Skill,
-            },
+            Card::Strike(g)       => strike::def(*g),
+            Card::Defend(g)       => defend::def(*g),
+            Card::Bash(g)         => bash::def(*g),
+            Card::Clothesline(g)  => clothesline::def(*g),
+            Card::Inflame(g)      => inflame::def(*g),
+            Card::DeadlyPoison(g) => deadly_poison::def(*g),
+            Card::Disarm          => disarm::def(),
+            Card::Cleave(g)       => cleave::def(*g),
+            Card::IronWave(g)     => iron_wave::def(*g),
+            Card::Tremble(g)      => tremble::def(*g),
+            Card::TwinStrike(g)   => twin_strike::def(*g),
+            Card::Bludgeon(g)     => bludgeon::def(*g),
+            Card::Impervious(g)   => impervious::def(*g),
+            Card::NotYet(g)       => not_yet::def(*g),
+            Card::Mangle(g)       => mangle::def(*g),
+            Card::Uppercut(g)     => uppercut::def(*g),
+            Card::Taunt(g)        => taunt::def(*g),
+            Card::Thunderclap(g)  => thunderclap::def(*g),
+            Card::PommelStrike(g) => pommel_strike::def(*g),
+            Card::ShrugItOff(g)   => shrug_it_off::def(*g),
+            Card::Breakthrough(g) => breakthrough::def(*g),
+            Card::BloodWall(g)    => blood_wall::def(*g),
+            Card::Bloodletting(g) => bloodletting::def(*g),
+            Card::Hemokinesis(g)  => hemokinesis::def(*g),
+            Card::BodySlam(g)     => body_slam::def(*g),
+            Card::Anger(g)        => anger::def(*g),
+            Card::Dazed           => dazed::def(),
         }
     }
 
@@ -426,36 +122,36 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious | Card::ImperviousPlus | Card::Dazed)
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::Dazed)
     }
 
     pub fn upgrade(&self) -> Option<Card> {
         match self {
-            Card::Strike => Some(Card::StrikePlus),
-            Card::Defend => Some(Card::DefendPlus),
-            Card::Bash => Some(Card::BashPlus),
-            Card::Clothesline => Some(Card::ClotheslinePlus),
-            Card::Inflame => Some(Card::InflamePlus),
-            Card::DeadlyPoison => Some(Card::DeadlyPoisonPlus),
-            Card::Cleave      => Some(Card::CleavePlus),
-            Card::IronWave    => Some(Card::IronWavePlus),
-            Card::Tremble     => Some(Card::TremblePlus),
-            Card::TwinStrike  => Some(Card::TwinStrikePlus),
-            Card::Bludgeon    => Some(Card::BludgeonPlus),
-            Card::Impervious  => Some(Card::ImperviousPlus),
-            Card::NotYet      => Some(Card::NotYetPlus),
-            Card::Mangle      => Some(Card::ManglePlus),
-            Card::Uppercut    => Some(Card::UppercutPlus),
-            Card::Taunt       => Some(Card::TauntPlus),
-            Card::Thunderclap   => Some(Card::ThunderclapPlus),
-            Card::PommelStrike  => Some(Card::PommelStrikePlus),
-            Card::ShrugItOff    => Some(Card::ShrugItOffPlus),
-            Card::Breakthrough  => Some(Card::BreakthroughPlus),
-            Card::BloodWall    => Some(Card::BloodWallPlus),
-            Card::Bloodletting => Some(Card::BloodlettingPlus),
-            Card::Hemokinesis  => Some(Card::HemokinesisPlus),
-            Card::BodySlam     => Some(Card::BodySlamPlus),
-            Card::Anger        => Some(Card::AngerPlus),
+            Card::Strike(Grade::Base)       => Some(Card::Strike(Grade::Plus)),
+            Card::Defend(Grade::Base)       => Some(Card::Defend(Grade::Plus)),
+            Card::Bash(Grade::Base)         => Some(Card::Bash(Grade::Plus)),
+            Card::Clothesline(Grade::Base)  => Some(Card::Clothesline(Grade::Plus)),
+            Card::Inflame(Grade::Base)      => Some(Card::Inflame(Grade::Plus)),
+            Card::DeadlyPoison(Grade::Base) => Some(Card::DeadlyPoison(Grade::Plus)),
+            Card::Cleave(Grade::Base)       => Some(Card::Cleave(Grade::Plus)),
+            Card::IronWave(Grade::Base)     => Some(Card::IronWave(Grade::Plus)),
+            Card::Tremble(Grade::Base)      => Some(Card::Tremble(Grade::Plus)),
+            Card::TwinStrike(Grade::Base)   => Some(Card::TwinStrike(Grade::Plus)),
+            Card::Bludgeon(Grade::Base)     => Some(Card::Bludgeon(Grade::Plus)),
+            Card::Impervious(Grade::Base)   => Some(Card::Impervious(Grade::Plus)),
+            Card::NotYet(Grade::Base)       => Some(Card::NotYet(Grade::Plus)),
+            Card::Mangle(Grade::Base)       => Some(Card::Mangle(Grade::Plus)),
+            Card::Uppercut(Grade::Base)     => Some(Card::Uppercut(Grade::Plus)),
+            Card::Taunt(Grade::Base)        => Some(Card::Taunt(Grade::Plus)),
+            Card::Thunderclap(Grade::Base)  => Some(Card::Thunderclap(Grade::Plus)),
+            Card::PommelStrike(Grade::Base) => Some(Card::PommelStrike(Grade::Plus)),
+            Card::ShrugItOff(Grade::Base)   => Some(Card::ShrugItOff(Grade::Plus)),
+            Card::Breakthrough(Grade::Base) => Some(Card::Breakthrough(Grade::Plus)),
+            Card::BloodWall(Grade::Base)    => Some(Card::BloodWall(Grade::Plus)),
+            Card::Bloodletting(Grade::Base) => Some(Card::Bloodletting(Grade::Plus)),
+            Card::Hemokinesis(Grade::Base)  => Some(Card::Hemokinesis(Grade::Plus)),
+            Card::BodySlam(Grade::Base)     => Some(Card::BodySlam(Grade::Plus)),
+            Card::Anger(Grade::Base)        => Some(Card::Anger(Grade::Plus)),
             _ => None,
         }
     }
@@ -487,83 +183,68 @@ impl Card {
 
     pub fn id(&self) -> &'static str {
         match self {
-            Card::Strike         => "strike",
-            Card::StrikePlus     => "strike-plus",
-            Card::Defend         => "defend",
-            Card::DefendPlus     => "defend-plus",
-            Card::Bash           => "bash",
-            Card::BashPlus       => "bash-plus",
-            Card::Clothesline    => "clothesline",
-            Card::ClotheslinePlus => "clothesline-plus",
-            Card::Inflame        => "inflame",
-            Card::InflamePlus    => "inflame-plus",
-            Card::DeadlyPoison   => "deadly-poison",
-            Card::DeadlyPoisonPlus => "deadly-poison-plus",
-            Card::Disarm         => "disarm",
-            Card::Cleave         => "cleave",
-            Card::CleavePlus     => "cleave-plus",
-            Card::IronWave       => "iron-wave",
-            Card::IronWavePlus   => "iron-wave-plus",
-            Card::Tremble        => "tremble",
-            Card::TremblePlus    => "tremble-plus",
-            Card::TwinStrike     => "twin-strike",
-            Card::TwinStrikePlus => "twin-strike-plus",
-            Card::Bludgeon       => "bludgeon",
-            Card::BludgeonPlus   => "bludgeon-plus",
-            Card::Impervious     => "impervious",
-            Card::ImperviousPlus => "impervious-plus",
-            Card::NotYet         => "not-yet",
-            Card::NotYetPlus     => "not-yet-plus",
-            Card::Mangle         => "mangle",
-            Card::ManglePlus     => "mangle-plus",
-            Card::Uppercut       => "uppercut",
-            Card::UppercutPlus   => "uppercut-plus",
-            Card::Taunt          => "taunt",
-            Card::TauntPlus      => "taunt-plus",
-            Card::Thunderclap    => "thunderclap",
-            Card::ThunderclapPlus => "thunderclap-plus",
-            Card::PommelStrike   => "pommel-strike",
-            Card::PommelStrikePlus => "pommel-strike-plus",
-            Card::ShrugItOff     => "shrug-it-off",
-            Card::ShrugItOffPlus => "shrug-it-off-plus",
-            Card::Breakthrough   => "breakthrough",
-            Card::BreakthroughPlus => "breakthrough-plus",
-            Card::BloodWall      => "blood-wall",
-            Card::BloodWallPlus  => "blood-wall-plus",
-            Card::Bloodletting   => "bloodletting",
-            Card::BloodlettingPlus => "bloodletting-plus",
-            Card::Hemokinesis    => "hemokinesis",
-            Card::HemokinesisPlus => "hemokinesis-plus",
-            Card::BodySlam       => "body-slam",
-            Card::BodySlamPlus   => "body-slam-plus",
-            Card::Anger          => "anger",
-            Card::AngerPlus      => "anger-plus",
-            Card::Dazed          => "dazed",
+            Card::Strike(g)       => strike::id(*g),
+            Card::Defend(g)       => defend::id(*g),
+            Card::Bash(g)         => bash::id(*g),
+            Card::Clothesline(g)  => clothesline::id(*g),
+            Card::Inflame(g)      => inflame::id(*g),
+            Card::DeadlyPoison(g) => deadly_poison::id(*g),
+            Card::Disarm          => disarm::id(),
+            Card::Cleave(g)       => cleave::id(*g),
+            Card::IronWave(g)     => iron_wave::id(*g),
+            Card::Tremble(g)      => tremble::id(*g),
+            Card::TwinStrike(g)   => twin_strike::id(*g),
+            Card::Bludgeon(g)     => bludgeon::id(*g),
+            Card::Impervious(g)   => impervious::id(*g),
+            Card::NotYet(g)       => not_yet::id(*g),
+            Card::Mangle(g)       => mangle::id(*g),
+            Card::Uppercut(g)     => uppercut::id(*g),
+            Card::Taunt(g)        => taunt::id(*g),
+            Card::Thunderclap(g)  => thunderclap::id(*g),
+            Card::PommelStrike(g) => pommel_strike::id(*g),
+            Card::ShrugItOff(g)   => shrug_it_off::id(*g),
+            Card::Breakthrough(g) => breakthrough::id(*g),
+            Card::BloodWall(g)    => blood_wall::id(*g),
+            Card::Bloodletting(g) => bloodletting::id(*g),
+            Card::Hemokinesis(g)  => hemokinesis::id(*g),
+            Card::BodySlam(g)     => body_slam::id(*g),
+            Card::Anger(g)        => anger::id(*g),
+            Card::Dazed           => dazed::id(),
         }
     }
 
     pub fn from_id(s: &str) -> Option<Card> {
-        let all = [
-            Card::Strike, Card::StrikePlus, Card::Defend, Card::DefendPlus,
-            Card::Bash, Card::BashPlus, Card::Clothesline, Card::ClotheslinePlus,
-            Card::Inflame, Card::InflamePlus, Card::DeadlyPoison, Card::DeadlyPoisonPlus,
-            Card::Disarm, Card::Cleave, Card::CleavePlus, Card::IronWave, Card::IronWavePlus,
-            Card::Tremble, Card::TremblePlus, Card::TwinStrike, Card::TwinStrikePlus,
-            Card::Bludgeon, Card::BludgeonPlus, Card::Impervious, Card::ImperviousPlus,
-            Card::NotYet, Card::NotYetPlus, Card::Mangle, Card::ManglePlus,
-            Card::Uppercut, Card::UppercutPlus, Card::Taunt, Card::TauntPlus,
-            Card::Thunderclap, Card::ThunderclapPlus,
-            Card::PommelStrike, Card::PommelStrikePlus,
-            Card::ShrugItOff, Card::ShrugItOffPlus,
-            Card::Breakthrough, Card::BreakthroughPlus,
-            Card::BloodWall, Card::BloodWallPlus,
-            Card::Bloodletting, Card::BloodlettingPlus,
-            Card::Hemokinesis, Card::HemokinesisPlus,
-            Card::BodySlam, Card::BodySlamPlus,
-            Card::Anger, Card::AngerPlus,
+        use Grade::{Base, Plus};
+        let all: &[Card] = &[
+            Card::Strike(Base),       Card::Strike(Plus),
+            Card::Defend(Base),       Card::Defend(Plus),
+            Card::Bash(Base),         Card::Bash(Plus),
+            Card::Clothesline(Base),  Card::Clothesline(Plus),
+            Card::Inflame(Base),      Card::Inflame(Plus),
+            Card::DeadlyPoison(Base), Card::DeadlyPoison(Plus),
+            Card::Disarm,
+            Card::Cleave(Base),       Card::Cleave(Plus),
+            Card::IronWave(Base),     Card::IronWave(Plus),
+            Card::Tremble(Base),      Card::Tremble(Plus),
+            Card::TwinStrike(Base),   Card::TwinStrike(Plus),
+            Card::Bludgeon(Base),     Card::Bludgeon(Plus),
+            Card::Impervious(Base),   Card::Impervious(Plus),
+            Card::NotYet(Base),       Card::NotYet(Plus),
+            Card::Mangle(Base),       Card::Mangle(Plus),
+            Card::Uppercut(Base),     Card::Uppercut(Plus),
+            Card::Taunt(Base),        Card::Taunt(Plus),
+            Card::Thunderclap(Base),  Card::Thunderclap(Plus),
+            Card::PommelStrike(Base), Card::PommelStrike(Plus),
+            Card::ShrugItOff(Base),   Card::ShrugItOff(Plus),
+            Card::Breakthrough(Base), Card::Breakthrough(Plus),
+            Card::BloodWall(Base),    Card::BloodWall(Plus),
+            Card::Bloodletting(Base), Card::Bloodletting(Plus),
+            Card::Hemokinesis(Base),  Card::Hemokinesis(Plus),
+            Card::BodySlam(Base),     Card::BodySlam(Plus),
+            Card::Anger(Base),        Card::Anger(Plus),
             Card::Dazed,
         ];
-        all.into_iter().find(|c| c.id() == s)
+        all.iter().find(|c| c.id() == s).cloned()
     }
 
     pub fn effective_damage(&self, attacker: &StatusMap, defender: &StatusMap) -> Option<i32> {
@@ -576,909 +257,65 @@ impl Card {
 
 pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize, rng: &mut impl crate::rng::Rng) {
     match card {
-        Card::Strike      => strike::apply(state, events, 6, target),
-        Card::StrikePlus  => strike::apply(state, events, 9, target),
-        Card::Defend      => defend::apply(state, events, 5, target),
-        Card::DefendPlus  => defend::apply(state, events, 8, target),
-        Card::Bash        => bash::apply(state, events, 8, 2, target),
-        Card::BashPlus    => bash::apply(state, events, 10, 3, target),
-        Card::Clothesline      => clothesline::apply(state, events, 12, 2, target),
-        Card::ClotheslinePlus  => clothesline::apply(state, events, 14, 3, target),
-        Card::Inflame     => inflame::apply(state, events, 2, target),
-        Card::InflamePlus => inflame::apply(state, events, 3, target),
-        Card::DeadlyPoison      => deadly_poison::apply(state, events, 5, target),
-        Card::DeadlyPoisonPlus  => deadly_poison::apply(state, events, 7, target),
-        Card::Disarm => disarm::apply(state, events, target),
-        Card::Cleave     => cleave::apply(state, events, 8),
-        Card::CleavePlus => cleave::apply(state, events, 11),
-        Card::IronWave    => iron_wave::apply(state, events, 5, 5, target),
-        Card::IronWavePlus => iron_wave::apply(state, events, 7, 7, target),
-        Card::Tremble    => tremble::apply(state, events, 3, target),
-        Card::TremblePlus => tremble::apply(state, events, 4, target),
-        Card::TwinStrike    => twin_strike::apply(state, events, 5, target),
-        Card::TwinStrikePlus => twin_strike::apply(state, events, 7, target),
-        Card::Bludgeon    => strike::apply(state, events, 32, target),
-        Card::BludgeonPlus => strike::apply(state, events, 42, target),
-        Card::Impervious    => defend::apply(state, events, 30, target),
-        Card::ImperviousPlus => defend::apply(state, events, 40, target),
-        Card::NotYet    => not_yet::apply(state, events, 10, target),
-        Card::NotYetPlus => not_yet::apply(state, events, 13, target),
-        Card::Mangle    => mangle::apply(state, events, 15, 10, target),
-        Card::ManglePlus => mangle::apply(state, events, 20, 15, target),
-        Card::Uppercut    => uppercut::apply(state, events, 13, 1, 1, target),
-        Card::UppercutPlus => uppercut::apply(state, events, 13, 2, 2, target),
-        Card::Taunt    => taunt::apply(state, events, 7, 1, target),
-        Card::TauntPlus => taunt::apply(state, events, 8, 2, target),
-        Card::Thunderclap    => thunderclap::apply(state, events, 4, 1),
-        Card::ThunderclapPlus => thunderclap::apply(state, events, 7, 1),
-        Card::PommelStrike    => pommel_strike::apply(state, events, 9, 1, target, rng),
-        Card::PommelStrikePlus => pommel_strike::apply(state, events, 10, 2, target, rng),
-        Card::ShrugItOff    => shrug_it_off::apply(state, events, 8, 1, rng),
-        Card::ShrugItOffPlus => shrug_it_off::apply(state, events, 11, 1, rng),
-        Card::Breakthrough    => breakthrough::apply(state, events, 1, 9),
-        Card::BreakthroughPlus => breakthrough::apply(state, events, 1, 13),
-        Card::BloodWall    => blood_wall::apply(state, events, 2, 16),
-        Card::BloodWallPlus => blood_wall::apply(state, events, 2, 20),
-        Card::Bloodletting    => bloodletting::apply(state, events, 3, 2),
-        Card::BloodlettingPlus => bloodletting::apply(state, events, 3, 3),
-        Card::Hemokinesis    => hemokinesis::apply(state, events, 2, 15, target),
-        Card::HemokinesisPlus => hemokinesis::apply(state, events, 2, 20, target),
-        Card::BodySlam    => body_slam::apply(state, events, target),
-        Card::BodySlamPlus => body_slam::apply(state, events, target),
-        Card::Anger    => anger::apply(state, events, 6, Card::Anger, target),
-        Card::AngerPlus => anger::apply(state, events, 8, Card::AngerPlus, target),
-        Card::Dazed => {} // unplayable — guarded before reaching apply()
+        Card::Strike(g)       => { let d = match g { Grade::Base => 6,  Grade::Plus => 9  }; strike::apply(state, events, d, target) },
+        Card::Defend(g)       => { let b = match g { Grade::Base => 5,  Grade::Plus => 8  }; defend::apply(state, events, b, target) },
+        Card::Bash(g)         => { let (d, v) = match g { Grade::Base => (8, 2), Grade::Plus => (10, 3) }; bash::apply(state, events, d, v, target) },
+        Card::Clothesline(g)  => { let (d, w) = match g { Grade::Base => (12, 2), Grade::Plus => (14, 3) }; clothesline::apply(state, events, d, w, target) },
+        Card::Inflame(g)      => { let s = match g { Grade::Base => 2,  Grade::Plus => 3  }; inflame::apply(state, events, s, target) },
+        Card::DeadlyPoison(g) => { let p = match g { Grade::Base => 5,  Grade::Plus => 7  }; deadly_poison::apply(state, events, p, target) },
+        Card::Disarm          => disarm::apply(state, events, target),
+        Card::Cleave(g)       => { let d = match g { Grade::Base => 8,  Grade::Plus => 11 }; cleave::apply(state, events, d) },
+        Card::IronWave(g)     => { let n = match g { Grade::Base => 5,  Grade::Plus => 7  }; iron_wave::apply(state, events, n, n, target) },
+        Card::Tremble(g)      => { let v = match g { Grade::Base => 3,  Grade::Plus => 4  }; tremble::apply(state, events, v, target) },
+        Card::TwinStrike(g)   => { let d = match g { Grade::Base => 5,  Grade::Plus => 7  }; twin_strike::apply(state, events, d, target) },
+        Card::Bludgeon(g)     => { let d = match g { Grade::Base => 32, Grade::Plus => 42 }; strike::apply(state, events, d, target) },
+        Card::Impervious(g)   => { let b = match g { Grade::Base => 30, Grade::Plus => 40 }; defend::apply(state, events, b, target) },
+        Card::NotYet(g)       => { let h = match g { Grade::Base => 10, Grade::Plus => 13 }; not_yet::apply(state, events, h, target) },
+        Card::Mangle(g)       => { let (d, s) = match g { Grade::Base => (15, 10), Grade::Plus => (20, 15) }; mangle::apply(state, events, d, s, target) },
+        Card::Uppercut(g)     => { let (w, v) = match g { Grade::Base => (1, 1), Grade::Plus => (2, 2) }; uppercut::apply(state, events, 13, w, v, target) },
+        Card::Taunt(g)        => { let (b, v) = match g { Grade::Base => (7, 1), Grade::Plus => (8, 2) }; taunt::apply(state, events, b, v, target) },
+        Card::Thunderclap(g)  => { let d = match g { Grade::Base => 4,  Grade::Plus => 7  }; thunderclap::apply(state, events, d, 1) },
+        Card::PommelStrike(g) => { let (d, n) = match g { Grade::Base => (9, 1), Grade::Plus => (10, 2) }; pommel_strike::apply(state, events, d, n, target, rng) },
+        Card::ShrugItOff(g)   => { let b = match g { Grade::Base => 8,  Grade::Plus => 11 }; shrug_it_off::apply(state, events, b, 1, rng) },
+        Card::Breakthrough(g) => { let d = match g { Grade::Base => 9,  Grade::Plus => 13 }; breakthrough::apply(state, events, 1, d) },
+        Card::BloodWall(g)    => { let b = match g { Grade::Base => 16, Grade::Plus => 20 }; blood_wall::apply(state, events, 2, b) },
+        Card::Bloodletting(g) => { let e = match g { Grade::Base => 2,  Grade::Plus => 3  }; bloodletting::apply(state, events, 3, e) },
+        Card::Hemokinesis(g)  => { let d = match g { Grade::Base => 15, Grade::Plus => 20 }; hemokinesis::apply(state, events, 2, d, target) },
+        Card::BodySlam(_)     => body_slam::apply(state, events, target),
+        Card::Anger(g)        => { let d = match g { Grade::Base => 6,  Grade::Plus => 8  }; anger::apply(state, events, d, Card::Anger(*g), target) },
+        Card::Dazed           => {} // unplayable — guarded before reaching apply()
     }
 }
 
 pub fn reward_pool() -> Vec<Card> {
+    use Grade::Base;
     vec![
-        Card::Bash, Card::Clothesline, Card::Inflame, Card::DeadlyPoison,
-        Card::Cleave, Card::IronWave, Card::TwinStrike, Card::Bludgeon,
-        Card::Impervious, Card::NotYet, Card::Mangle, Card::Uppercut,
-        Card::Taunt, Card::Thunderclap,
-        Card::PommelStrike, Card::ShrugItOff,
-        Card::Breakthrough, Card::BloodWall, Card::Bloodletting, Card::Hemokinesis,
-        Card::BodySlam, Card::Anger,
+        Card::Bash(Base), Card::Clothesline(Base), Card::Inflame(Base), Card::DeadlyPoison(Base),
+        Card::Cleave(Base), Card::IronWave(Base), Card::TwinStrike(Base), Card::Bludgeon(Base),
+        Card::Impervious(Base), Card::NotYet(Base), Card::Mangle(Base), Card::Uppercut(Base),
+        Card::Taunt(Base), Card::Thunderclap(Base),
+        Card::PommelStrike(Base), Card::ShrugItOff(Base),
+        Card::Breakthrough(Base), Card::BloodWall(Base), Card::Bloodletting(Base), Card::Hemokinesis(Base),
+        Card::BodySlam(Base), Card::Anger(Base),
     ]
 }
 
 pub fn starter_deck() -> Vec<Card> {
+    use Grade::Base;
     let mut deck = Vec::new();
     for _ in 0..5 {
-        deck.push(Card::Strike);
+        deck.push(Card::Strike(Base));
     }
     for _ in 0..3 {
-        deck.push(Card::Defend);
+        deck.push(Card::Defend(Base));
     }
-    deck.push(Card::Bash);
-    deck.push(Card::Inflame);
-    deck.push(Card::DeadlyPoison);
+    deck.push(Card::Bash(Base));
+    deck.push(Card::Inflame(Base));
+    deck.push(Card::DeadlyPoison(Base));
     deck.push(Card::Disarm);
     deck
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::combat::{combat_with_hand, combat_with_two_enemies, apply_combat_command, CombatPhase, Event, Target};
-    use crate::run::{Command, CommandError};
-    use crate::status::StatusEffect;
-    use crate::types::{Block, Energy, Hp};
-    use crate::rng::NoOpRng;
-
-    fn rng() -> NoOpRng { NoOpRng }
-
-    fn apply_command(
-        state: crate::combat::CombatState,
-        cmd: Command,
-        rng: &mut impl crate::rng::Rng,
-    ) -> Result<(crate::combat::CombatState, Vec<Event>), CommandError> {
-        apply_combat_command(state, cmd, rng)
-    }
-
-    // --- Strike ---
-
-    #[test]
-    fn strike_deals_6_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(14));
-    }
-
-    #[test]
-    fn strike_emits_player_attacked_event() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerAttacked { raw: 6, damage: 6 }));
-    }
-
-    #[test]
-    fn strike_killing_enemy_yields_victory() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemies[0].hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.phase, CombatPhase::Victory);
-    }
-
-    #[test]
-    fn strike_killing_enemy_emits_enemy_died_event() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemies[0].hp = Hp(1);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::EnemyDied));
-    }
-
-    #[test]
-    fn strike_moves_to_discard_after_play() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hand.len(), 0);
-        assert_eq!(state.player.discard_pile, vec![Card::Strike]);
-    }
-
-    #[test]
-    fn strike_goes_to_discard_not_exhaust() {
-        let state = combat_with_hand(vec![Card::Strike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.discard_pile, vec![Card::Strike]);
-        assert!(state.player.exhaust_pile.is_empty());
-    }
-
-    // --- Defend ---
-
-    #[test]
-    fn defend_grants_5_block() {
-        let state = combat_with_hand(vec![Card::Defend]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(5));
-    }
-
-    #[test]
-    fn defend_emits_player_blocked_event() {
-        let state = combat_with_hand(vec![Card::Defend]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerBlocked { amount: 5 }));
-    }
-
-    // --- Bash ---
-
-    #[test]
-    fn bash_deals_8_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(12));
-    }
-
-    #[test]
-    fn bash_costs_2_energy() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.energy, Energy(1));
-    }
-
-    #[test]
-    fn bash_applies_2_vulnerable_to_enemy() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
-    }
-
-    #[test]
-    fn bash_emits_status_applied_event() {
-        let state = combat_with_hand(vec![Card::Bash]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::StatusApplied {
-            target: Target::Enemy,
-            status: StatusEffect::Vulnerable,
-            stacks: 2,
-        }));
-    }
-
-    #[test]
-    fn strike_damage_boosted_against_vulnerable_enemy() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
-        state.enemies[0].statuses.insert(StatusEffect::Vulnerable, 2);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerAttacked { raw: 9, damage: 9 }));
-    }
-
-    // --- Clothesline ---
-
-    #[test]
-    fn clothesline_deals_12_damage_to_enemy() {
-        let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(8));
-    }
-
-    #[test]
-    fn clothesline_applies_2_weak_to_enemy() {
-        let state = combat_with_hand(vec![Card::Clothesline]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&2));
-    }
-
-    // --- Deadly Poison ---
-
-    #[test]
-    fn deadly_poison_applies_5_poison_to_enemy() {
-        let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Poison), Some(&5));
-    }
-
-    #[test]
-    fn deadly_poison_deals_no_direct_damage() {
-        let state = combat_with_hand(vec![Card::DeadlyPoison]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(20));
-    }
-
-    // --- CardType ---
-
-    #[test]
-    fn strike_card_type_is_attack() {
-        assert_eq!(Card::Strike.card_type(), CardType::Attack);
-    }
-
-    #[test]
-    fn bash_card_type_is_attack() {
-        assert_eq!(Card::Bash.card_type(), CardType::Attack);
-    }
-
-    #[test]
-    fn clothesline_card_type_is_attack() {
-        assert_eq!(Card::Clothesline.card_type(), CardType::Attack);
-    }
-
-    #[test]
-    fn defend_card_type_is_skill() {
-        assert_eq!(Card::Defend.card_type(), CardType::Skill);
-    }
-
-    #[test]
-    fn deadly_poison_card_type_is_skill() {
-        assert_eq!(Card::DeadlyPoison.card_type(), CardType::Skill);
-    }
-
-    #[test]
-    fn disarm_card_type_is_skill() {
-        assert_eq!(Card::Disarm.card_type(), CardType::Skill);
-    }
-
-    #[test]
-    fn inflame_card_type_is_power() {
-        assert_eq!(Card::Inflame.card_type(), CardType::Power);
-    }
-
-    // --- Inflame ---
-
-    #[test]
-    fn inflame_grants_2_strength_to_player() {
-        let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
-    }
-
-    #[test]
-    fn inflame_is_absorbed_not_discarded() {
-        let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(state.player.discard_pile.is_empty());
-    }
-
-    #[test]
-    fn inflame_is_absorbed_not_exhausted() {
-        let state = combat_with_hand(vec![Card::Inflame]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(state.player.exhaust_pile.is_empty());
-    }
-
-    // --- Upgraded effects ---
-
-    #[test]
-    fn strike_plus_deals_9_damage() {
-        let state = combat_with_hand(vec![Card::StrikePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(11));
-    }
-
-    #[test]
-    fn defend_plus_grants_8_block() {
-        let state = combat_with_hand(vec![Card::DefendPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(8));
-    }
-
-    #[test]
-    fn bash_plus_deals_10_damage() {
-        let state = combat_with_hand(vec![Card::BashPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(10));
-    }
-
-    #[test]
-    fn bash_plus_applies_3_vulnerable() {
-        let state = combat_with_hand(vec![Card::BashPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&3));
-    }
-
-    #[test]
-    fn clothesline_plus_deals_14_damage() {
-        let state = combat_with_hand(vec![Card::ClotheslinePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(6));
-    }
-
-    #[test]
-    fn clothesline_plus_applies_3_weak() {
-        let state = combat_with_hand(vec![Card::ClotheslinePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&3));
-    }
-
-    #[test]
-    fn inflame_plus_grants_3_strength() {
-        let state = combat_with_hand(vec![Card::InflamePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&3));
-    }
-
-    #[test]
-    fn deadly_poison_plus_applies_7_poison() {
-        let state = combat_with_hand(vec![Card::DeadlyPoisonPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Poison), Some(&7));
-    }
-
-    // --- Card::upgrade() ---
-
-    #[test]
-    fn upgrading_strike_gives_strike_plus() {
-        assert_eq!(Card::Strike.upgrade(), Some(Card::StrikePlus));
-    }
-
-    #[test]
-    fn upgrading_defend_gives_defend_plus() {
-        assert_eq!(Card::Defend.upgrade(), Some(Card::DefendPlus));
-    }
-
-    #[test]
-    fn upgrading_bash_gives_bash_plus() {
-        assert_eq!(Card::Bash.upgrade(), Some(Card::BashPlus));
-    }
-
-    #[test]
-    fn upgrading_clothesline_gives_clothesline_plus() {
-        assert_eq!(Card::Clothesline.upgrade(), Some(Card::ClotheslinePlus));
-    }
-
-    #[test]
-    fn upgrading_inflame_gives_inflame_plus() {
-        assert_eq!(Card::Inflame.upgrade(), Some(Card::InflamePlus));
-    }
-
-    #[test]
-    fn upgrading_deadly_poison_gives_deadly_poison_plus() {
-        assert_eq!(Card::DeadlyPoison.upgrade(), Some(Card::DeadlyPoisonPlus));
-    }
-
-    #[test]
-    fn upgrading_plus_card_returns_none() {
-        assert_eq!(Card::StrikePlus.upgrade(), None);
-    }
-
-    #[test]
-    fn disarm_cannot_be_upgraded() {
-        assert_eq!(Card::Disarm.upgrade(), None);
-    }
-
-    // --- Disarm ---
-
-    #[test]
-    fn disarm_applies_minus_2_strength_to_enemy() {
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength), Some(&-2));
-    }
-
-    #[test]
-    fn disarm_goes_to_exhaust_pile_not_discard() {
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.exhaust_pile, vec![Card::Disarm]);
-        assert!(state.player.discard_pile.is_empty());
-    }
-
-    #[test]
-    fn disarm_emits_card_exhausted_event() {
-        let state = combat_with_hand(vec![Card::Disarm]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::CardExhausted { card: Card::Disarm }));
-    }
-
-    // --- Iron Wave ---
-
-    #[test]
-    fn iron_wave_deals_5_damage_and_grants_5_block() {
-        let state = combat_with_hand(vec![Card::IronWave]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(15));
-        assert_eq!(state.player.block, Block(5));
-    }
-
-    #[test]
-    fn iron_wave_plus_deals_7_damage_and_grants_7_block() {
-        let state = combat_with_hand(vec![Card::IronWavePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(13));
-        assert_eq!(state.player.block, Block(7));
-    }
-
-    // --- Tremble ---
-
-    #[test]
-    fn tremble_applies_3_vulnerable_to_enemy() {
-        let state = combat_with_hand(vec![Card::Tremble]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&3));
-    }
-
-    #[test]
-    fn tremble_plus_applies_4_vulnerable() {
-        let state = combat_with_hand(vec![Card::TremblePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&4));
-    }
-
-    // --- Twin Strike ---
-
-    #[test]
-    fn twin_strike_deals_5_damage_twice() {
-        let state = combat_with_hand(vec![Card::TwinStrike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(10));
-    }
-
-    #[test]
-    fn twin_strike_plus_deals_7_damage_twice() {
-        let state = combat_with_hand(vec![Card::TwinStrikePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(6));
-    }
-
-    // --- Bludgeon ---
-
-    #[test]
-    fn bludgeon_deals_32_damage() {
-        let mut state = combat_with_hand(vec![Card::Bludgeon]);
-        state.enemies[0].hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(18));
-    }
-
-    #[test]
-    fn bludgeon_plus_deals_42_damage() {
-        let mut state = combat_with_hand(vec![Card::BludgeonPlus]);
-        state.enemies[0].hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(8));
-    }
-
-    // --- Impervious ---
-
-    #[test]
-    fn impervious_grants_30_block() {
-        let state = combat_with_hand(vec![Card::Impervious]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(30));
-    }
-
-    #[test]
-    fn impervious_goes_to_exhaust_pile() {
-        let state = combat_with_hand(vec![Card::Impervious]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.exhaust_pile, vec![Card::Impervious]);
-        assert!(state.player.discard_pile.is_empty());
-    }
-
-    // --- Not Yet ---
-
-    #[test]
-    fn not_yet_heals_10_hp() {
-        let mut state = combat_with_hand(vec![Card::NotYet]);
-        state.player.hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(60));
-    }
-
-    #[test]
-    fn not_yet_cannot_overheal() {
-        let state = combat_with_hand(vec![Card::NotYet]); // already at 80/80
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(80));
-    }
-
-    #[test]
-    fn not_yet_plus_heals_13_hp() {
-        let mut state = combat_with_hand(vec![Card::NotYetPlus]);
-        state.player.hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(63));
-    }
-
-    // --- Mangle ---
-
-    #[test]
-    fn mangle_deals_15_damage() {
-        let state = combat_with_hand(vec![Card::Mangle]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(5));
-    }
-
-    #[test]
-    fn mangle_reduces_enemy_strength_by_10() {
-        let state = combat_with_hand(vec![Card::Mangle]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength), Some(&-10));
-    }
-
-    #[test]
-    fn mangle_plus_deals_20_damage() {
-        let mut state = combat_with_hand(vec![Card::ManglePlus]);
-        state.enemies[0].hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(30));
-    }
-
-    // --- Uppercut ---
-
-    #[test]
-    fn uppercut_deals_13_damage() {
-        let state = combat_with_hand(vec![Card::Uppercut]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(7));
-    }
-
-    #[test]
-    fn uppercut_applies_1_weak_and_1_vulnerable() {
-        let state = combat_with_hand(vec![Card::Uppercut]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&1));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&1));
-    }
-
-    #[test]
-    fn uppercut_plus_applies_2_weak_and_2_vulnerable() {
-        let state = combat_with_hand(vec![Card::UppercutPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak), Some(&2));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
-    }
-
-    // --- Taunt ---
-
-    #[test]
-    fn taunt_grants_7_block_and_applies_1_vulnerable() {
-        let state = combat_with_hand(vec![Card::Taunt]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(7));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&1));
-    }
-
-    #[test]
-    fn taunt_plus_grants_8_block_and_2_vulnerable() {
-        let state = combat_with_hand(vec![Card::TauntPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(8));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
-    }
-
-    // --- Thunderclap ---
-
-    #[test]
-    fn thunderclap_deals_4_damage_and_applies_1_vulnerable_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::Thunderclap]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(16));
-        assert_eq!(state.enemies[1].hp, Hp(16));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&1));
-        assert_eq!(state.enemies[1].statuses.get(&StatusEffect::Vulnerable), Some(&1));
-    }
-
-    #[test]
-    fn thunderclap_plus_deals_7_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::ThunderclapPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(13));
-        assert_eq!(state.enemies[1].hp, Hp(13));
-    }
-
-    // --- Cleave ---
-
-    #[test]
-    fn cleave_deals_8_damage_to_single_enemy() {
-        let state = combat_with_hand(vec![Card::Cleave]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(12));
-    }
-
-    #[test]
-    fn cleave_deals_8_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::Cleave]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(12));
-        assert_eq!(state.enemies[1].hp, Hp(12));
-    }
-
-    #[test]
-    fn cleave_plus_deals_11_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::CleavePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(9));
-        assert_eq!(state.enemies[1].hp, Hp(9));
-    }
-
-    #[test]
-    fn cleave_card_type_is_attack() {
-        assert_eq!(Card::Cleave.card_type(), CardType::Attack);
-    }
-
-    #[test]
-    fn upgrading_cleave_gives_cleave_plus() {
-        assert_eq!(Card::Cleave.upgrade(), Some(Card::CleavePlus));
-    }
-
-    // --- Card IDs ---
-
-    #[test]
-    fn pommel_strike_has_kebab_id() {
-        assert_eq!(Card::PommelStrike.id(), "pommel-strike");
-    }
-
-    #[test]
-    fn shrug_it_off_has_kebab_id() {
-        assert_eq!(Card::ShrugItOff.id(), "shrug-it-off");
-    }
-
-    #[test]
-    fn bloodletting_roundtrips_through_id() {
-        assert_eq!(Card::from_id("bloodletting"), Some(Card::Bloodletting));
-    }
-
-    #[test]
-    fn unknown_id_returns_none() {
-        assert_eq!(Card::from_id("not-a-card"), None);
-    }
-
-    // --- Pommel Strike ---
-
-    #[test]
-    fn pommel_strike_deals_9_damage() {
-        let state = combat_with_hand(vec![Card::PommelStrike]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(11));
-    }
-
-    #[test]
-    fn pommel_strike_draws_1_card() {
-        let mut state = combat_with_hand(vec![Card::PommelStrike]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hand.len(), 1);
-    }
-
-    #[test]
-    fn pommel_strike_plus_deals_10_damage() {
-        let state = combat_with_hand(vec![Card::PommelStrikePlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(10));
-    }
-
-    #[test]
-    fn pommel_strike_plus_draws_2_cards() {
-        let mut state = combat_with_hand(vec![Card::PommelStrikePlus]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hand.len(), 2);
-    }
-
-    // --- Shrug It Off ---
-
-    #[test]
-    fn shrug_it_off_grants_8_block() {
-        let state = combat_with_hand(vec![Card::ShrugItOff]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(8));
-    }
-
-    #[test]
-    fn shrug_it_off_draws_1_card() {
-        let mut state = combat_with_hand(vec![Card::ShrugItOff]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hand.len(), 1);
-    }
-
-    #[test]
-    fn shrug_it_off_plus_grants_11_block() {
-        let state = combat_with_hand(vec![Card::ShrugItOffPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(11));
-    }
-
-    // --- Body Slam ---
-
-    #[test]
-    fn body_slam_deals_damage_equal_to_block() {
-        let mut state = combat_with_hand(vec![Card::BodySlam]);
-        state.player.block = Block(10);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(10));
-    }
-
-    #[test]
-    fn body_slam_with_no_block_deals_zero_damage() {
-        let state = combat_with_hand(vec![Card::BodySlam]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(20));
-    }
-
-    #[test]
-    fn body_slam_plus_costs_0_energy() {
-        assert_eq!(Card::BodySlamPlus.energy_cost(), Energy(0));
-    }
-
-    // --- Anger ---
-
-    #[test]
-    fn anger_deals_6_damage() {
-        let state = combat_with_hand(vec![Card::Anger]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(14));
-    }
-
-    #[test]
-    fn anger_adds_copy_to_discard() {
-        let state = combat_with_hand(vec![Card::Anger]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.discard_pile.iter().filter(|c| **c == Card::Anger).count(), 2);
-    }
-
-    #[test]
-    fn anger_plus_deals_8_damage() {
-        let state = combat_with_hand(vec![Card::AngerPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(12));
-    }
-
-    #[test]
-    fn anger_plus_adds_anger_plus_copy_to_discard() {
-        let state = combat_with_hand(vec![Card::AngerPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.discard_pile.iter().filter(|c| **c == Card::AngerPlus).count(), 2);
-    }
-
-    // --- Breakthrough ---
-
-    #[test]
-    fn breakthrough_deals_9_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::Breakthrough]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(11));
-        assert_eq!(state.enemies[1].hp, Hp(11));
-    }
-
-    #[test]
-    fn breakthrough_costs_1_hp() {
-        let state = combat_with_hand(vec![Card::Breakthrough]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(79));
-    }
-
-    #[test]
-    fn breakthrough_emits_player_self_damaged_event() {
-        let state = combat_with_hand(vec![Card::Breakthrough]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerSelfDamaged { amount: 1 }));
-    }
-
-    #[test]
-    fn breakthrough_plus_deals_13_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::BreakthroughPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(7));
-        assert_eq!(state.enemies[1].hp, Hp(7));
-    }
-
-    // --- Blood Wall ---
-
-    #[test]
-    fn blood_wall_grants_16_block() {
-        let state = combat_with_hand(vec![Card::BloodWall]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(16));
-    }
-
-    #[test]
-    fn blood_wall_costs_2_hp() {
-        let state = combat_with_hand(vec![Card::BloodWall]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(78));
-    }
-
-    #[test]
-    fn blood_wall_plus_grants_20_block() {
-        let state = combat_with_hand(vec![Card::BloodWallPlus]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(20));
-    }
-
-    // --- Bloodletting ---
-
-    #[test]
-    fn bloodletting_gains_2_energy() {
-        let mut state = combat_with_hand(vec![Card::Bloodletting]);
-        state.player.energy = Energy(0); // drain energy so we can measure the gain
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.energy, Energy(2));
-    }
-
-    #[test]
-    fn bloodletting_costs_3_hp() {
-        let state = combat_with_hand(vec![Card::Bloodletting]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(77));
-    }
-
-    #[test]
-    fn bloodletting_emits_energy_gained_event() {
-        let state = combat_with_hand(vec![Card::Bloodletting]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::EnergyGained { amount: 2 }));
-    }
-
-    #[test]
-    fn bloodletting_plus_gains_3_energy() {
-        let mut state = combat_with_hand(vec![Card::BloodlettingPlus]);
-        state.player.energy = Energy(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.energy, Energy(3));
-    }
-
-    // --- Hemokinesis ---
-
-    #[test]
-    fn hemokinesis_deals_15_damage() {
-        let state = combat_with_hand(vec![Card::Hemokinesis]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(5));
-    }
-
-    #[test]
-    fn hemokinesis_costs_2_hp() {
-        let state = combat_with_hand(vec![Card::Hemokinesis]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(78));
-    }
-
-    #[test]
-    fn hemokinesis_plus_deals_20_damage() {
-        let mut state = combat_with_hand(vec![Card::HemokinesisPlus]);
-        state.enemies[0].hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(30));
-    }
-
-    // --- Self-damage defeat ---
-
-    #[test]
-    fn self_damage_killing_player_yields_defeat() {
-        let mut state = combat_with_hand(vec![Card::Bloodletting]);
-        state.player.hp = Hp(1);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.phase, CombatPhase::Defeat);
-    }
-}
+mod tests;

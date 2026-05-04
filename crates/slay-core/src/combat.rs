@@ -561,6 +561,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cards::Grade;
     use crate::potions::Potion;
     use crate::rng::NoOpRng;
     use crate::run::{Command, CommandError};
@@ -610,11 +611,11 @@ mod tests {
         let state = CombatState {
             player: Player {
                 draw_pile: vec![
-                    Card::Strike,
-                    Card::Strike,
-                    Card::Strike,
-                    Card::Strike,
-                    Card::Strike,
+                    Card::Strike(Grade::Base),
+                    Card::Strike(Grade::Base),
+                    Card::Strike(Grade::Base),
+                    Card::Strike(Grade::Base),
+                    Card::Strike(Grade::Base),
                 ],
                 ..state.player
             },
@@ -626,18 +627,18 @@ mod tests {
 
     #[test]
     fn end_turn_discards_remaining_hand() {
-        let mut state = combat_with_hand(vec![Card::Strike, Card::Defend]);
-        state.player.draw_pile = vec![Card::Strike; 5];
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hand.len(), 5);
-        assert!(state.player.discard_pile.contains(&Card::Strike));
-        assert!(state.player.discard_pile.contains(&Card::Defend));
+        assert!(state.player.discard_pile.contains(&Card::Strike(Grade::Base)));
+        assert!(state.player.discard_pile.contains(&Card::Defend(Grade::Base)));
     }
 
     #[test]
     fn empty_draw_pile_shuffles_discard_when_drawing() {
         let mut state = combat_with_hand(Vec::new());
-        state.player.discard_pile = vec![Card::Strike, Card::Defend, Card::Strike];
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Strike(Grade::Base)];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hand.len(), 3);
         assert!(state.player.discard_pile.is_empty());
@@ -653,23 +654,23 @@ mod tests {
 
     #[test]
     fn playing_a_card_costs_energy() {
-        let state = combat_with_hand(vec![Card::Strike]);
+        let state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(2));
     }
 
     #[test]
     fn energy_resets_at_start_of_next_turn() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.player.energy = Energy(0);
-        state.player.draw_pile = vec![Card::Strike; 5];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(3));
     }
 
     #[test]
     fn cannot_play_card_without_sufficient_energy() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.player.energy = Energy(0);
         let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::NotEnoughEnergy));
@@ -677,7 +678,7 @@ mod tests {
 
     #[test]
     fn entangle_prevents_playing_attack_cards() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.player.statuses.insert(StatusEffect::Entangle, 1);
         let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::Entangled));
@@ -685,7 +686,7 @@ mod tests {
 
     #[test]
     fn entangle_does_not_prevent_playing_skill_cards() {
-        let mut state = combat_with_hand(vec![Card::Defend]);
+        let mut state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
         state.player.statuses.insert(StatusEffect::Entangle, 1);
         let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert!(result.is_ok());
@@ -760,7 +761,7 @@ mod tests {
 
     #[test]
     fn enemy_hp_does_not_go_below_zero() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].hp, Hp(0));
@@ -778,14 +779,14 @@ mod tests {
 
     #[test]
     fn invalid_card_index_returns_error() {
-        let state = combat_with_hand(vec![Card::Strike]);
+        let state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         let result = apply_command(state, Command::PlayCard(5, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidCard));
     }
 
     #[test]
     fn commands_rejected_after_victory() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
@@ -878,7 +879,7 @@ mod tests {
 
     #[test]
     fn enemy_block_absorbs_player_strike_damage() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].block = Block(4);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(0));
@@ -887,7 +888,7 @@ mod tests {
 
     #[test]
     fn enemy_block_fully_absorbs_player_strike() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].block = Block(10);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].hp, Hp(20));
@@ -904,7 +905,7 @@ mod tests {
 
     #[test]
     fn enemy_block_persists_through_player_turn() {
-        let mut state = combat_with_hand(vec![Card::Strike]);
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(5));
@@ -1000,7 +1001,7 @@ mod tests {
     fn strength_does_not_expire_at_end_of_turn() {
         let mut state = combat_with_hand(Vec::new());
         state.player.statuses.insert(StatusEffect::Strength, 2);
-        state.player.draw_pile = vec![Card::Strike; 5];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
     }
@@ -1009,7 +1010,7 @@ mod tests {
 
     #[test]
     fn cannot_play_card_during_enemy_turn() {
-        let state = combat_with_hand(vec![Card::Strike]);
+        let state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidPhase));
@@ -1041,7 +1042,7 @@ mod tests {
 
     #[test]
     fn play_card_targets_second_enemy() {
-        let state = combat_with_two_enemies(vec![Card::Strike]);
+        let state = combat_with_two_enemies(vec![Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 1), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].hp, Hp(20));
         assert_eq!(state.enemies[1].hp, Hp(14));
@@ -1049,7 +1050,7 @@ mod tests {
 
     #[test]
     fn play_card_auto_targets_living_enemy_when_specified_is_dead() {
-        let mut state = combat_with_two_enemies(vec![Card::Strike]);
+        let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[1].hp, Hp(14));
@@ -1057,7 +1058,7 @@ mod tests {
 
     #[test]
     fn play_card_out_of_bounds_target_returns_error() {
-        let state = combat_with_hand(vec![Card::Strike]);
+        let state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         let result = apply_command(state, Command::PlayCard(0, 5), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidCard));
     }
@@ -1065,7 +1066,7 @@ mod tests {
     #[test]
     fn both_enemies_attack_on_enemy_turn() {
         let mut state = combat_with_two_enemies(Vec::new());
-        state.player.draw_pile = vec![Card::Strike; 5];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(64)); // 80 - 8 - 8
     }
@@ -1074,14 +1075,14 @@ mod tests {
     fn dead_enemy_skips_their_turn() {
         let mut state = combat_with_two_enemies(Vec::new());
         state.enemies[0].hp = Hp(0); // first enemy already dead
-        state.player.draw_pile = vec![Card::Strike; 5];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(72)); // only one attack (8 dmg)
     }
 
     #[test]
     fn killing_last_enemy_wins_combat() {
-        let mut state = combat_with_two_enemies(vec![Card::Strike, Card::Strike]);
+        let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(0); // first already dead
         state.enemies[1].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -1090,7 +1091,7 @@ mod tests {
 
     #[test]
     fn killing_one_enemy_does_not_win_if_other_alive() {
-        let mut state = combat_with_two_enemies(vec![Card::Strike]);
+        let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::PlayerTurn);
@@ -1222,7 +1223,7 @@ mod tests {
     #[test]
     fn swift_potion_draws_3_cards() {
         let mut state = combat_with_potion(Potion::SwiftPotion);
-        state.player.draw_pile = vec![Card::Strike; 5];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.hand.len(), 3);
     }

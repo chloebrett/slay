@@ -1,5 +1,7 @@
+use super::{CardDef, CardDescription, CardType, Grade};
 use crate::combat::{CombatState, Event, Target, apply_status, deal_damage};
 use crate::status::{StatusEffect, resolve_damage};
+use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, vuln: i32) {
     for i in 0..state.enemies.len() {
@@ -10,4 +12,13 @@ pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, vuln
     for i in 0..state.enemies.len() {
         apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Vulnerable, vuln, events);
     }
+}
+
+pub(super) fn def(grade: Grade) -> CardDef {
+    let (name, base) = match grade { Grade::Base => ("Thunderclap", 4), Grade::Plus => ("Thunderclap+", 7) };
+    CardDef { name, description: CardDescription::WithDamage { template: "Deal {damage} damage and apply 1 Vulnerable to ALL enemies.", base }, energy_cost: Energy(1), card_type: CardType::Attack }
+}
+
+pub(super) fn id(grade: Grade) -> &'static str {
+    match grade { Grade::Base => "thunderclap", Grade::Plus => "thunderclap-plus" }
 }

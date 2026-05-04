@@ -391,7 +391,7 @@ mod tests {
     }
 
     fn card_reward_state() -> GameState {
-        use slay_core::Card;
+        use slay_core::{Card, Grade};
         GameState::CardReward(slay_core::CardRewardState {
             player: Player {
                 hp: Hp(80), max_hp: Hp(80), block: Block(0),
@@ -401,7 +401,7 @@ mod tests {
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
             },
             floor: 1,
-            options: vec![Card::Strike, Card::Defend, Card::Bash],
+            options: vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Bash(Grade::Base)],
             offered_potion: None,
             graph: slay_core::run::generate_map(&mut rng()),
             available_cols: vec![0, 1],

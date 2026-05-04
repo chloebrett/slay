@@ -428,7 +428,7 @@ fn upgrade_random_of_type(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cards::Card;
+    use crate::cards::{Card, Grade};
     use crate::combat::{combat_with_hand, combat_with_two_enemies};
     use crate::rng::NoOpRng;
     use crate::status::StatusMap;
@@ -525,22 +525,22 @@ mod tests {
     #[test]
     fn whetstone_upgrades_2_attack_cards_in_deck() {
         let mut player = test_player();
-        player.deck = vec![Card::Strike, Card::Strike, Card::Defend];
+        player.deck = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
         grant_relic(&mut player, Relic::Whetstone, &mut rng());
         assert_eq!(
-            player.deck.iter().filter(|c| **c == Card::StrikePlus).count(),
+            player.deck.iter().filter(|c| **c == Card::Strike(Grade::Plus)).count(),
             2
         );
-        assert!(player.deck.contains(&Card::Defend)); // skill unchanged
+        assert!(player.deck.contains(&Card::Defend(Grade::Base))); // skill unchanged
     }
 
     #[test]
     fn whetstone_upgrades_fewer_than_2_when_not_enough_attacks() {
         let mut player = test_player();
-        player.deck = vec![Card::Strike, Card::Defend, Card::Defend];
+        player.deck = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
         grant_relic(&mut player, Relic::Whetstone, &mut rng());
         assert_eq!(
-            player.deck.iter().filter(|c| **c == Card::StrikePlus).count(),
+            player.deck.iter().filter(|c| **c == Card::Strike(Grade::Plus)).count(),
             1
         );
     }
@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn whetstone_emits_card_upgraded_events() {
         let mut player = test_player();
-        player.deck = vec![Card::Strike, Card::Strike];
+        player.deck = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         let events = grant_relic(&mut player, Relic::Whetstone, &mut rng());
         assert_eq!(
             events
@@ -562,10 +562,10 @@ mod tests {
     #[test]
     fn whetstone_skips_already_upgraded_attacks() {
         let mut player = test_player();
-        player.deck = vec![Card::StrikePlus, Card::Bash]; // StrikePlus can't upgrade
+        player.deck = vec![Card::Strike(Grade::Plus), Card::Bash(Grade::Base)]; // StrikePlus can't upgrade
         let events = grant_relic(&mut player, Relic::Whetstone, &mut rng());
-        assert!(player.deck.contains(&Card::BashPlus));
-        assert!(player.deck.contains(&Card::StrikePlus)); // unchanged
+        assert!(player.deck.contains(&Card::Bash(Grade::Plus)));
+        assert!(player.deck.contains(&Card::Strike(Grade::Plus))); // unchanged
         assert_eq!(
             events.iter().filter(|e| matches!(e, Event::CardUpgraded { .. })).count(),
             1
@@ -577,20 +577,20 @@ mod tests {
     #[test]
     fn warpaint_upgrades_2_skill_cards_in_deck() {
         let mut player = test_player();
-        player.deck = vec![Card::Defend, Card::Bloodletting, Card::Strike];
+        player.deck = vec![Card::Defend(Grade::Base), Card::Bloodletting(Grade::Base), Card::Strike(Grade::Base)];
         grant_relic(&mut player, Relic::WarPaint, &mut rng());
-        assert!(player.deck.contains(&Card::DefendPlus));
-        assert!(player.deck.contains(&Card::BloodlettingPlus));
-        assert!(player.deck.contains(&Card::Strike)); // attack unchanged
+        assert!(player.deck.contains(&Card::Defend(Grade::Plus)));
+        assert!(player.deck.contains(&Card::Bloodletting(Grade::Plus)));
+        assert!(player.deck.contains(&Card::Strike(Grade::Base))); // attack unchanged
     }
 
     #[test]
     fn warpaint_skips_non_upgradeable_skills() {
         let mut player = test_player();
-        player.deck = vec![Card::Disarm, Card::Defend]; // Disarm can't be upgraded
+        player.deck = vec![Card::Disarm, Card::Defend(Grade::Base)]; // Disarm can't be upgraded
         let events = grant_relic(&mut player, Relic::WarPaint, &mut rng());
         assert!(player.deck.contains(&Card::Disarm)); // unchanged
-        assert!(player.deck.contains(&Card::DefendPlus));
+        assert!(player.deck.contains(&Card::Defend(Grade::Plus)));
         assert_eq!(
             events.iter().filter(|e| matches!(e, Event::CardUpgraded { .. })).count(),
             1
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn warpaint_emits_card_upgraded_events() {
         let mut player = test_player();
-        player.deck = vec![Card::Defend, Card::Defend];
+        player.deck = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
         let events = grant_relic(&mut player, Relic::WarPaint, &mut rng());
         assert_eq!(
             events.iter().filter(|e| matches!(e, Event::CardUpgraded { .. })).count(),
@@ -911,7 +911,7 @@ mod tests {
     #[test]
     fn bag_of_preparation_draws_2_extra_cards_at_combat_start() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike, Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         state.player.relics.push(Relic::BagOfPreparation);
         let hand_before = state.player.hand.len();
         let mut events = vec![];
@@ -922,7 +922,7 @@ mod tests {
     #[test]
     fn bag_of_preparation_emits_cards_drawn_event() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         state.player.relics.push(Relic::BagOfPreparation);
         let mut events = vec![];
         apply_combat_start_relics(&mut state, &mut events, &mut rng(), false);
@@ -1117,7 +1117,7 @@ mod tests {
     #[test]
     fn pendulum_draws_1_card_on_turn_3() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         state.turn = 3;
         state.player.relics.push(Relic::Pendulum);
         let mut events = vec![];
@@ -1128,7 +1128,7 @@ mod tests {
     #[test]
     fn pendulum_fires_again_on_turn_6() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
         state.turn = 6;
         state.player.relics.push(Relic::Pendulum);
         let mut events = vec![];
@@ -1139,7 +1139,7 @@ mod tests {
     #[test]
     fn pendulum_does_not_fire_on_turn_4() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
         state.turn = 4;
         state.player.relics.push(Relic::Pendulum);
         let mut events = vec![];
@@ -1150,7 +1150,7 @@ mod tests {
     #[test]
     fn pendulum_emits_cards_drawn_event() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
         state.turn = 3;
         state.player.relics.push(Relic::Pendulum);
         let mut events = vec![];
@@ -1548,7 +1548,7 @@ mod tests {
     #[test]
     fn gremlin_horn_draws_1_card_on_enemy_death() {
         let mut state = combat_with_hand(vec![]);
-        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         state.player.relics.push(Relic::GremlinHorn);
         let mut events = vec![];
         apply_enemy_died_relics(&mut state, &mut events, &mut rng());

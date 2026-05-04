@@ -586,6 +586,7 @@ pub fn apply_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cards::Grade;
     use crate::combat::Enemy;
     use crate::enemies::Move;
     use crate::relics::Relic;
@@ -647,7 +648,7 @@ mod tests {
         let player = make_player();
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike],
+                hand: vec![Card::Strike(Grade::Base)],
                 draw_pile: Vec::new(),
                 ..player
             },
@@ -678,7 +679,7 @@ mod tests {
         let player = make_player();
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike],
+                hand: vec![Card::Strike(Grade::Base)],
                 draw_pile: Vec::new(),
                 ..player
             },
@@ -911,7 +912,7 @@ mod tests {
     fn player_hand_cleared_after_combat() {
         let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
-        cs.player.hand.push(Card::Strike); // two Strikes in hand; one kills enemy, one remains
+        cs.player.hand.push(Card::Strike(Grade::Base)); // two Strikes in hand; one kills enemy, one remains
         let (next, _) = apply_command(
             GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
@@ -925,7 +926,7 @@ mod tests {
     fn player_draw_pile_cleared_after_combat() {
         let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
-        cs.player.draw_pile = vec![Card::Strike, Card::Strike];
+        cs.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         let (next, _) = apply_command(
             GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
@@ -1014,7 +1015,7 @@ mod tests {
     fn losing_combat_yields_game_over_defeat() {
         let player = Player {
             hp: Hp(1),
-            hand: vec![Card::Strike],
+            hand: vec![Card::Strike(Grade::Base)],
             ..make_player()
         };
         let cs = CombatState {
@@ -1190,7 +1191,7 @@ mod tests {
         player.hp = Hp(50);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike],
+                hand: vec![Card::Strike(Grade::Base)],
                 ..player
             },
             enemies: vec![Enemy {
@@ -1237,7 +1238,7 @@ mod tests {
         // Manually kill the enemy
         let state = if let GameState::Combat { mut state, floor, is_boss, graph, next_floor_cols, scenario: Scenario::Main } = state {
             state.enemies[0].hp = Hp(1);
-            state.player.hand = vec![Card::Strike];
+            state.player.hand = vec![Card::Strike(Grade::Base)];
             GameState::Combat { state, floor, is_boss, graph, next_floor_cols, scenario: Scenario::Main }
         } else {
             panic!("expected Combat");
@@ -1294,8 +1295,8 @@ mod tests {
     #[test]
     fn exhausted_cards_return_to_deck_after_combat() {
         let player = Player {
-            deck: vec![Card::Strike, Card::Disarm],
-            hand: vec![Card::Strike],
+            deck: vec![Card::Strike(Grade::Base), Card::Disarm],
+            hand: vec![Card::Strike(Grade::Base)],
             exhaust_pile: vec![Card::Disarm], // Disarm was played and exhausted
             ..make_player()
         };
@@ -1475,7 +1476,7 @@ mod tests {
         GameState::Shop(ShopState {
             player,
             floor: 3,
-            cards: vec![(Card::Strike, false), (Card::Bash, false)],
+            cards: vec![(Card::Strike(Grade::Base), false), (Card::Bash(Grade::Base), false)],
             relic: Some((Relic::Anchor, false)),
             potion: Some((Potion::FirePotion, false)),
             graph: test_graph(),
@@ -1496,7 +1497,7 @@ mod tests {
     fn buy_card_adds_card_to_deck() {
         let (next, _) = apply_command(shop_state(99), Command::BuyCard(0), &mut rng()).unwrap();
         let GameState::Shop(s) = next else { panic!() };
-        assert!(s.player.deck.contains(&Card::Strike));
+        assert!(s.player.deck.contains(&Card::Strike(Grade::Base)));
     }
 
     #[test]
@@ -1667,7 +1668,7 @@ mod tests {
         let state = rest_site_at_floor(3);
         let (state, _) = apply_command(state, Command::UpgradeCard(0), &mut rng()).unwrap();
         let GameState::Map(map) = state else { panic!("expected Map") };
-        assert_eq!(map.player.deck[0], Card::StrikePlus);
+        assert_eq!(map.player.deck[0], Card::Strike(Grade::Plus));
     }
 
     #[test]
@@ -1798,7 +1799,7 @@ mod tests {
         player.relics.push(Relic::BurningBlood);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike],
+                hand: vec![Card::Strike(Grade::Base)],
                 draw_pile: Vec::new(),
                 ..player
             },
@@ -1931,7 +1932,7 @@ mod tests {
         let cs = CombatState {
             player: Player {
                 hand: vec![],
-                draw_pile: vec![Card::Strike; 5],
+                draw_pile: vec![Card::Strike(Grade::Base); 5],
                 ..player
             },
             enemies: vec![Enemy {
@@ -1970,7 +1971,7 @@ mod tests {
         let cs = CombatState {
             player: Player {
                 hand: vec![],
-                draw_pile: vec![Card::Strike; 5],
+                draw_pile: vec![Card::Strike(Grade::Base); 5],
                 block: Block(5),
                 ..player
             },
@@ -2004,8 +2005,8 @@ mod tests {
         player.relics.push(Relic::CloakClasp);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike, Card::Strike, Card::Strike],
-                draw_pile: vec![Card::Strike; 5],
+                hand: vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base)],
+                draw_pile: vec![Card::Strike(Grade::Base); 5],
                 ..player
             },
             enemies: vec![Enemy {
@@ -2158,7 +2159,7 @@ mod tests {
         player.block = Block(0);
         let mut state = CombatState::from_player(player, vec![EnemyKind::Cultist], &mut rng());
         state.player.hand.clear();
-        state.player.draw_pile = vec![Card::Defend; 10];
+        state.player.draw_pile = vec![Card::Defend(Grade::Base); 10];
 
         // Turn 1: Cultist plays Incantation → gains Ritual(3), no Strength yet
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -2177,7 +2178,7 @@ mod tests {
     fn ritual_stacks_strength_each_turn() {
         let mut state = cultist_combat();
         state.player.hand.clear();
-        state.player.draw_pile = vec![Card::Defend; 20];
+        state.player.draw_pile = vec![Card::Defend(Grade::Base); 20];
 
         // Three full turns: Incantation + 2× DarkStrike
         for _ in 0..3 {
@@ -2237,7 +2238,7 @@ mod tests {
     fn dexterity_increases_block_gained_from_defend() {
         let player = make_player();
         let mut state = CombatState::from_player(player, vec![EnemyKind::Louse], &mut rng());
-        state.player.hand = vec![Card::Defend];
+        state.player.hand = vec![Card::Defend(Grade::Base)];
         state.player.statuses.insert(crate::status::StatusEffect::Dexterity, 2);
         let (state, _) = apply_combat_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Defend gives 5 block + 2 Dexterity = 7
@@ -2491,7 +2492,7 @@ mod tests {
         let cs = CombatState {
             player: Player {
                 hand: cards,
-                draw_pile: vec![Card::Strike; 10],
+                draw_pile: vec![Card::Strike(Grade::Base); 10],
                 energy: Energy(20),
                 max_energy: Energy(20),
                 ..player
@@ -2521,7 +2522,7 @@ mod tests {
     fn nunchaku_grants_energy_after_10th_attack() {
         let mut state = combat_with_relic_and_cards(
             Relic::Nunchaku,
-            vec![Card::Strike; 10],
+            vec![Card::Strike(Grade::Base); 10],
             200,
         );
         // Play 9 attacks — no energy boost yet
@@ -2540,7 +2541,7 @@ mod tests {
 
     #[test]
     fn ornamental_fan_grants_block_after_3_attacks_this_turn() {
-        let state = combat_with_relic_and_cards(Relic::OrnamentalFan, vec![Card::Strike; 3], 200);
+        let state = combat_with_relic_and_cards(Relic::OrnamentalFan, vec![Card::Strike(Grade::Base); 3], 200);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -2556,8 +2557,8 @@ mod tests {
         player.relics.push(Relic::OrnamentalFan);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Strike, Card::Strike],
-                draw_pile: vec![Card::Strike; 10],
+                hand: vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)],
+                draw_pile: vec![Card::Strike(Grade::Base); 10],
                 ..player
             },
             enemies: vec![Enemy {
@@ -2593,7 +2594,7 @@ mod tests {
 
     #[test]
     fn gremlin_horn_grants_energy_and_draws_card_on_kill() {
-        let state = combat_with_relic_and_cards(Relic::GremlinHorn, vec![Card::Strike], 6);
+        let state = combat_with_relic_and_cards(Relic::GremlinHorn, vec![Card::Strike(Grade::Base)], 6);
         let GameState::Combat { state: ref cs, .. } = state else { panic!("expected Combat") };
         let hand_before = cs.player.hand.len();
         let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -2611,8 +2612,8 @@ mod tests {
         player.relics.push(Relic::Pocketwatch);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Defend],
-                draw_pile: vec![Card::Strike; 10],
+                hand: vec![Card::Defend(Grade::Base)],
+                draw_pile: vec![Card::Strike(Grade::Base); 10],
                 ..player
             },
             enemies: vec![Enemy {
@@ -2649,8 +2650,8 @@ mod tests {
         player.relics.push(Relic::Pocketwatch);
         let cs = CombatState {
             player: Player {
-                hand: vec![Card::Defend; 4],
-                draw_pile: vec![Card::Strike; 10],
+                hand: vec![Card::Defend(Grade::Base); 4],
+                draw_pile: vec![Card::Strike(Grade::Base); 10],
                 energy: Energy(20),
                 max_energy: Energy(20),
                 ..player
