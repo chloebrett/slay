@@ -43,6 +43,16 @@ pub enum Relic {
     CloakClasp,
     // Tier 3 — rest effect
     RegalPillow,
+    // Tier 4 — card-play counters
+    Nunchaku,
+    OrnamentalFan,
+    Kunai,
+    Shuriken,
+    Kusarigama,
+    LetterOpener,
+    TuningFork,
+    GremlinHorn,
+    Pocketwatch,
 }
 
 impl Relic {
@@ -76,6 +86,15 @@ impl Relic {
             Relic::Orichalcum       => "orichalcum",
             Relic::CloakClasp       => "cloak-clasp",
             Relic::RegalPillow      => "regal-pillow",
+            Relic::Nunchaku         => "nunchaku",
+            Relic::OrnamentalFan    => "ornamental-fan",
+            Relic::Kunai            => "kunai",
+            Relic::Shuriken         => "shuriken",
+            Relic::Kusarigama       => "kusarigama",
+            Relic::LetterOpener     => "letter-opener",
+            Relic::TuningFork       => "tuning-fork",
+            Relic::GremlinHorn      => "gremlin-horn",
+            Relic::Pocketwatch      => "pocketwatch",
         }
     }
 
@@ -91,6 +110,9 @@ impl Relic {
             Relic::Candelabra, Relic::HornCleat, Relic::HappyFlower,
             Relic::Pendulum, Relic::StoneCalendar,
             Relic::Orichalcum, Relic::CloakClasp, Relic::RegalPillow,
+            Relic::Nunchaku, Relic::OrnamentalFan, Relic::Kunai,
+            Relic::Shuriken, Relic::Kusarigama, Relic::LetterOpener,
+            Relic::TuningFork, Relic::GremlinHorn, Relic::Pocketwatch,
         ];
         all.into_iter().find(|r| r.id() == s)
     }
@@ -270,6 +292,11 @@ pub fn apply_turn_end_relics(
                     events.push(Event::PlayerBlocked { amount: gain });
                 }
             }
+            Relic::Pocketwatch => {
+                if state.cards_played_this_turn <= 3 {
+                    state.extra_draws_next_turn += 3;
+                }
+            }
             _ => {}
         }
     }
@@ -278,6 +305,57 @@ pub fn apply_turn_end_relics(
 pub fn apply_rest_relics(player: &mut Player, events: &mut Vec<Event>) {
     if player.relics.contains(&Relic::RegalPillow) {
         heal_player(player, 15, events);
+    }
+}
+
+pub fn apply_card_play_relics(
+    state: &mut CombatState,
+    events: &mut Vec<Event>,
+    card_type: CardType,
+    rng: &mut impl Rng,
+) {
+    let relics = state.player.relics.clone();
+    for relic in &relics {
+        match (relic, card_type) {
+            (Relic::Nunchaku, CardType::Attack) if state.attacks_this_combat % 10 == 0 => {
+                state.player.energy.0 += 1;
+                events.push(Event::EnergyGained { amount: 1 });
+            }
+            (Relic::OrnamentalFan, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+                state.player.block.0 += 4;
+                events.push(Event::PlayerBlocked { amount: 4 });
+            }
+            (Relic::Shuriken, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+                apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 1, events);
+            }
+            (Relic::Kunai, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+                apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Dexterity, 1, events);
+            }
+            (Relic::Kusarigama, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+                damage_random_living_enemy(state, events, 6, rng);
+            }
+            (Relic::LetterOpener, CardType::Skill) if state.skills_this_turn % 3 == 0 => {
+                damage_all_enemies(state, events, 5);
+            }
+            (Relic::TuningFork, CardType::Skill) if state.skills_this_combat % 10 == 0 => {
+                state.player.block.0 += 7;
+                events.push(Event::PlayerBlocked { amount: 7 });
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn apply_enemy_died_relics(
+    state: &mut CombatState,
+    events: &mut Vec<Event>,
+    rng: &mut impl Rng,
+) {
+    if state.player.relics.contains(&Relic::GremlinHorn) {
+        state.player.energy.0 += 1;
+        events.push(Event::EnergyGained { amount: 1 });
+        draw_cards(&mut state.player, 1, rng);
+        events.push(Event::CardsDrawn { count: 1 });
     }
 }
 
@@ -291,6 +369,26 @@ fn damage_all_enemies(state: &mut CombatState, events: &mut Vec<Event>, amount: 
                 events.push(Event::EnemyDied);
             }
         }
+    }
+}
+
+fn damage_random_living_enemy(
+    state: &mut CombatState,
+    events: &mut Vec<Event>,
+    amount: i32,
+    rng: &mut impl Rng,
+) {
+    let mut living: Vec<usize> = (0..state.enemies.len())
+        .filter(|&i| state.enemies[i].hp > Hp(0))
+        .collect();
+    if living.is_empty() { return; }
+    rng.shuffle(&mut living);
+    let i = living[0];
+    let e = &mut state.enemies[i];
+    let dmg = deal_damage(amount, &mut e.hp, &mut e.block);
+    events.push(Event::EnemyAttacked { raw: amount, damage: dmg });
+    if state.enemies[i].hp <= Hp(0) {
+        events.push(Event::EnemyDied);
     }
 }
 
@@ -1214,6 +1312,9 @@ mod tests {
             Relic::Candelabra, Relic::HornCleat, Relic::HappyFlower,
             Relic::Pendulum, Relic::StoneCalendar,
             Relic::Orichalcum, Relic::CloakClasp, Relic::RegalPillow,
+            Relic::Nunchaku, Relic::OrnamentalFan, Relic::Kunai,
+            Relic::Shuriken, Relic::Kusarigama, Relic::LetterOpener,
+            Relic::TuningFork, Relic::GremlinHorn, Relic::Pocketwatch,
         ];
         for relic in all {
             assert_eq!(Relic::from_id(relic.id()), Some(relic));
@@ -1223,5 +1324,279 @@ mod tests {
     #[test]
     fn from_id_returns_none_for_unknown_id() {
         assert_eq!(Relic::from_id("not-a-relic"), None);
+    }
+
+    // --- Tier 4: Nunchaku ---
+
+    #[test]
+    fn nunchaku_grants_1_energy_on_10th_attack_total() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Nunchaku);
+        state.attacks_this_combat = 10;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.energy, Energy(4));
+        assert!(events.contains(&Event::EnergyGained { amount: 1 }));
+    }
+
+    #[test]
+    fn nunchaku_does_not_fire_on_9th_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Nunchaku);
+        state.attacks_this_combat = 9;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.energy, Energy(3));
+        assert!(!events.iter().any(|e| matches!(e, Event::EnergyGained { .. })));
+    }
+
+    #[test]
+    fn nunchaku_fires_again_on_20th_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Nunchaku);
+        state.attacks_this_combat = 20;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.energy, Energy(4));
+    }
+
+    #[test]
+    fn nunchaku_does_not_fire_for_skills() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Nunchaku);
+        state.skills_this_combat = 10;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Skill, &mut rng());
+        assert_eq!(state.player.energy, Energy(3));
+    }
+
+    // --- Tier 4: Ornamental Fan ---
+
+    #[test]
+    fn ornamental_fan_grants_4_block_on_3rd_attack_this_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::OrnamentalFan);
+        state.attacks_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.block, Block(4));
+        assert!(events.contains(&Event::PlayerBlocked { amount: 4 }));
+    }
+
+    #[test]
+    fn ornamental_fan_does_not_fire_on_2nd_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::OrnamentalFan);
+        state.attacks_this_turn = 2;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    #[test]
+    fn ornamental_fan_fires_again_on_6th_attack_this_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::OrnamentalFan);
+        state.attacks_this_turn = 6;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.block, Block(4));
+    }
+
+    // --- Tier 4: Shuriken ---
+
+    #[test]
+    fn shuriken_grants_1_strength_on_3rd_attack_this_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Shuriken);
+        state.attacks_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&1));
+    }
+
+    #[test]
+    fn shuriken_does_not_fire_on_2nd_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Shuriken);
+        state.attacks_this_turn = 2;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Strength));
+    }
+
+    // --- Tier 4: Kunai ---
+
+    #[test]
+    fn kunai_grants_1_dexterity_on_3rd_attack_this_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Kunai);
+        state.attacks_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.statuses.get(&StatusEffect::Dexterity), Some(&1));
+    }
+
+    #[test]
+    fn kunai_does_not_fire_on_2nd_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Kunai);
+        state.attacks_this_turn = 2;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Dexterity));
+    }
+
+    // --- Tier 4: Kusarigama ---
+
+    #[test]
+    fn kusarigama_deals_6_to_enemy_on_3rd_attack_this_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Kusarigama);
+        state.attacks_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.enemies[0].hp, Hp(14));
+        assert!(events.iter().any(|e| matches!(e, Event::EnemyAttacked { raw: 6, .. })));
+    }
+
+    #[test]
+    fn kusarigama_does_not_fire_on_2nd_attack() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Kusarigama);
+        state.attacks_this_turn = 2;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.enemies[0].hp, Hp(20));
+    }
+
+    // --- Tier 4: Letter Opener ---
+
+    #[test]
+    fn letter_opener_deals_5_to_all_on_3rd_skill_this_turn() {
+        let mut state = combat_with_two_enemies(vec![]);
+        state.player.relics.push(Relic::LetterOpener);
+        state.skills_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Skill, &mut rng());
+        assert_eq!(state.enemies[0].hp, Hp(15));
+        assert_eq!(state.enemies[1].hp, Hp(15));
+    }
+
+    #[test]
+    fn letter_opener_does_not_fire_on_2nd_skill() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::LetterOpener);
+        state.skills_this_turn = 2;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Skill, &mut rng());
+        assert_eq!(state.enemies[0].hp, Hp(20));
+    }
+
+    #[test]
+    fn letter_opener_does_not_fire_for_attacks() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::LetterOpener);
+        state.attacks_this_turn = 3;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.enemies[0].hp, Hp(20));
+    }
+
+    // --- Tier 4: Tuning Fork ---
+
+    #[test]
+    fn tuning_fork_grants_7_block_on_10th_skill_total() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::TuningFork);
+        state.skills_this_combat = 10;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Skill, &mut rng());
+        assert_eq!(state.player.block, Block(7));
+        assert!(events.contains(&Event::PlayerBlocked { amount: 7 }));
+    }
+
+    #[test]
+    fn tuning_fork_does_not_fire_on_9th_skill() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::TuningFork);
+        state.skills_this_combat = 9;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Skill, &mut rng());
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    #[test]
+    fn tuning_fork_does_not_fire_for_attacks() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::TuningFork);
+        state.attacks_this_combat = 10;
+        let mut events = vec![];
+        apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    // --- Tier 4: Gremlin Horn ---
+
+    #[test]
+    fn gremlin_horn_grants_1_energy_on_enemy_death() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::GremlinHorn);
+        let mut events = vec![];
+        apply_enemy_died_relics(&mut state, &mut events, &mut rng());
+        assert_eq!(state.player.energy, Energy(4));
+        assert!(events.contains(&Event::EnergyGained { amount: 1 }));
+    }
+
+    #[test]
+    fn gremlin_horn_draws_1_card_on_enemy_death() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile = vec![Card::Strike, Card::Strike];
+        state.player.relics.push(Relic::GremlinHorn);
+        let mut events = vec![];
+        apply_enemy_died_relics(&mut state, &mut events, &mut rng());
+        assert_eq!(state.player.hand.len(), 1);
+        assert!(events.contains(&Event::CardsDrawn { count: 1 }));
+    }
+
+    #[test]
+    fn without_gremlin_horn_no_energy_on_death() {
+        let mut state = combat_with_hand(vec![]);
+        let mut events = vec![];
+        apply_enemy_died_relics(&mut state, &mut events, &mut rng());
+        assert_eq!(state.player.energy, Energy(3));
+        assert!(events.is_empty());
+    }
+
+    // --- Tier 4: Pocketwatch ---
+
+    #[test]
+    fn pocketwatch_sets_extra_draws_when_3_or_fewer_cards_played() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Pocketwatch);
+        state.cards_played_this_turn = 3;
+        let mut events = vec![];
+        apply_turn_end_relics(&mut state, &mut events, 0);
+        assert_eq!(state.extra_draws_next_turn, 3);
+    }
+
+    #[test]
+    fn pocketwatch_fires_when_0_cards_played() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Pocketwatch);
+        state.cards_played_this_turn = 0;
+        let mut events = vec![];
+        apply_turn_end_relics(&mut state, &mut events, 0);
+        assert_eq!(state.extra_draws_next_turn, 3);
+    }
+
+    #[test]
+    fn pocketwatch_does_not_fire_when_4_cards_played() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.relics.push(Relic::Pocketwatch);
+        state.cards_played_this_turn = 4;
+        let mut events = vec![];
+        apply_turn_end_relics(&mut state, &mut events, 0);
+        assert_eq!(state.extra_draws_next_turn, 0);
     }
 }

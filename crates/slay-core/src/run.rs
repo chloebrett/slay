@@ -508,6 +508,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         GameState::Combat { state: cs, floor, scenario: Scenario::Main }
     }
@@ -677,6 +683,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
         let (after_end, _) =
@@ -884,6 +896,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -986,6 +1004,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -1157,6 +1181,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         GameState::Combat { state: cs, floor, scenario: Scenario::Main }
     }
@@ -1277,6 +1307,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         GameState::Combat { state: cs, floor, scenario: Scenario::Main }
     }
@@ -1311,6 +1347,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -1339,6 +1381,12 @@ mod tests {
             }],
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         };
         let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -1762,5 +1810,207 @@ mod tests {
         assert!(cr.offered_potion.is_none());
         assert!(events.iter().any(|e| matches!(e, Event::PotionDiscarded { .. })));
         assert!(events.iter().any(|e| matches!(e, Event::PotionAwarded { .. })));
+    }
+
+    // --- Tier 4 relic integration tests ---
+
+    fn combat_with_relic_and_cards(relic: Relic, cards: Vec<Card>, enemy_hp: i32) -> GameState {
+        let mut player = make_player();
+        player.relics.push(relic);
+        let cs = CombatState {
+            player: Player {
+                hand: cards,
+                draw_pile: vec![Card::Strike; 10],
+                energy: Energy(20),
+                max_energy: Energy(20),
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(enemy_hp),
+                max_hp: Hp(enemy_hp),
+                block: Block(0),
+                move_: Move::LouseBite,
+                last_move: None,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
+        };
+        GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main }
+    }
+
+    #[test]
+    fn nunchaku_grants_energy_after_10th_attack() {
+        let mut state = combat_with_relic_and_cards(
+            Relic::Nunchaku,
+            vec![Card::Strike; 10],
+            200,
+        );
+        // Play 9 attacks — no energy boost yet
+        for _ in 0..9 {
+            (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        }
+        let GameState::Combat { state: ref cs, .. } = state else { panic!("expected Combat") };
+        let energy_before = cs.player.energy.0;
+        // Play 10th attack — Nunchaku fires
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        // Nunchaku gives +1 energy which cancels the card's cost; net energy = energy_before
+        assert_eq!(cs.player.energy.0, energy_before, "net energy should be unchanged (gained 1, spent 1)");
+        assert!(events.iter().any(|e| matches!(e, Event::EnergyGained { amount: 1 })));
+    }
+
+    #[test]
+    fn ornamental_fan_grants_block_after_3_attacks_this_turn() {
+        let state = combat_with_relic_and_cards(Relic::OrnamentalFan, vec![Card::Strike; 3], 200);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(4));
+        assert!(events.iter().any(|e| matches!(e, Event::PlayerBlocked { amount: 4 })));
+    }
+
+    #[test]
+    fn ornamental_fan_counter_resets_each_turn() {
+        // Play 2 attacks turn 1 (no fire), end turn, play 1 attack turn 2 (no fire)
+        let mut player = make_player();
+        player.relics.push(Relic::OrnamentalFan);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![Card::Strike, Card::Strike],
+                draw_pile: vec![Card::Strike; 10],
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(200),
+                max_hp: Hp(200),
+                block: Block(0),
+                move_: Move::LouseBite,
+                last_move: None,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
+        };
+        let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // End turn (2 attacks, no fan fire)
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // Play 1 attack on turn 2 — attacks_this_turn should be 1 (reset), no fan fire
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.block, Block(0), "fan should not have fired yet (only 1 attack this turn)");
+        assert!(!events.iter().any(|e| matches!(e, Event::PlayerBlocked { amount: 4 })));
+    }
+
+    #[test]
+    fn gremlin_horn_grants_energy_and_draws_card_on_kill() {
+        let state = combat_with_relic_and_cards(Relic::GremlinHorn, vec![Card::Strike], 6);
+        let GameState::Combat { state: ref cs, .. } = state else { panic!("expected Combat") };
+        let hand_before = cs.player.hand.len();
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::EnemyDied)));
+        assert!(events.iter().any(|e| matches!(e, Event::EnergyGained { amount: 1 })));
+        assert!(events.iter().any(|e| matches!(e, Event::CardsDrawn { count: 1 })));
+        // state is Victory; verify energy was boosted (even though combat ended)
+        let _ = state;
+        let _ = hand_before;
+    }
+
+    #[test]
+    fn pocketwatch_draws_3_extra_cards_after_end_turn_with_3_or_fewer_played() {
+        let mut player = make_player();
+        player.relics.push(Relic::Pocketwatch);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![Card::Defend],
+                draw_pile: vec![Card::Strike; 10],
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(20),
+                max_hp: Hp(20),
+                block: Block(0),
+                move_: Move::LouseBite,
+                last_move: None,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
+        };
+        let state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
+        // Play 1 card (≤3), end turn
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // Should have drawn 5 normal + 3 pocketwatch = 8 cards
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.hand.len(), 8);
+    }
+
+    #[test]
+    fn pocketwatch_does_not_fire_when_4_cards_played() {
+        let mut player = make_player();
+        player.relics.push(Relic::Pocketwatch);
+        let cs = CombatState {
+            player: Player {
+                hand: vec![Card::Defend; 4],
+                draw_pile: vec![Card::Strike; 10],
+                energy: Energy(20),
+                max_energy: Energy(20),
+                ..player
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::Louse,
+                hp: Hp(200),
+                max_hp: Hp(200),
+                block: Block(0),
+                move_: Move::LouseBite,
+                last_move: None,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
+        };
+        let mut state = GameState::Combat { state: cs, floor: 0, scenario: Scenario::Main };
+        // Play 4 cards (>3 threshold), end turn
+        for _ in 0..4 {
+            (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        }
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // Should draw exactly 5 cards (no bonus)
+        let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
+        assert_eq!(cs.player.hand.len(), 5);
     }
 }

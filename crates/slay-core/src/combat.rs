@@ -1,7 +1,7 @@
 use crate::cards::Card;
 use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
 use crate::potions::Potion;
-use crate::relics::Relic;
+use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
 use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_block, resolve_damage, tick_ritual, tick_statuses};
@@ -62,6 +62,12 @@ pub struct CombatState {
     pub enemies: Vec<Enemy>,
     pub turn: u32,
     pub phase: CombatPhase,
+    pub attacks_this_turn: u32,
+    pub skills_this_turn: u32,
+    pub attacks_this_combat: u32,
+    pub skills_this_combat: u32,
+    pub cards_played_this_turn: u32,
+    pub extra_draws_next_turn: u32,
 }
 
 impl CombatState {
@@ -121,6 +127,12 @@ impl CombatState {
             enemies,
             turn: 1,
             phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
         }
     }
 }
@@ -226,12 +238,27 @@ pub(crate) fn apply_combat_command(
             } else if card.card_type() != crate::cards::CardType::Power {
                 state.player.discard_pile.push(card.clone());
             }
+            let card_type = card.card_type();
+            match card_type {
+                crate::cards::CardType::Attack => {
+                    state.attacks_this_turn += 1;
+                    state.attacks_this_combat += 1;
+                }
+                crate::cards::CardType::Skill => {
+                    state.skills_this_turn += 1;
+                    state.skills_this_combat += 1;
+                }
+                crate::cards::CardType::Power => {}
+            }
+            state.cards_played_this_turn += 1;
+            apply_card_play_relics(&mut state, &mut events, card_type, rng);
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 return Ok((state, events));
             }
             if state.enemies[actual_target].hp <= Hp(0) {
                 events.push(Event::EnemyDied);
+                apply_enemy_died_relics(&mut state, &mut events, rng);
             }
             if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
                 state.phase = CombatPhase::Victory;
@@ -340,7 +367,16 @@ pub(crate) fn apply_combat_command(
                         events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
                     }
                 }
+                let extra = state.extra_draws_next_turn as usize;
+                state.attacks_this_turn = 0;
+                state.skills_this_turn = 0;
+                state.cards_played_this_turn = 0;
+                state.extra_draws_next_turn = 0;
                 draw_cards(&mut state.player, 5, rng);
+                if extra > 0 {
+                    draw_cards(&mut state.player, extra, rng);
+                    events.push(Event::CardsDrawn { count: extra });
+                }
                 state.phase = CombatPhase::PlayerTurn;
                 events.push(Event::TurnStarted { turn: state.turn });
             }
@@ -469,6 +505,12 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         }],
         turn: 1,
         phase: CombatPhase::PlayerTurn,
+        attacks_this_turn: 0,
+        skills_this_turn: 0,
+        attacks_this_combat: 0,
+        skills_this_combat: 0,
+        cards_played_this_turn: 0,
+        extra_draws_next_turn: 0,
     }
 }
 
@@ -503,6 +545,12 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         enemies: vec![louse(), louse()],
         turn: 1,
         phase: CombatPhase::PlayerTurn,
+        attacks_this_turn: 0,
+        skills_this_turn: 0,
+        attacks_this_combat: 0,
+        skills_this_combat: 0,
+        cards_played_this_turn: 0,
+        extra_draws_next_turn: 0,
     }
 }
 

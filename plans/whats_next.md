@@ -10,6 +10,7 @@
 - ✅ Red Louse (Bite/Grow probabilistic, no-repeat)
 - ✅ Green Louse, Small Acid Slime, Blue Slaver, Red Slaver (+ Entangle status)
 - ✅ Potions (9 types: Fire, Explosive, Block, Strength, Swift, Fear, Weak, Blood, Energy)
+- ✅ Tier 4 relics: Nunchaku, OrnamentalFan, Kunai, Shuriken, Kusarigama, LetterOpener, TuningFork, GremlinHorn, Pocketwatch
 
 ## Directions
 
@@ -32,7 +33,7 @@
 
 `plans/relic-tiers.md` maps 88 relics. Remaining tiers need:
 
-- **Tier 4**: card-play counters (Nunchaku, Kunai, Shuriken) — need a counter on `CombatState`
+- ✅ **Tier 4**: card-play counters (Nunchaku, OrnamentalFan, Kunai, Shuriken, Kusarigama, LetterOpener, TuningFork, GremlinHorn, Pocketwatch) — `attacks_this_turn/combat`, `skills_this_turn/combat`, `cards_played_this_turn`, `extra_draws_next_turn` on `CombatState`
 - **Tier 5**: HP-reactive (Lizard Tail, Red Skull) — need an HP-change hook
 - **Tier 6**: new status types (Thorns, Plating, Vigor)
 
