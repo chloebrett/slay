@@ -170,6 +170,11 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
 }
 
 fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
+    let [map_area, choices_area] = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(0), Constraint::Length(3)])
+        .areas(area);
+
     let items: Vec<ListItem> = map.graph.rows.iter().enumerate().rev()
         .map(|(i, row)| {
             let node = &row[0];
@@ -190,7 +195,28 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
         .collect();
     let block = Block::default().borders(Borders::ALL).title(" 🗺️  Map ");
     let list = List::new(items).block(block);
-    f.render_widget(list, area);
+    f.render_widget(list, map_area);
+
+    let choices = map_choices_line(map);
+    let choices_block = Block::default().borders(Borders::ALL).title(" Choose ");
+    f.render_widget(Paragraph::new(choices).block(choices_block), choices_area);
+}
+
+fn map_choices_line(map: &MapState) -> String {
+    if map.available_cols.len() == 1 {
+        let node = &map.graph.rows[map.floor][map.available_cols[0]];
+        let (icon, name) = node_label(node);
+        format!("[Enter] {icon} {name}")
+    } else {
+        map.available_cols.iter()
+            .map(|&col| {
+                let node = &map.graph.rows[map.floor][col];
+                let (icon, name) = node_label(node);
+                format!("[{}] {icon} {name}", col + 1)
+            })
+            .collect::<Vec<_>>()
+            .join("   ")
+    }
 }
 
 fn node_label(node: &MapNode) -> (&'static str, &'static str) {
@@ -672,6 +698,14 @@ mod tests {
         let tui = make_map_tui();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("▶"), "expected '▶' marker in:\n{out}");
+    }
+
+    #[test]
+    fn map_screen_shows_available_choices() {
+        let tui = make_main_run_map_tui();
+        let out = render_to_string(&tui, 100, 30);
+        assert!(out.contains("[1]"), "expected '[1]' choice in:\n{out}");
+        assert!(out.contains("[2]"), "expected '[2]' choice in:\n{out}");
     }
 
     #[test]

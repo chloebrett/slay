@@ -29,3 +29,19 @@ In every test, enemies have positive HP when `ChooseNode` is called, so this bra
 **Why:** Investigated during Step 2 of the Branching Graph Map plan. Killed 16 other mutants before reaching these 4.
 
 **How to apply:** When running `cargo mutants -p slay-core --file crates/slay-core/src/run.rs`, expect 4 survivors + 15 unviable. These are the known 4; any NEW survivors beyond these warrant investigation.
+
+---
+
+## slay-tui — pre-existing survivors (~77 after Step 3 cleanup)
+
+After Step 3 of the Branching Graph Map plan, `command.rs` was driven to 0 survivors. The remaining ~77 survivors across `slay-tui` are pre-existing and fall into categories that are genuinely hard or not worth testing:
+
+**`main.rs` (~7 survivors)** — CLI argument parsing (`--plain`, `--script`, `--debug` flag checks). Not unit-testable without running the binary.
+
+**`engine.rs` (~3 survivors)** — `describe_event` edge-case path, `pile_names` return value. Low value; event descriptions are snapshot-tested end-to-end.
+
+**`game.rs` (~15 survivors)** — Rendering functions (`render_rest`, `render_card_reward`, `render_shop`, `render_pile`), pile view shortcut arms (`z`, `x`, `c`), game-over transition arms. These are all visual/IO output; snapshot tests cover the end-to-end render but don't distinguish all internal arithmetic mutations.
+
+**`tui.rs` (~52 survivors)** — Layout arithmetic in `render_pile_overlay` (centered popup width/height/offset math), `hp_bar` bar-length calculation, `render_hand` card count guard, `render_rest`/`render_game_over` heal arithmetic (duplicate of game.rs logic), `run_tui` event-loop control flow and key handler arms. Layout math is visual; the control flow is integration-tested via `handle_enter` but not all branches.
+
+**How to apply:** When running `cargo mutants -p slay-tui`, expect ~77 survivors. Focus attention on any NEW survivors in `command.rs`, `engine.rs`, or `game.rs` rendering logic that aren't in this list.

@@ -1,0 +1,4 @@
+# Choose a combat node by typing its column number.
+spawn louse
+1
+win

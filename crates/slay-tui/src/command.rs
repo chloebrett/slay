@@ -36,6 +36,11 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
     if let Some(cmd) = parse_discard_potion(s) {
         return Some(cmd);
     }
+    if let Ok(n) = s.trim().parse::<usize>() {
+        if n > 0 {
+            return Some(Command::ChooseNode(n - 1));
+        }
+    }
     if s.is_empty() || s == "enter" {
         return Some(Command::ChooseNode(0));
     }
@@ -99,7 +104,7 @@ fn parse_rest(s: &str) -> Option<Command> {
     let after = s.strip_prefix("upgrade ").or_else(|| s.strip_prefix("u "));
     if let Some(rest) = after {
         let n: usize = rest.trim().parse().ok()?;
-        return (n > 0).then_some(Command::UpgradeCard(n - 1));
+        return (n > 0).then(|| Command::UpgradeCard(n - 1));
     }
     if let Some(cmd) = parse_discard_potion(s) {
         return Some(cmd);
@@ -207,6 +212,30 @@ mod tests {
         // just verify it parses in map — other phases return None via their own parse fns
     }
 
+    #[test]
+    fn parse_1_in_map_returns_choose_node_0() {
+        let state = map_state();
+        assert_eq!(parse("1", &state, false), Some(Command::ChooseNode(0)));
+    }
+
+    #[test]
+    fn parse_2_in_map_returns_choose_node_1() {
+        let state = map_state();
+        assert_eq!(parse("2", &state, false), Some(Command::ChooseNode(1)));
+    }
+
+    #[test]
+    fn parse_0_in_map_returns_none() {
+        let state = map_state();
+        assert_eq!(parse("0", &state, false), None);
+    }
+
+    #[test]
+    fn parse_enter_in_map_still_returns_choose_node_0() {
+        let state = map_state();
+        assert_eq!(parse("enter", &state, false), Some(Command::ChooseNode(0)));
+    }
+
     fn combat_state() -> GameState {
         use slay_core::{CombatPhase, CombatState, Enemy, EnemyKind, Move, Scenario};
         GameState::Combat {
@@ -284,5 +313,110 @@ mod tests {
     fn discard_potion_zero_returns_none() {
         let state = map_state();
         assert_eq!(parse("discard 0", &state, false), None);
+    }
+
+    #[test]
+    fn use_potion_with_nonzero_target() {
+        let state = combat_state();
+        assert_eq!(parse("use 1 2", &state, false), Some(Command::UsePotion(0, 1)));
+    }
+
+    #[test]
+    fn play_card_with_nonzero_target() {
+        let state = combat_state();
+        assert_eq!(parse("play 1 2", &state, false), Some(Command::PlayCard(0, 1)));
+    }
+
+    fn rest_state() -> GameState {
+        GameState::RestSite(slay_core::RestSiteState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            },
+            floor: 3,
+            graph: slay_core::run::generate_map(&mut rng()),
+            available_cols: vec![0],
+        })
+    }
+
+    #[test]
+    fn upgrade_0_returns_none() {
+        let state = rest_state();
+        assert_eq!(parse("upgrade 0", &state, false), None);
+    }
+
+    fn shop_state() -> GameState {
+        GameState::Shop(slay_core::ShopState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 200, relics: vec![], potions: vec![],
+            },
+            floor: 3,
+            cards: vec![],
+            relic: None,
+            potion: None,
+            graph: slay_core::run::generate_map(&mut rng()),
+            available_cols: vec![0],
+        })
+    }
+
+    #[test]
+    fn buy_card_1_returns_buy_card_0() {
+        let state = shop_state();
+        assert_eq!(parse("1", &state, false), Some(Command::BuyCard(0)));
+    }
+
+    #[test]
+    fn buy_card_0_returns_none() {
+        let state = shop_state();
+        assert_eq!(parse("0", &state, false), None);
+    }
+
+    #[test]
+    fn buy_relic_shortcut_r() {
+        let state = shop_state();
+        assert_eq!(parse("r", &state, false), Some(Command::BuyRelic));
+    }
+
+    #[test]
+    fn buy_potion_shortcut_p() {
+        let state = shop_state();
+        assert_eq!(parse("p", &state, false), Some(Command::BuyPotion));
+    }
+
+    fn card_reward_state() -> GameState {
+        use slay_core::Card;
+        GameState::CardReward(slay_core::CardRewardState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            },
+            floor: 1,
+            options: vec![Card::Strike, Card::Defend, Card::Bash],
+            offered_potion: None,
+            graph: slay_core::run::generate_map(&mut rng()),
+            available_cols: vec![0, 1],
+        })
+    }
+
+    #[test]
+    fn pick_1_returns_choose_card_reward_0() {
+        let state = card_reward_state();
+        assert_eq!(parse("1", &state, false), Some(Command::ChooseCardReward(0)));
+    }
+
+    #[test]
+    fn pick_0_returns_none() {
+        let state = card_reward_state();
+        assert_eq!(parse("0", &state, false), None);
     }
 }
