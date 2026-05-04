@@ -125,34 +125,54 @@ impl Card {
         matches!(self, Card::Disarm | Card::Impervious(_) | Card::Dazed)
     }
 
-    pub fn upgrade(&self) -> Option<Card> {
+    pub fn grade(&self) -> Option<Grade> {
         match self {
-            Card::Strike(Grade::Base)       => Some(Card::Strike(Grade::Plus)),
-            Card::Defend(Grade::Base)       => Some(Card::Defend(Grade::Plus)),
-            Card::Bash(Grade::Base)         => Some(Card::Bash(Grade::Plus)),
-            Card::Clothesline(Grade::Base)  => Some(Card::Clothesline(Grade::Plus)),
-            Card::Inflame(Grade::Base)      => Some(Card::Inflame(Grade::Plus)),
-            Card::DeadlyPoison(Grade::Base) => Some(Card::DeadlyPoison(Grade::Plus)),
-            Card::Cleave(Grade::Base)       => Some(Card::Cleave(Grade::Plus)),
-            Card::IronWave(Grade::Base)     => Some(Card::IronWave(Grade::Plus)),
-            Card::Tremble(Grade::Base)      => Some(Card::Tremble(Grade::Plus)),
-            Card::TwinStrike(Grade::Base)   => Some(Card::TwinStrike(Grade::Plus)),
-            Card::Bludgeon(Grade::Base)     => Some(Card::Bludgeon(Grade::Plus)),
-            Card::Impervious(Grade::Base)   => Some(Card::Impervious(Grade::Plus)),
-            Card::NotYet(Grade::Base)       => Some(Card::NotYet(Grade::Plus)),
-            Card::Mangle(Grade::Base)       => Some(Card::Mangle(Grade::Plus)),
-            Card::Uppercut(Grade::Base)     => Some(Card::Uppercut(Grade::Plus)),
-            Card::Taunt(Grade::Base)        => Some(Card::Taunt(Grade::Plus)),
-            Card::Thunderclap(Grade::Base)  => Some(Card::Thunderclap(Grade::Plus)),
-            Card::PommelStrike(Grade::Base) => Some(Card::PommelStrike(Grade::Plus)),
-            Card::ShrugItOff(Grade::Base)   => Some(Card::ShrugItOff(Grade::Plus)),
-            Card::Breakthrough(Grade::Base) => Some(Card::Breakthrough(Grade::Plus)),
-            Card::BloodWall(Grade::Base)    => Some(Card::BloodWall(Grade::Plus)),
-            Card::Bloodletting(Grade::Base) => Some(Card::Bloodletting(Grade::Plus)),
-            Card::Hemokinesis(Grade::Base)  => Some(Card::Hemokinesis(Grade::Plus)),
-            Card::BodySlam(Grade::Base)     => Some(Card::BodySlam(Grade::Plus)),
-            Card::Anger(Grade::Base)        => Some(Card::Anger(Grade::Plus)),
-            _ => None,
+            Card::Strike(g) | Card::Defend(g) | Card::Bash(g) | Card::Clothesline(g) |
+            Card::Inflame(g) | Card::DeadlyPoison(g) | Card::Cleave(g) | Card::IronWave(g) |
+            Card::Tremble(g) | Card::TwinStrike(g) | Card::Bludgeon(g) | Card::Impervious(g) |
+            Card::NotYet(g) | Card::Mangle(g) | Card::Uppercut(g) | Card::Taunt(g) |
+            Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
+            Card::Breakthrough(g) | Card::BloodWall(g) | Card::Bloodletting(g) |
+            Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
+            Card::Disarm | Card::Dazed => None,
+        }
+    }
+
+    fn with_grade(&self, g: Grade) -> Card {
+        match self {
+            Card::Strike(_)       => Card::Strike(g),
+            Card::Defend(_)       => Card::Defend(g),
+            Card::Bash(_)         => Card::Bash(g),
+            Card::Clothesline(_)  => Card::Clothesline(g),
+            Card::Inflame(_)      => Card::Inflame(g),
+            Card::DeadlyPoison(_) => Card::DeadlyPoison(g),
+            Card::Cleave(_)       => Card::Cleave(g),
+            Card::IronWave(_)     => Card::IronWave(g),
+            Card::Tremble(_)      => Card::Tremble(g),
+            Card::TwinStrike(_)   => Card::TwinStrike(g),
+            Card::Bludgeon(_)     => Card::Bludgeon(g),
+            Card::Impervious(_)   => Card::Impervious(g),
+            Card::NotYet(_)       => Card::NotYet(g),
+            Card::Mangle(_)       => Card::Mangle(g),
+            Card::Uppercut(_)     => Card::Uppercut(g),
+            Card::Taunt(_)        => Card::Taunt(g),
+            Card::Thunderclap(_)  => Card::Thunderclap(g),
+            Card::PommelStrike(_) => Card::PommelStrike(g),
+            Card::ShrugItOff(_)   => Card::ShrugItOff(g),
+            Card::Breakthrough(_) => Card::Breakthrough(g),
+            Card::BloodWall(_)    => Card::BloodWall(g),
+            Card::Bloodletting(_) => Card::Bloodletting(g),
+            Card::Hemokinesis(_)  => Card::Hemokinesis(g),
+            Card::BodySlam(_)     => Card::BodySlam(g),
+            Card::Anger(_)        => Card::Anger(g),
+            Card::Disarm | Card::Dazed => unreachable!(),
+        }
+    }
+
+    pub fn upgrade(&self) -> Option<Card> {
+        match self.grade()? {
+            Grade::Base => Some(self.with_grade(Grade::Plus)),
+            Grade::Plus => None,
         }
     }
 
