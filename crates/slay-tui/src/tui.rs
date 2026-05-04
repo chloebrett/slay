@@ -148,8 +148,9 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
                 format!("   🧪 {}", potions.join(" "))
             };
             format!(
-                "🧙  HP {}/{}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
-                p.hp.0, p.max_hp.0, p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
+                "🧙  HP {}/{} {}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
+                p.hp.0, p.max_hp.0, hp_bar(p.hp.0, p.max_hp.0, 20),
+                p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
             )
         }
         None => String::new(),
@@ -275,7 +276,11 @@ fn hp_bar(current: i32, max: i32, width: usize) -> String {
         return String::new();
     }
     let cur = current.max(0).min(max);
-    let filled = ((cur as usize) * width).saturating_div(max as usize);
+    let filled = if cur > 0 {
+        ((cur as usize) * width).saturating_div(max as usize).max(1)
+    } else {
+        0
+    };
     let empty = width.saturating_sub(filled);
     format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
 }
@@ -670,6 +675,34 @@ mod tests {
         let tui = make_combat_tui();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("80/80"), "expected '80/80' in:\n{out}");
+    }
+
+    #[test]
+    fn top_bar_hp_bar_reflects_current_health() {
+        use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
+        let mut r = rng();
+        let graph = slay_core::generate_map(&mut r);
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(40), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            },
+            floor: 0, graph, available_cols: vec![0], next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let out = render_to_string(&TuiState::new(state, false), 120, 30);
+        // 40/80 with width 20 → 10 filled, 10 empty
+        assert!(out.contains("[██████████░░░░░░░░░░]"), "expected half-full bar in:\n{out}");
+    }
+
+    #[test]
+    fn hp_bar_at_1_hp_is_not_fully_empty() {
+        // width 20 = player bar, width 10 = enemy bar
+        assert!(hp_bar(1, 80, 20).contains('█'), "player bar at 1/80 should show at least one filled block");
+        assert!(hp_bar(1, 20, 10).contains('█'), "enemy bar at 1/20 should show at least one filled block");
     }
 
     #[test]
