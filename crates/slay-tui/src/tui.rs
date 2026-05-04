@@ -9,7 +9,8 @@ use ratatui::{
     Frame, Terminal,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, GameState, MapNode, MapState, RestSiteState, StatusMap,
+    AnyRng, CardRewardState, CombatState, GameState, MapNode, MapState, RestSiteState, ShopState,
+    StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
 
@@ -133,6 +134,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
         GameState::Combat { state, .. } => Some(&state.player),
         GameState::RestSite(rs) => Some(&rs.player),
         GameState::CardReward(cr) => Some(&cr.player),
+        GameState::Shop(shop) => Some(&shop.player),
         GameState::GameOver { .. } => None,
     };
     let line = match player {
@@ -162,6 +164,7 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
         GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log),
         GameState::RestSite(rs) => render_rest(f, area, rs),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
+        GameState::Shop(shop) => render_shop(f, area, shop),
         GameState::GameOver { victory } => render_game_over(f, area, *victory),
     }
 }
@@ -195,6 +198,7 @@ fn node_label(node: &MapNode) -> (&'static str, &'static str) {
         MapNode::Combat   => ("⚔️", "Combat"),
         MapNode::RestSite => ("🔥", "Rest Site"),
         MapNode::Boss     => ("💀", "Boss"),
+        MapNode::Merchant => ("🛒", "Shop"),
     }
 }
 
@@ -377,6 +381,59 @@ fn render_card_reward(f: &mut Frame, area: Rect, cr: &CardRewardState) {
     }
 
     let block = Block::default().borders(Borders::ALL).title(" ✨ Card Reward ");
+    let list = List::new(items).block(block);
+    f.render_widget(list, area);
+}
+
+fn render_shop(f: &mut Frame, area: Rect, shop: &ShopState) {
+    let mut items: Vec<ListItem> = Vec::new();
+
+    items.push(ListItem::new(Line::styled("Cards:", Style::default().add_modifier(Modifier::BOLD))));
+    for (i, (card, purchased)) in shop.cards.iter().enumerate() {
+        let text = if *purchased {
+            format!("[{}]  {} — [sold]", i + 1, card.name())
+        } else {
+            format!(
+                "[{}]  {} ({}) — {} — {}g",
+                i + 1, card.name(), card.energy_cost().0, card.description(), CARD_PRICE,
+            )
+        };
+        let style = if *purchased { Style::default().fg(Color::DarkGray) } else { Style::default() };
+        items.push(ListItem::new(Line::styled(text, style)));
+    }
+
+    items.push(ListItem::new(Line::raw("")));
+    items.push(ListItem::new(Line::styled("Relic:", Style::default().add_modifier(Modifier::BOLD))));
+    match &shop.relic {
+        Some((relic, true)) => items.push(ListItem::new(Line::styled(
+            format!("[r]  {} — [sold]", relic.id()), Style::default().fg(Color::DarkGray),
+        ))),
+        Some((relic, false)) => items.push(ListItem::new(Line::raw(
+            format!("[r]  {} — {}g", relic.id(), RELIC_PRICE),
+        ))),
+        None => items.push(ListItem::new(Line::styled("  (none)", Style::default().fg(Color::DarkGray)))),
+    }
+
+    items.push(ListItem::new(Line::raw("")));
+    items.push(ListItem::new(Line::styled("Potion:", Style::default().add_modifier(Modifier::BOLD))));
+    match &shop.potion {
+        Some((potion, true)) => items.push(ListItem::new(Line::styled(
+            format!("[p]  {} — [sold]", potion.name()), Style::default().fg(Color::DarkGray),
+        ))),
+        Some((potion, false)) => items.push(ListItem::new(Line::raw(
+            format!("[p]  {} — {}g", potion.name(), POTION_PRICE),
+        ))),
+        None => items.push(ListItem::new(Line::styled("  (none)", Style::default().fg(Color::DarkGray)))),
+    }
+
+    items.push(ListItem::new(Line::raw("")));
+    items.push(ListItem::new(Line::styled(
+        "[leave] / [l]  Exit shop",
+        Style::default().fg(Color::DarkGray),
+    )));
+
+    let block = Block::default().borders(Borders::ALL)
+        .title(format!(" 🛒 Shop  —  🪙 {}g ", shop.player.gold));
     let list = List::new(items).block(block);
     f.render_widget(list, area);
 }

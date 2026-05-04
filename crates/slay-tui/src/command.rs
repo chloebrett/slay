@@ -7,6 +7,7 @@ pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
         GameState::Combat { .. } => parse_combat(&s, debug),
         GameState::RestSite(_) => parse_rest(&s),
         GameState::CardReward(_) => parse_card_reward(&s),
+        GameState::Shop(_) => parse_shop(&s),
         GameState::GameOver { .. } => None,
     }
 }
@@ -105,6 +106,20 @@ fn parse_rest(s: &str) -> Option<Command> {
     }
     match s {
         "rest" | "r" => Some(Command::Rest),
+        _ => None,
+    }
+}
+
+fn parse_shop(s: &str) -> Option<Command> {
+    if let Ok(n) = s.trim().parse::<usize>() {
+        if n > 0 {
+            return Some(Command::BuyCard(n - 1));
+        }
+    }
+    match s {
+        "r" | "buy relic" => Some(Command::BuyRelic),
+        "p" | "buy potion" => Some(Command::BuyPotion),
+        "leave" | "l" => Some(Command::LeaveShop),
         _ => None,
     }
 }

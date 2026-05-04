@@ -281,8 +281,11 @@ fn full_run_reaches_victory() {
         game.send("skip").unwrap(); // skip → Map
     }
 
+    game.send("").unwrap(); // enter shop
+    game.send("leave").unwrap(); // leave → Map floor 4
+
     game.send("").unwrap(); // enter rest site
-    game.send("rest").unwrap(); // rest → Map floor 4
+    game.send("rest").unwrap(); // rest → Map floor 5
 
     game.send("").unwrap(); // enter boss (2 enemies)
     set_instant_win(&mut game.state);

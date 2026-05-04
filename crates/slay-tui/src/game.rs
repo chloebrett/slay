@@ -2,7 +2,8 @@ use crate::engine::{
     apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, statuses_inline,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, Event, GameState, MapState, RestSiteState, StatusMap,
+    AnyRng, CardRewardState, CombatState, Event, GameState, MapState, RestSiteState, ShopState,
+    StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
 
@@ -78,6 +79,7 @@ fn render(state: &GameState, w: &mut impl Write) {
         GameState::Combat { state, .. } => render_combat(state, w),
         GameState::RestSite(rs) => render_rest(rs, w),
         GameState::CardReward(cr) => render_card_reward(cr, w),
+        GameState::Shop(shop) => render_shop(shop, w),
         GameState::GameOver { .. } => {}
     }
 }
@@ -112,9 +114,10 @@ fn render_map(map: &MapState, w: &mut impl Write) {
 
 fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
     match node {
-        slay_core::MapNode::Combat => ("⚔️ ", "Combat"),
+        slay_core::MapNode::Combat   => ("⚔️ ", "Combat"),
         slay_core::MapNode::RestSite => ("🔥", "Rest Site"),
-        slay_core::MapNode::Boss => ("💀", "Boss"),
+        slay_core::MapNode::Boss     => ("💀", "Boss"),
+        slay_core::MapNode::Merchant => ("🛒", "Shop"),
     }
 }
 
@@ -157,6 +160,44 @@ fn render_card_reward(cr: &CardRewardState, w: &mut impl Write) {
         let _ = writeln!(w, "🧪 Potion on the ground: {}", potion.name());
         let _ = writeln!(w, "(discard N to drop a potion slot and pick it up)");
     }
+}
+
+fn render_shop(shop: &ShopState, w: &mut impl Write) {
+    let _ = writeln!(w, "🛒 Shop");
+    let _ = writeln!(w, "🪙 {}g", shop.player.gold);
+    let _ = writeln!(w);
+    let _ = writeln!(w, "Cards:");
+    for (i, (card, purchased)) in shop.cards.iter().enumerate() {
+        if *purchased {
+            let _ = writeln!(w, "  [{}] {} — [sold]", i + 1, card.name());
+        } else {
+            let _ = writeln!(
+                w,
+                "  [{}] {} ({}) — {} — {}g",
+                i + 1,
+                card.name(),
+                card.energy_cost().0,
+                card.description(),
+                CARD_PRICE,
+            );
+        }
+    }
+    let _ = writeln!(w);
+    let _ = writeln!(w, "Relic:");
+    match &shop.relic {
+        Some((relic, true))  => { let _ = writeln!(w, "  [r] {} — [sold]", relic.id()); }
+        Some((relic, false)) => { let _ = writeln!(w, "  [r] {} — {}g", relic.id(), RELIC_PRICE); }
+        None => { let _ = writeln!(w, "  (none)"); }
+    }
+    let _ = writeln!(w);
+    let _ = writeln!(w, "Potion:");
+    match &shop.potion {
+        Some((potion, true))  => { let _ = writeln!(w, "  [p] {} — [sold]", potion.name()); }
+        Some((potion, false)) => { let _ = writeln!(w, "  [p] {} — {}g", potion.name(), POTION_PRICE); }
+        None => { let _ = writeln!(w, "  (none)"); }
+    }
+    let _ = writeln!(w);
+    let _ = writeln!(w, "[leave] Exit shop");
 }
 
 fn render_combat(state: &CombatState, w: &mut impl Write) {

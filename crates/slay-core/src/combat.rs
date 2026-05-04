@@ -310,7 +310,11 @@ pub(crate) fn apply_combat_command(
         | Command::AddRelic(_)
         | Command::AddPotion(_)
         | Command::DiscardPotion(_)
-        | Command::Spawn(_) => {
+        | Command::Spawn(_)
+        | Command::LeaveShop
+        | Command::BuyCard(_)
+        | Command::BuyRelic
+        | Command::BuyPotion => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {

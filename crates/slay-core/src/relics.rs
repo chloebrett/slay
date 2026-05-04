@@ -98,8 +98,8 @@ impl Relic {
         }
     }
 
-    pub fn from_id(s: &str) -> Option<Relic> {
-        let all = [
+    pub fn all() -> Vec<Relic> {
+        vec![
             Relic::Strawberry, Relic::Pear, Relic::Mango, Relic::OldCoin,
             Relic::Whetstone, Relic::WarPaint,
             Relic::BurningBlood, Relic::BlackBlood,
@@ -113,8 +113,11 @@ impl Relic {
             Relic::Nunchaku, Relic::OrnamentalFan, Relic::Kunai,
             Relic::Shuriken, Relic::Kusarigama, Relic::LetterOpener,
             Relic::TuningFork, Relic::GremlinHorn, Relic::Pocketwatch,
-        ];
-        all.into_iter().find(|r| r.id() == s)
+        ]
+    }
+
+    pub fn from_id(s: &str) -> Option<Relic> {
+        Self::all().into_iter().find(|r| r.id() == s)
     }
 }
 

@@ -34,6 +34,10 @@ pub enum Command {
     UsePotion(usize, usize), // slot index, target enemy index
     DiscardPotion(usize),    // slot index
     Spawn(Vec<EnemyKind>),
+    LeaveShop,
+    BuyCard(usize),
+    BuyRelic,
+    BuyPotion,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +45,7 @@ pub enum CommandError {
     CombatOver,
     InvalidCard,
     NotEnoughEnergy,
+    NotEnoughGold,
     InvalidPhase,
     Entangled,
 }
@@ -49,6 +54,7 @@ impl std::fmt::Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
             CommandError::NotEnoughEnergy => "Not enough energy.",
+            CommandError::NotEnoughGold   => "Not enough gold.",
             CommandError::InvalidCard     => "No card at that position.",
             CommandError::InvalidPhase    => "Can't do that right now.",
             CommandError::CombatOver      => "Combat is already over.",
@@ -63,14 +69,16 @@ pub enum MapNode {
     Combat,
     RestSite,
     Boss,
+    Merchant,
 }
 
 pub const MAP_NODES: &[MapNode] = &[
-    MapNode::Combat,
-    MapNode::Combat,
-    MapNode::Combat,
-    MapNode::RestSite,
-    MapNode::Boss,
+    MapNode::Combat,    // floor 0
+    MapNode::Combat,    // floor 1
+    MapNode::Combat,    // floor 2
+    MapNode::Merchant,  // floor 3
+    MapNode::RestSite,  // floor 4
+    MapNode::Boss,      // floor 5
 ];
 
 #[derive(Debug, Clone, PartialEq)]
@@ -96,11 +104,25 @@ pub struct CardRewardState {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ShopState {
+    pub player: Player,
+    pub floor: usize,
+    pub cards: Vec<(Card, bool)>,
+    pub relic: Option<(Relic, bool)>,
+    pub potion: Option<(Potion, bool)>,
+}
+
+pub const CARD_PRICE: i32 = 75;
+pub const RELIC_PRICE: i32 = 150;
+pub const POTION_PRICE: i32 = 50;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum GameState {
     Map(MapState),
     Combat { state: CombatState, floor: usize, scenario: Scenario },
     RestSite(RestSiteState),
     CardReward(CardRewardState),
+    Shop(ShopState),
     GameOver { victory: bool },
 }
 
@@ -118,7 +140,7 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
         exhaust_pile: Vec::new(),
         statuses: StatusMap::new(),
         deck,
-        gold: 0,
+        gold: 99,
         relics: Vec::new(),
         potions: Vec::new(),
     };
@@ -151,8 +173,8 @@ fn enemies_for_floor(floor: usize) -> Vec<EnemyKind> {
         1 => vec![EnemyKind::Fungibeast],
         2 => vec![EnemyKind::Cultist],
         3 => vec![EnemyKind::JawWorm],
-        4 => vec![EnemyKind::Louse, EnemyKind::Louse],
-        5 => vec![EnemyKind::SmallSpikeSlime],
+        4 => vec![EnemyKind::SmallSpikeSlime],
+        5 => vec![EnemyKind::Louse, EnemyKind::Louse],
         6 => vec![EnemyKind::RedLouse],
         _ => vec![EnemyKind::Louse],
     }
@@ -183,6 +205,20 @@ fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &mut impl Rng
     } else {
         Some(potion)
     }
+}
+
+fn generate_shop(player: Player, floor: usize, rng: &mut impl Rng) -> ShopState {
+    let mut card_pool = crate::cards::reward_pool();
+    rng.shuffle(&mut card_pool);
+    let cards = card_pool.into_iter().take(2).map(|c| (c, false)).collect();
+
+    let mut relic_pool = Relic::all();
+    rng.shuffle(&mut relic_pool);
+    let relic = relic_pool.into_iter().next().map(|r| (r, false));
+
+    let potion = Some((random_potion(rng), false));
+
+    ShopState { player, floor, cards, relic, potion }
 }
 
 fn player_after_combat(player: Player, gold_gain: i32) -> Player {
@@ -254,6 +290,10 @@ pub fn apply_command(
                         GameState::RestSite(RestSiteState { player, floor }),
                         Vec::new(),
                     )),
+                    MapNode::Merchant => Ok((
+                        GameState::Shop(generate_shop(player, floor, rng)),
+                        Vec::new(),
+                    )),
                 }
             }
             Command::SkipFloor => {
@@ -322,7 +362,8 @@ pub fn apply_command(
                     vec![Event::PotionDiscarded { potion }]))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
-            | Command::SkipFloor | Command::UpgradeCard(_) => {
+            | Command::SkipFloor | Command::UpgradeCard(_) | Command::LeaveShop
+            | Command::BuyCard(_) | Command::BuyRelic | Command::BuyPotion => {
                 Err(CommandError::InvalidPhase)
             }
             cmd => {
@@ -434,6 +475,14 @@ pub fn apply_command(
             }
         }
 
+        GameState::Shop(ShopState { player, floor, .. }) => match command {
+            Command::LeaveShop => Ok((
+                GameState::Map(MapState { player, floor: floor + 1, next_enemies: None, scenario: Scenario::Main }),
+                Vec::new(),
+            )),
+            _ => Err(CommandError::InvalidPhase),
+        },
+
         GameState::GameOver { .. } => Err(CommandError::CombatOver),
     }
 }
@@ -536,9 +585,9 @@ mod tests {
     }
 
     #[test]
-    fn new_run_player_starts_with_zero_gold() {
+    fn new_run_player_starts_with_99_gold() {
         if let GameState::Map(map) = new_run(&mut rng()) {
-            assert_eq!(map.player.gold, 0);
+            assert_eq!(map.player.gold, 99);
         } else {
             panic!("expected Map state");
         }
@@ -701,13 +750,18 @@ mod tests {
     // --- rest site ---
 
     #[test]
-    fn floor_3_is_rest_site() {
-        assert_eq!(MAP_NODES[3], MapNode::RestSite);
+    fn floor_3_is_merchant() {
+        assert_eq!(MAP_NODES[3], MapNode::Merchant);
+    }
+
+    #[test]
+    fn floor_4_is_rest_site() {
+        assert_eq!(MAP_NODES[4], MapNode::RestSite);
     }
 
     #[test]
     fn choosing_rest_site_enters_rest_state() {
-        let map = GameState::Map(MapState { player: make_player(), floor: 3, next_enemies: None, scenario: Scenario::Main });
+        let map = GameState::Map(MapState { player: make_player(), floor: 4, next_enemies: None, scenario: Scenario::Main });
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::RestSite(_)));
     }
@@ -769,13 +823,13 @@ mod tests {
     // --- boss / run end ---
 
     #[test]
-    fn floor_4_is_boss() {
-        assert_eq!(MAP_NODES[4], MapNode::Boss);
+    fn floor_5_is_boss() {
+        assert_eq!(MAP_NODES[5], MapNode::Boss);
     }
 
     #[test]
     fn winning_boss_ends_run_with_victory() {
-        let state = combat_at_floor(4);
+        let state = combat_at_floor(5);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state, GameState::GameOver { victory: true });
     }
@@ -812,13 +866,13 @@ mod tests {
     }
 
     #[test]
-    fn floor_4_boss_spawns_two_lice() {
-        assert_eq!(enemies_for_floor(4), vec![EnemyKind::Louse, EnemyKind::Louse]);
+    fn floor_4_spawns_small_spike_slime() {
+        assert_eq!(enemies_for_floor(4), vec![EnemyKind::SmallSpikeSlime]);
     }
 
     #[test]
-    fn floor_5_spawns_small_spike_slime() {
-        assert_eq!(enemies_for_floor(5), vec![EnemyKind::SmallSpikeSlime]);
+    fn floor_5_boss_spawns_two_lice() {
+        assert_eq!(enemies_for_floor(5), vec![EnemyKind::Louse, EnemyKind::Louse]);
     }
 
     #[test]
@@ -1026,6 +1080,68 @@ mod tests {
         assert!(cs.player.exhaust_pile.is_empty());
     }
 
+    // --- shop ---
+
+    fn map_at_floor(floor: usize) -> GameState {
+        GameState::Map(MapState { player: make_player(), floor, next_enemies: None, scenario: Scenario::Main })
+    }
+
+    #[test]
+    fn map_has_six_nodes() {
+        assert_eq!(MAP_NODES.len(), 6);
+    }
+
+    #[test]
+    fn entering_merchant_node_transitions_to_shop() {
+        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        assert!(matches!(next, GameState::Shop(_)));
+    }
+
+    #[test]
+    fn shop_has_two_cards_one_relic_one_potion() {
+        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Shop(shop) = next else { panic!("expected Shop") };
+        assert_eq!(shop.cards.len(), 2);
+        assert!(shop.relic.is_some());
+        assert!(shop.potion.is_some());
+    }
+
+    #[test]
+    fn shop_items_start_as_not_purchased() {
+        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Shop(shop) = next else { panic!("expected Shop") };
+        assert!(shop.cards.iter().all(|(_, purchased)| !purchased));
+        assert!(shop.relic.as_ref().map_or(true, |(_, p)| !p));
+        assert!(shop.potion.as_ref().map_or(true, |(_, p)| !p));
+    }
+
+    #[test]
+    fn leave_shop_returns_to_map_at_next_floor() {
+        let (shop_state, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (next, _) = apply_command(shop_state, Command::LeaveShop, &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.floor, 4);
+    }
+
+    #[test]
+    fn leave_shop_preserves_player_gold() {
+        let mut player = make_player();
+        player.gold = 150;
+        let shop = ShopState { player, floor: 3, cards: vec![], relic: None, potion: None };
+        let (next, _) = apply_command(GameState::Shop(shop), Command::LeaveShop, &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 150);
+    }
+
+    #[test]
+    fn non_shop_commands_rejected_in_shop() {
+        let shop = ShopState { player: make_player(), floor: 3, cards: vec![], relic: None, potion: None };
+        assert_eq!(
+            apply_command(GameState::Shop(shop), Command::EndTurn, &mut rng()),
+            Err(CommandError::InvalidPhase)
+        );
+    }
+
     // --- rest site: upgrade ---
 
     #[test]
@@ -1085,7 +1201,7 @@ mod tests {
 
     #[test]
     fn win_combat_on_boss_floor_ends_run_with_victory() {
-        let state = combat_at_floor(4);
+        let state = combat_at_floor(5);
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         assert_eq!(state, GameState::GameOver { victory: true });
     }
@@ -1135,7 +1251,7 @@ mod tests {
 
     #[test]
     fn boss_floor_has_two_enemies() {
-        let map = GameState::Map(MapState { player: make_player(), floor: 4, next_enemies: None, scenario: Scenario::Main });
+        let map = GameState::Map(MapState { player: make_player(), floor: 5, next_enemies: None, scenario: Scenario::Main });
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.enemies.len(), 2);
@@ -1151,9 +1267,9 @@ mod tests {
 
     #[test]
     fn winning_boss_requires_all_enemies_dead() {
-        // Boss has two enemies; combat_at_floor(4) only has one at 1 HP.
+        // Boss has two enemies; combat_at_floor(5) only has one at 1 HP.
         // Use WinCombat (debug) to confirm boss victory still works.
-        let state = combat_at_floor(4);
+        let state = combat_at_floor(5);
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         assert_eq!(state, GameState::GameOver { victory: true });
     }
@@ -1268,7 +1384,7 @@ mod tests {
         let mut player = make_player();
         player.hp = Hp(50);
         player.relics.push(Relic::Pantograph);
-        let state = GameState::Map(MapState { player, floor: 4, next_enemies: None, scenario: Scenario::Main }); // floor 4 = Boss
+        let state = GameState::Map(MapState { player, floor: 5, next_enemies: None, scenario: Scenario::Main }); // floor 5 = Boss
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hp, Hp(75));
@@ -1709,7 +1825,8 @@ mod tests {
     #[test]
     fn potion_not_awarded_on_boss_floor() {
         let state = new_run(&mut rng());
-        // skip to boss floor (floor 4)
+        // skip to boss floor (floor 5)
+        let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();

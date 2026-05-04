@@ -50,6 +50,14 @@ impl Potion {
         }
     }
 
+    pub fn all() -> Vec<Potion> {
+        vec![
+            Potion::FirePotion, Potion::ExplosivePotion, Potion::BlockPotion,
+            Potion::StrengthPotion, Potion::SwiftPotion, Potion::FearPotion,
+            Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
+        ]
+    }
+
     pub fn from_id(s: &str) -> Option<Potion> {
         match s {
             "fire-potion"      => Some(Potion::FirePotion),
