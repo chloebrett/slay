@@ -143,9 +143,13 @@ fn parse_card_reward(s: &str) -> Option<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
+    use slay_core::{AnyRng, Block, Energy, Hp, MapState, NoOpRng, Player, Scenario, StatusMap};
+
+    fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
 
     fn map_state() -> GameState {
+        let graph = slay_core::run::generate_map(&mut rng());
+        let available_cols = vec![0, 1];
         GameState::Map(MapState {
             player: Player {
                 hp: Hp(80), max_hp: Hp(80), block: Block(0),
@@ -155,6 +159,8 @@ mod tests {
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
             },
             floor: 0,
+            graph,
+            available_cols,
             next_enemies: None,
             scenario: Scenario::Main,
         })
@@ -228,6 +234,9 @@ mod tests {
                 extra_draws_next_turn: 0,
             },
             floor: 0,
+            is_boss: false,
+            graph: slay_core::run::generate_map(&mut rng()),
+            next_floor_cols: vec![0, 1],
             scenario: Scenario::Main,
         }
     }

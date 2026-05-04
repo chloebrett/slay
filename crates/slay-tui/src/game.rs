@@ -86,7 +86,6 @@ fn render(state: &GameState, w: &mut impl Write) {
 
 fn render_map(map: &MapState, w: &mut impl Write) {
     let floor = map.floor;
-    let nodes = slay_core::run::MAP_NODES;
     let _ = writeln!(w, "🗺️  Map");
     let _ = writeln!(
         w,
@@ -97,7 +96,8 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         map.player.deck.len(),
     );
     let _ = writeln!(w);
-    for (i, node) in nodes.iter().enumerate().rev() {
+    for (i, row) in map.graph.rows.iter().enumerate().rev() {
+        let node = &row[0];
         let (icon, name) = map_node_label(node);
         let marker = match i.cmp(&floor) {
             std::cmp::Ordering::Less    => "✓",
@@ -107,17 +107,25 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         let _ = writeln!(w, "  {marker} {}. {icon} {name}", i + 1);
     }
     let _ = writeln!(w);
-    let node = nodes.get(floor).unwrap_or(&slay_core::MapNode::Combat);
-    let (icon, name) = map_node_label(node);
-    let _ = writeln!(w, "[Enter ↵] {icon} {name}");
+    if map.available_cols.len() == 1 {
+        let node = &map.graph.rows[floor][map.available_cols[0]];
+        let (icon, name) = map_node_label(node);
+        let _ = writeln!(w, "[Enter ↵] {icon} {name}");
+    } else {
+        for &col in &map.available_cols {
+            let node = &map.graph.rows[floor][col];
+            let (icon, name) = map_node_label(node);
+            let _ = writeln!(w, "[{}] {icon} {name}", col + 1);
+        }
+    }
 }
 
 fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
     match node {
-        slay_core::MapNode::Combat   => ("⚔️ ", "Combat"),
-        slay_core::MapNode::RestSite => ("🔥", "Rest Site"),
-        slay_core::MapNode::Boss     => ("💀", "Boss"),
-        slay_core::MapNode::Merchant => ("🛒", "Shop"),
+        slay_core::MapNode::Combat(_) => ("⚔️ ", "Combat"),
+        slay_core::MapNode::RestSite  => ("🔥", "Rest Site"),
+        slay_core::MapNode::Boss(_)   => ("💀", "Boss"),
+        slay_core::MapNode::Merchant  => ("🛒", "Shop"),
     }
 }
 

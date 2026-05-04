@@ -213,10 +213,8 @@ pub fn apply_combat_start_relics(
                     }
                 }
             }
-            Relic::Pantograph => {
-                if is_boss {
-                    heal_player(&mut state.player, 25, events);
-                }
+            Relic::Pantograph if is_boss => {
+                heal_player(&mut state.player, 25, events);
             }
             Relic::BagOfPreparation => {
                 draw_cards(&mut state.player, 2, rng);
@@ -255,11 +253,11 @@ pub fn apply_turn_start_relics(
                 state.player.block.0 += 14;
                 events.push(Event::PlayerBlocked { amount: 14 });
             }
-            Relic::HappyFlower if turn % 3 == 0 => {
+            Relic::HappyFlower if turn.is_multiple_of(3) => {
                 state.player.energy.0 += 1;
                 events.push(Event::EnergyGained { amount: 1 });
             }
-            Relic::Pendulum if turn % 3 == 0 => {
+            Relic::Pendulum if turn.is_multiple_of(3) => {
                 draw_cards(&mut state.player, 1, rng);
                 events.push(Event::CardsDrawn { count: 1 });
             }
@@ -282,11 +280,9 @@ pub fn apply_turn_end_relics(
     let relics = state.player.relics.clone();
     for relic in &relics {
         match relic {
-            Relic::Orichalcum => {
-                if state.player.block == Block(0) {
-                    state.player.block.0 += 6;
-                    events.push(Event::PlayerBlocked { amount: 6 });
-                }
+            Relic::Orichalcum if state.player.block == Block(0) => {
+                state.player.block.0 += 6;
+                events.push(Event::PlayerBlocked { amount: 6 });
             }
             Relic::CloakClasp => {
                 let gain = hand_size_before_discard as i32;
@@ -295,10 +291,8 @@ pub fn apply_turn_end_relics(
                     events.push(Event::PlayerBlocked { amount: gain });
                 }
             }
-            Relic::Pocketwatch => {
-                if state.cards_played_this_turn <= 3 {
-                    state.extra_draws_next_turn += 3;
-                }
+            Relic::Pocketwatch if state.cards_played_this_turn <= 3 => {
+                state.extra_draws_next_turn += 3;
             }
             _ => {}
         }
@@ -320,27 +314,27 @@ pub fn apply_card_play_relics(
     let relics = state.player.relics.clone();
     for relic in &relics {
         match (relic, card_type) {
-            (Relic::Nunchaku, CardType::Attack) if state.attacks_this_combat % 10 == 0 => {
+            (Relic::Nunchaku, CardType::Attack) if state.attacks_this_combat.is_multiple_of(10) => {
                 state.player.energy.0 += 1;
                 events.push(Event::EnergyGained { amount: 1 });
             }
-            (Relic::OrnamentalFan, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+            (Relic::OrnamentalFan, CardType::Attack) if state.attacks_this_turn.is_multiple_of(3) => {
                 state.player.block.0 += 4;
                 events.push(Event::PlayerBlocked { amount: 4 });
             }
-            (Relic::Shuriken, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+            (Relic::Shuriken, CardType::Attack) if state.attacks_this_turn.is_multiple_of(3) => {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 1, events);
             }
-            (Relic::Kunai, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+            (Relic::Kunai, CardType::Attack) if state.attacks_this_turn.is_multiple_of(3) => {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Dexterity, 1, events);
             }
-            (Relic::Kusarigama, CardType::Attack) if state.attacks_this_turn % 3 == 0 => {
+            (Relic::Kusarigama, CardType::Attack) if state.attacks_this_turn.is_multiple_of(3) => {
                 damage_random_living_enemy(state, events, 6, rng);
             }
-            (Relic::LetterOpener, CardType::Skill) if state.skills_this_turn % 3 == 0 => {
+            (Relic::LetterOpener, CardType::Skill) if state.skills_this_turn.is_multiple_of(3) => {
                 damage_all_enemies(state, events, 5);
             }
-            (Relic::TuningFork, CardType::Skill) if state.skills_this_combat % 10 == 0 => {
+            (Relic::TuningFork, CardType::Skill) if state.skills_this_combat.is_multiple_of(10) => {
                 state.player.block.0 += 7;
                 events.push(Event::PlayerBlocked { amount: 7 });
             }

@@ -1,6 +1,6 @@
 use slay_core::{
-    new_run, starter_deck, AnyRng, Block, Card, CombatPhase, CombatState, Enemy, EnemyKind, Energy,
-    GameState, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
+    generate_map, new_run, starter_deck, AnyRng, Block, Card, CombatPhase, CombatState, Enemy,
+    EnemyKind, Energy, GameState, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -57,6 +57,9 @@ impl TestHarness {
                 extra_draws_next_turn: 0,
             },
             floor: 0,
+            is_boss: false,
+            graph: slay_core::generate_map(&mut AnyRng::NoOp(NoOpRng)),
+            next_floor_cols: vec![0, 1],
             scenario: slay_core::Scenario::Main,
         };
         Self { state, rng: AnyRng::NoOp(NoOpRng), debug: false }
@@ -250,6 +253,8 @@ fn rest_heals_player_hp() {
             potions: vec![],
         },
         floor: 3,
+        graph: generate_map(&mut AnyRng::NoOp(NoOpRng)),
+        available_cols: vec![0, 1],
     });
     let mut game = TestHarness::with_state(state);
     game.send("rest").unwrap();
@@ -274,6 +279,7 @@ fn set_instant_win(state: &mut GameState) {
 fn full_run_reaches_victory() {
     let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
 
+    // segment 1: floors 0-2 (3 combats)
     for _ in 0..3 {
         game.send("").unwrap(); // enter combat
         set_instant_win(&mut game.state);
@@ -281,13 +287,29 @@ fn full_run_reaches_victory() {
         game.send("skip").unwrap(); // skip → Map
     }
 
-    game.send("").unwrap(); // enter shop
+    game.send("").unwrap(); // floor 3: enter shop
     game.send("leave").unwrap(); // leave → Map floor 4
 
-    game.send("").unwrap(); // enter rest site
-    game.send("rest").unwrap(); // rest → Map floor 5
+    // segment 2: floors 4-5 (2 combats)
+    for _ in 0..2 {
+        game.send("").unwrap(); // enter combat
+        set_instant_win(&mut game.state);
+        game.send("play 1").unwrap(); // kill → CardReward
+        game.send("skip").unwrap(); // skip → Map
+    }
 
-    game.send("").unwrap(); // enter boss (2 enemies)
+    game.send("").unwrap(); // floor 6: enter rest site
+    game.send("rest").unwrap(); // rest → Map floor 7
+
+    // segment 3: floors 7-8 (2 combats)
+    for _ in 0..2 {
+        game.send("").unwrap(); // enter combat
+        set_instant_win(&mut game.state);
+        game.send("play 1").unwrap(); // kill → CardReward
+        game.send("skip").unwrap(); // skip → Map
+    }
+
+    game.send("").unwrap(); // floor 9: enter boss (2 enemies)
     set_instant_win(&mut game.state);
     game.send("play 1").unwrap(); // kill enemy 1
     game.send("play 1").unwrap(); // auto-target enemy 2 → GameOver
@@ -384,7 +406,7 @@ fn upgrade_at_rest_site_replaces_card_in_deck() {
         relics: vec![],
         potions: vec![],
     };
-    let state = GameState::RestSite(RestSiteState { player, floor: 3 });
+    let state = GameState::RestSite(RestSiteState { player, floor: 3, graph: generate_map(&mut AnyRng::NoOp(NoOpRng)), available_cols: vec![0, 1] });
     let mut game = TestHarness::with_state(state);
     game.send("upgrade 1").unwrap(); // upgrade deck[0] = Strike → StrikePlus
     let GameState::Map(map) = &game.state else { panic!("expected Map") };

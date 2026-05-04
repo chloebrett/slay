@@ -170,9 +170,9 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
 }
 
 fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
-    let nodes = slay_core::run::MAP_NODES;
-    let items: Vec<ListItem> = nodes.iter().enumerate().rev()
-        .map(|(i, node)| {
+    let items: Vec<ListItem> = map.graph.rows.iter().enumerate().rev()
+        .map(|(i, row)| {
+            let node = &row[0];
             let (icon, name) = node_label(node);
             let marker = match i.cmp(&map.floor) {
                 std::cmp::Ordering::Less    => "✓",
@@ -195,10 +195,10 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
 fn node_label(node: &MapNode) -> (&'static str, &'static str) {
     match node {
-        MapNode::Combat   => ("⚔️", "Combat"),
-        MapNode::RestSite => ("🔥", "Rest Site"),
-        MapNode::Boss     => ("💀", "Boss"),
-        MapNode::Merchant => ("🛒", "Shop"),
+        MapNode::Combat(_) => ("⚔️", "Combat"),
+        MapNode::RestSite  => ("🔥", "Rest Site"),
+        MapNode::Boss(_)   => ("💀", "Boss"),
+        MapNode::Merchant  => ("🛒", "Shop"),
     }
 }
 
@@ -686,6 +686,8 @@ mod tests {
         let rs_state = GameState::RestSite(slay_core::RestSiteState {
             player,
             floor: 3,
+            graph: slay_core::generate_map(&mut r),
+            available_cols: vec![0, 1],
         });
         let tui = TuiState::new(rs_state, false);
         let out = render_to_string(&tui, 100, 30);
@@ -706,6 +708,8 @@ mod tests {
             floor: 1,
             options: vec![Card::Strike, Card::Defend, Card::Bash],
             offered_potion: None,
+            graph: slay_core::generate_map(&mut r),
+            available_cols: vec![0, 1],
         });
         let tui = TuiState::new(cr, false);
         let out = render_to_string(&tui, 100, 30);
