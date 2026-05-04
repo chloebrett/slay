@@ -475,11 +475,55 @@ pub fn apply_command(
             }
         }
 
-        GameState::Shop(ShopState { player, floor, .. }) => match command {
+        GameState::Shop(ShopState { mut player, floor, mut cards, mut relic, mut potion }) => match command {
             Command::LeaveShop => Ok((
                 GameState::Map(MapState { player, floor: floor + 1, next_enemies: None, scenario: Scenario::Main }),
                 Vec::new(),
             )),
+            Command::BuyCard(idx) => {
+                if idx >= cards.len() || cards[idx].1 {
+                    return Err(CommandError::InvalidCard);
+                }
+                if player.gold < CARD_PRICE {
+                    return Err(CommandError::NotEnoughGold);
+                }
+                let card = cards[idx].0.clone();
+                player.gold -= CARD_PRICE;
+                player.deck.push(card.clone());
+                cards[idx].1 = true;
+                let events = vec![Event::CardAdded { card }];
+                Ok((GameState::Shop(ShopState { player, floor, cards, relic, potion }), events))
+            }
+            Command::BuyRelic => {
+                if relic.as_ref().map_or(true, |(_, p)| *p) {
+                    return Err(CommandError::InvalidCard);
+                }
+                if player.gold < RELIC_PRICE {
+                    return Err(CommandError::NotEnoughGold);
+                }
+                let r = relic.as_ref().unwrap().0.clone(); // SAFETY: checked is_some above
+                player.gold -= RELIC_PRICE;
+                let events = crate::relics::grant_relic(&mut player, r, rng);
+                relic = relic.map(|(r, _)| (r, true));
+                Ok((GameState::Shop(ShopState { player, floor, cards, relic, potion }), events))
+            }
+            Command::BuyPotion => {
+                if potion.as_ref().map_or(true, |(_, p)| *p) {
+                    return Err(CommandError::InvalidCard);
+                }
+                if player.potions.len() >= MAX_POTIONS {
+                    return Err(CommandError::InvalidPhase);
+                }
+                if player.gold < POTION_PRICE {
+                    return Err(CommandError::NotEnoughGold);
+                }
+                let pot = potion.as_ref().unwrap().0; // SAFETY: checked is_some above; Potion: Copy
+                player.gold -= POTION_PRICE;
+                player.potions.push(pot);
+                potion = potion.map(|(p, _)| (p, true));
+                let events = vec![Event::PotionAwarded { potion: pot }];
+                Ok((GameState::Shop(ShopState { player, floor, cards, relic, potion }), events))
+            }
             _ => Err(CommandError::InvalidPhase),
         },
 
@@ -1140,6 +1184,192 @@ mod tests {
             apply_command(GameState::Shop(shop), Command::EndTurn, &mut rng()),
             Err(CommandError::InvalidPhase)
         );
+    }
+
+    fn shop_state(gold: i32) -> GameState {
+        let mut player = make_player();
+        player.gold = gold;
+        GameState::Shop(ShopState {
+            player,
+            floor: 3,
+            cards: vec![(Card::Strike, false), (Card::Bash, false)],
+            relic: Some((Relic::Anchor, false)),
+            potion: Some((Potion::FirePotion, false)),
+        })
+    }
+
+    // BuyCard
+
+    #[test]
+    fn buy_card_deducts_gold() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyCard(0), &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert_eq!(s.player.gold, 99 - CARD_PRICE);
+    }
+
+    #[test]
+    fn buy_card_adds_card_to_deck() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyCard(0), &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.player.deck.contains(&Card::Strike));
+    }
+
+    #[test]
+    fn buy_card_emits_card_added_event() {
+        let (_, events) = apply_command(shop_state(99), Command::BuyCard(0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardAdded { .. })));
+    }
+
+    #[test]
+    fn buy_card_marks_slot_purchased() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyCard(0), &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.cards[0].1);
+    }
+
+    #[test]
+    fn buy_card_not_enough_gold() {
+        assert_eq!(
+            apply_command(shop_state(CARD_PRICE - 1), Command::BuyCard(0), &mut rng()),
+            Err(CommandError::NotEnoughGold)
+        );
+    }
+
+    #[test]
+    fn buy_card_exact_gold_succeeds() {
+        assert!(apply_command(shop_state(CARD_PRICE), Command::BuyCard(0), &mut rng()).is_ok());
+    }
+
+    #[test]
+    fn buy_card_out_of_bounds_returns_invalid_card() {
+        assert_eq!(
+            apply_command(shop_state(999), Command::BuyCard(99), &mut rng()),
+            Err(CommandError::InvalidCard)
+        );
+    }
+
+    #[test]
+    fn buy_card_already_purchased_returns_invalid_card() {
+        let (s1, _) = apply_command(shop_state(999), Command::BuyCard(0), &mut rng()).unwrap();
+        assert_eq!(
+            apply_command(s1, Command::BuyCard(0), &mut rng()),
+            Err(CommandError::InvalidCard)
+        );
+    }
+
+    // BuyRelic
+
+    #[test]
+    fn buy_relic_deducts_gold() {
+        let (next, _) = apply_command(shop_state(999), Command::BuyRelic, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert_eq!(s.player.gold, 999 - RELIC_PRICE);
+    }
+
+    #[test]
+    fn buy_relic_grants_relic_to_player() {
+        let (next, _) = apply_command(shop_state(999), Command::BuyRelic, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.player.relics.contains(&Relic::Anchor));
+    }
+
+    #[test]
+    fn buy_relic_marks_slot_purchased() {
+        let (next, _) = apply_command(shop_state(999), Command::BuyRelic, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.relic.unwrap().1);
+    }
+
+    #[test]
+    fn buy_relic_not_enough_gold() {
+        assert_eq!(
+            apply_command(shop_state(RELIC_PRICE - 1), Command::BuyRelic, &mut rng()),
+            Err(CommandError::NotEnoughGold)
+        );
+    }
+
+    #[test]
+    fn buy_relic_exact_gold_succeeds() {
+        assert!(apply_command(shop_state(RELIC_PRICE), Command::BuyRelic, &mut rng()).is_ok());
+    }
+
+    #[test]
+    fn buy_relic_no_relic_in_shop() {
+        let mut player = make_player();
+        player.gold = 999;
+        let shop = GameState::Shop(ShopState { player, floor: 3, cards: vec![], relic: None, potion: None });
+        assert_eq!(apply_command(shop, Command::BuyRelic, &mut rng()), Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn buy_relic_already_purchased_returns_invalid_card() {
+        let (s1, _) = apply_command(shop_state(999), Command::BuyRelic, &mut rng()).unwrap();
+        assert_eq!(apply_command(s1, Command::BuyRelic, &mut rng()), Err(CommandError::InvalidCard));
+    }
+
+    // BuyPotion
+
+    #[test]
+    fn buy_potion_deducts_gold() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyPotion, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert_eq!(s.player.gold, 99 - POTION_PRICE);
+    }
+
+    #[test]
+    fn buy_potion_adds_potion_to_player() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyPotion, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.player.potions.contains(&Potion::FirePotion));
+    }
+
+    #[test]
+    fn buy_potion_marks_slot_purchased() {
+        let (next, _) = apply_command(shop_state(99), Command::BuyPotion, &mut rng()).unwrap();
+        let GameState::Shop(s) = next else { panic!() };
+        assert!(s.potion.unwrap().1);
+    }
+
+    #[test]
+    fn buy_potion_not_enough_gold() {
+        assert_eq!(
+            apply_command(shop_state(POTION_PRICE - 1), Command::BuyPotion, &mut rng()),
+            Err(CommandError::NotEnoughGold)
+        );
+    }
+
+    #[test]
+    fn buy_potion_exact_gold_succeeds() {
+        assert!(apply_command(shop_state(POTION_PRICE), Command::BuyPotion, &mut rng()).is_ok());
+    }
+
+    #[test]
+    fn buy_potion_slots_full_returns_invalid_phase() {
+        let mut player = make_player();
+        player.gold = 999;
+        player.potions = vec![Potion::FirePotion, Potion::BlockPotion, Potion::WeakPotion];
+        let shop = GameState::Shop(ShopState {
+            player,
+            floor: 3,
+            cards: vec![],
+            relic: None,
+            potion: Some((Potion::EnergyPotion, false)),
+        });
+        assert_eq!(apply_command(shop, Command::BuyPotion, &mut rng()), Err(CommandError::InvalidPhase));
+    }
+
+    #[test]
+    fn buy_potion_no_potion_in_shop() {
+        let mut player = make_player();
+        player.gold = 999;
+        let shop = GameState::Shop(ShopState { player, floor: 3, cards: vec![], relic: None, potion: None });
+        assert_eq!(apply_command(shop, Command::BuyPotion, &mut rng()), Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn buy_potion_already_purchased_returns_invalid_card() {
+        let (s1, _) = apply_command(shop_state(999), Command::BuyPotion, &mut rng()).unwrap();
+        assert_eq!(apply_command(s1, Command::BuyPotion, &mut rng()), Err(CommandError::InvalidCard));
     }
 
     // --- rest site: upgrade ---
