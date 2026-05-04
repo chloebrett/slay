@@ -177,14 +177,16 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
     let items: Vec<ListItem> = map.graph.rows.iter().enumerate().rev()
         .map(|(i, row)| {
-            let node = &row[0];
-            let (icon, name) = node_label(node);
+            let nodes: String = row.iter()
+                .map(|node| { let (icon, name) = node_label(node); format!("{icon} {name}") })
+                .collect::<Vec<_>>()
+                .join("   ");
             let marker = match i.cmp(&map.floor) {
                 std::cmp::Ordering::Less    => "✓",
                 std::cmp::Ordering::Equal   => "▶",
                 std::cmp::Ordering::Greater => " ",
             };
-            let text = format!(" {marker}  {}.  {icon} {name}", i + 1);
+            let text = format!(" {marker}  {}.  {nodes}", i + 1);
             let style = match i.cmp(&map.floor) {
                 std::cmp::Ordering::Equal   => Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow),
                 std::cmp::Ordering::Less    => Style::default().fg(Color::DarkGray),
@@ -706,6 +708,34 @@ mod tests {
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("[1]"), "expected '[1]' choice in:\n{out}");
         assert!(out.contains("[2]"), "expected '[2]' choice in:\n{out}");
+    }
+
+    #[test]
+    fn map_grid_shows_both_nodes_on_two_column_floor() {
+        let graph = slay_core::MapGraph {
+            rows: vec![vec![MapNode::Combat(vec![]), MapNode::RestSite]],
+            edges: vec![vec![vec![], vec![]]],
+        };
+        use slay_core::{Block, Energy, Hp, Player, Scenario, StatusMap};
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            },
+            floor: 0,
+            graph,
+            available_cols: vec![0, 1],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let tui = TuiState::new(state, false);
+        let out = render_to_string(&tui, 120, 30);
+        let marker_line = out.lines().find(|l| l.contains('▶')).expect("expected ▶ marker line");
+        assert!(marker_line.contains("Combat"), "expected 'Combat' on ▶ line: {marker_line}");
+        assert!(marker_line.contains("Rest Site"), "expected 'Rest Site' on ▶ line: {marker_line}");
     }
 
     #[test]

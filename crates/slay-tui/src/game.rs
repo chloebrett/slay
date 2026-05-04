@@ -97,14 +97,16 @@ fn render_map(map: &MapState, w: &mut impl Write) {
     );
     let _ = writeln!(w);
     for (i, row) in map.graph.rows.iter().enumerate().rev() {
-        let node = &row[0];
-        let (icon, name) = map_node_label(node);
         let marker = match i.cmp(&floor) {
             std::cmp::Ordering::Less    => "✓",
             std::cmp::Ordering::Equal   => "▶",
             std::cmp::Ordering::Greater => " ",
         };
-        let _ = writeln!(w, "  {marker} {}. {icon} {name}", i + 1);
+        let nodes: String = row.iter()
+            .map(|node| { let (icon, name) = map_node_label(node); format!("{icon} {name}") })
+            .collect::<Vec<_>>()
+            .join("  ");
+        let _ = writeln!(w, "  {marker} {}. {nodes}", i + 1);
     }
     let _ = writeln!(w);
     if map.available_cols.len() == 1 {
@@ -298,5 +300,42 @@ fn print_events(events: &[Event], w: &mut impl Write) {
         if !msg.is_empty() {
             let _ = writeln!(w, "{msg}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use slay_core::{Block, Energy, Hp, MapGraph, MapNode, MapState, Player, Scenario, StatusMap};
+
+    fn bare_player() -> Player {
+        Player {
+            hp: Hp(80), max_hp: Hp(80), block: Block(0),
+            energy: Energy(3), max_energy: Energy(3),
+            hand: vec![], draw_pile: vec![], discard_pile: vec![],
+            exhaust_pile: vec![], statuses: StatusMap::new(),
+            deck: vec![], gold: 0, relics: vec![], potions: vec![],
+        }
+    }
+
+    #[test]
+    fn map_grid_shows_both_nodes_on_two_column_floor() {
+        let graph = MapGraph {
+            rows: vec![vec![MapNode::Combat(vec![]), MapNode::Combat(vec![])]],
+            edges: vec![vec![vec![], vec![]]],
+        };
+        let map = MapState {
+            player: bare_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0, 1],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        };
+        let mut out = Vec::new();
+        render_map(&map, &mut out);
+        let s = String::from_utf8(out).unwrap();
+        let has_double_combat = s.lines().any(|line| line.matches("Combat").count() >= 2);
+        assert!(has_double_combat, "expected a line with 2 Combat labels in:\n{s}");
     }
 }
