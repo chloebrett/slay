@@ -302,6 +302,9 @@ pub fn apply_command(
                 Ok((GameState::Map(MapState { player, floor, graph, available_cols, next_enemies: Some(enemies), scenario }), Vec::new()))
             }
             Command::ChooseNode(col) => {
+                if !available_cols.contains(&col) {
+                    return Err(CommandError::InvalidPhase);
+                }
                 let floor_nodes = graph.rows.get(floor).ok_or(CommandError::InvalidPhase)?;
                 let node = floor_nodes.get(col).cloned().ok_or(CommandError::InvalidCard)?;
                 let next_floor_cols = graph.edges.get(floor)
@@ -586,6 +589,7 @@ mod tests {
     use crate::combat::Enemy;
     use crate::enemies::Move;
     use crate::relics::Relic;
+    use crate::status::StatusEffect;
 
     #[test]
     fn command_error_display_not_enough_energy() {
@@ -753,7 +757,7 @@ mod tests {
     fn choose_node_invalid_index_returns_error() {
         let state = new_run(&mut rng());
         let result = apply_command(state, Command::ChooseNode(2), &mut rng());
-        assert_eq!(result, Err(CommandError::InvalidCard));
+        assert_eq!(result, Err(CommandError::InvalidPhase));
     }
 
     #[test]
@@ -767,6 +771,84 @@ mod tests {
             apply_command(state.clone(), Command::Rest, &mut rng()),
             Err(CommandError::InvalidPhase)
         );
+    }
+
+    #[test]
+    fn choose_node_rejects_unavailable_col() {
+        let graph = test_graph();
+        // Floor 1 has 2 columns, but restrict available to [1] only
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 1,
+            graph,
+            available_cols: vec![1],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let result = apply_command(state, Command::ChooseNode(0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidPhase));
+    }
+
+    #[test]
+    fn choose_node_advances_to_combat_with_enemies_from_node() {
+        let graph = test_graph();
+        let enemies = match &graph.rows[0][0] {
+            MapNode::Combat(e) => e.clone(),
+            _ => panic!("expected combat node at floor 0 col 0"),
+        };
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0, 1],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let (next, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = next else { panic!("expected Combat") };
+        let kinds: Vec<_> = cs.enemies.iter().map(|e| e.kind.clone()).collect();
+        assert_eq!(kinds, enemies);
+    }
+
+    #[test]
+    fn choose_node_carries_next_floor_cols_from_edges() {
+        let graph = test_graph();
+        let expected_cols = graph.edges[0][0].clone();
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0, 1],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let (next, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { next_floor_cols, .. } = next else { panic!("expected Combat") };
+        assert_eq!(next_floor_cols, expected_cols);
+    }
+
+    #[test]
+    fn boss_node_sets_is_boss_true() {
+        let graph = test_graph();
+        let state = GameState::Map(MapState {
+            player: make_player(),
+            floor: 9,
+            graph,
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let (next, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { is_boss, .. } = next else { panic!("expected Combat") };
+        assert!(is_boss);
+    }
+
+    #[test]
+    fn non_boss_node_sets_is_boss_false() {
+        let state = new_run(&mut rng());
+        let (next, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::Combat { is_boss, .. } = next else { panic!("expected Combat") };
+        assert!(!is_boss);
     }
 
     // --- combat victory transitions ---
@@ -794,6 +876,84 @@ mod tests {
         } else {
             panic!("expected CardReward");
         }
+    }
+
+    #[test]
+    fn win_combat_command_advances_floor_in_reward() {
+        let state = combat_at_floor(2);
+        let (next, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert_eq!(cr.floor, 3);
+    }
+
+    #[test]
+    fn player_block_reset_after_combat() {
+        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+            = combat_at_floor(0) else { panic!() };
+        cs.player.block = Block(10);
+        let (next, _) = apply_command(
+            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert_eq!(cr.player.block, Block(0));
+    }
+
+    #[test]
+    fn player_energy_restored_after_combat() {
+        let (next, _) = apply_command(combat_at_floor(0), Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert_eq!(cr.player.energy, Energy(3));
+    }
+
+    #[test]
+    fn player_hand_cleared_after_combat() {
+        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+            = combat_at_floor(0) else { panic!() };
+        cs.player.hand.push(Card::Strike); // two Strikes in hand; one kills enemy, one remains
+        let (next, _) = apply_command(
+            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert!(cr.player.hand.is_empty());
+    }
+
+    #[test]
+    fn player_draw_pile_cleared_after_combat() {
+        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+            = combat_at_floor(0) else { panic!() };
+        cs.player.draw_pile = vec![Card::Strike, Card::Strike];
+        let (next, _) = apply_command(
+            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert!(cr.player.draw_pile.is_empty());
+    }
+
+    #[test]
+    fn player_discard_pile_cleared_after_combat() {
+        let (next, _) = apply_command(combat_at_floor(0), Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert!(cr.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn player_statuses_cleared_after_combat() {
+        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+            = combat_at_floor(0) else { panic!() };
+        cs.player.statuses.insert(StatusEffect::Strength, 3);
+        let (next, _) = apply_command(
+            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        let GameState::CardReward(cr) = next else { panic!("expected CardReward") };
+        assert!(cr.player.statuses.is_empty());
     }
 
     #[test]
@@ -1236,6 +1396,24 @@ mod tests {
     fn available_cols_starts_as_both_columns() {
         let GameState::Map(map) = new_run(&mut rng()) else { panic!("expected Map") };
         assert_eq!(map.available_cols, vec![0, 1]);
+    }
+
+    #[test]
+    fn segment_internal_floors_have_branching_edges() {
+        let graph = test_graph();
+        let both = vec![vec![0usize, 1], vec![0, 1]];
+        for floor in [0usize, 1, 4, 7] {
+            assert_eq!(graph.edges[floor], both, "floor {floor} should have branching edges");
+        }
+    }
+
+    #[test]
+    fn segment_end_floors_have_converging_edges() {
+        let graph = test_graph();
+        let converge = vec![vec![0usize], vec![0]];
+        for floor in [2usize, 5, 8] {
+            assert_eq!(graph.edges[floor], converge, "floor {floor} should have converging edges");
+        }
     }
 
     // --- shop ---
@@ -2131,6 +2309,38 @@ mod tests {
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         let GameState::Map(map) = state else { panic!("expected Map") };
         assert_eq!(map.player.potions, vec![Potion::BlockPotion]);
+    }
+
+    #[test]
+    fn add_relic_on_map_grants_relic_to_player() {
+        let state = new_run(&mut rng());
+        let (next, _) = apply_command(state, Command::AddRelic(Relic::BurningBlood), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(map.player.relics.contains(&Relic::BurningBlood));
+    }
+
+    #[test]
+    fn add_potion_in_combat_adds_to_player() {
+        let state = combat_at_floor(0);
+        let (next, _) = apply_command(state, Command::AddPotion(Potion::FirePotion), &mut rng()).unwrap();
+        let GameState::Combat { state: cs, .. } = next else { panic!("expected Combat") };
+        assert!(cs.player.potions.contains(&Potion::FirePotion));
+    }
+
+    #[test]
+    fn add_potion_in_combat_rejected_when_slots_full() {
+        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+            = combat_at_floor(0) else { panic!() };
+        for _ in 0..MAX_POTIONS {
+            cs.player.potions.push(Potion::BlockPotion);
+        }
+        let (next, _) = apply_command(
+            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            Command::AddPotion(Potion::FirePotion),
+            &mut rng(),
+        ).unwrap();
+        let GameState::Combat { state: cs, .. } = next else { panic!("expected Combat") };
+        assert!(!cs.player.potions.contains(&Potion::FirePotion));
     }
 
     // --- Potion rewards ---
