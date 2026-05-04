@@ -4,7 +4,8 @@ use crate::rng::Rng;
 use crate::status::resolve_damage;
 use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, base_damage: i32, draws: usize, target: usize, rng: &mut impl Rng) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize, rng: &mut impl Rng) {
+    let (base_damage, draws) = match grade { Grade::Base => (9, 1usize), Grade::Plus => (10, 2usize) };
     let raw = resolve_damage(base_damage, &state.player.statuses, &state.enemies[target].statuses);
     let dealt = { let e = &mut state.enemies[target]; deal_damage(raw, &mut e.hp, &mut e.block) };
     events.push(Event::PlayerAttacked { raw, damage: dealt });

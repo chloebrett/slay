@@ -3,7 +3,8 @@ use crate::combat::{CombatState, Event, Target, apply_status, deal_damage};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, weak: i32, target: usize) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
+    let (damage, weak) = match grade { Grade::Base => (12, 2), Grade::Plus => (14, 3) };
     let raw = crate::status::resolve_damage(damage, &state.player.statuses, &state.enemies[target].statuses);
     let dealt = {
         let enemy = &mut state.enemies[target];

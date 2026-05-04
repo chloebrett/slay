@@ -3,7 +3,8 @@ use crate::combat::{CombatState, Event, Target, apply_status};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, strength: i32, _target: usize) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _target: usize) {
+    let strength = match grade { Grade::Base => 2, Grade::Plus => 3 };
     apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, strength, events);
 }
 

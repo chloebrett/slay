@@ -3,12 +3,12 @@ use crate::combat::{CombatState, Event, deal_damage};
 use crate::status::resolve_damage;
 use crate::types::{Block, Energy};
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, damage: i32, block: i32, target: usize) {
-    state.player.block = Block(state.player.block.0 + block);
-    events.push(Event::PlayerBlocked { amount: block });
-    let raw = resolve_damage(damage, &state.player.statuses, &state.enemies[target].statuses);
-    let enemy = &mut state.enemies[target];
-    let dealt = deal_damage(raw, &mut enemy.hp, &mut enemy.block);
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
+    let n = match grade { Grade::Base => 5, Grade::Plus => 7 };
+    state.player.block = Block(state.player.block.0 + n);
+    events.push(Event::PlayerBlocked { amount: n });
+    let raw = resolve_damage(n, &state.player.statuses, &state.enemies[target].statuses);
+    let dealt = { let e = &mut state.enemies[target]; deal_damage(raw, &mut e.hp, &mut e.block) };
     events.push(Event::PlayerAttacked { raw, damage: dealt });
 }
 

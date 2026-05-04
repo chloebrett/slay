@@ -2,7 +2,8 @@ use super::{CardDef, CardDescription, CardType, Grade};
 use crate::combat::{CombatState, Event, deal_damage};
 use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, base_damage: i32, target: usize) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
+    let base_damage = match grade { Grade::Base => 6, Grade::Plus => 9 };
     let raw = crate::status::resolve_damage(base_damage, &state.player.statuses, &state.enemies[target].statuses);
     let enemy = &mut state.enemies[target];
     let damage = deal_damage(raw, &mut enemy.hp, &mut enemy.block);

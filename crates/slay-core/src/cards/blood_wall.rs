@@ -2,8 +2,9 @@ use super::{CardDef, CardDescription, CardType, Grade};
 use crate::combat::{CombatState, Event, damage_player};
 use crate::types::{Block, Energy};
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, hp_loss: i32, block: i32) {
-    damage_player(state, events, hp_loss);
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade) {
+    let block = match grade { Grade::Base => 16, Grade::Plus => 20 };
+    damage_player(state, events, 2);
     state.player.block = Block(state.player.block.0 + block);
     events.push(Event::PlayerBlocked { amount: block });
 }

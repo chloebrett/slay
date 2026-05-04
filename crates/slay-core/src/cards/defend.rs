@@ -2,7 +2,8 @@ use super::{CardDef, CardDescription, CardType, Grade};
 use crate::combat::{CombatState, Event};
 use crate::types::{Block, Energy};
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, block_amount: i32, _target: usize) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _target: usize) {
+    let block_amount = match grade { Grade::Base => 5, Grade::Plus => 8 };
     let actual = crate::status::resolve_block(block_amount, &state.player.statuses);
     state.player.block = Block(state.player.block.0 + actual);
     events.push(Event::PlayerBlocked { amount: actual });

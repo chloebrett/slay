@@ -3,7 +3,8 @@ use crate::combat::{CombatState, Event, Target, apply_status};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, poison: i32, target: usize) {
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
+    let poison = match grade { Grade::Base => 5, Grade::Plus => 7 };
     apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Poison, poison, events);
 }
 
