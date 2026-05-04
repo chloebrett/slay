@@ -1,7 +1,7 @@
 # Plan: Refactor Relics into Per-File Modules
 
 **Branch**: main
-**Status**: Active
+**Status**: Active — Step 1 complete, Step 2 pending
 
 ## Goal
 
