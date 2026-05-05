@@ -9,18 +9,21 @@ pub enum StatusEffect {
     Ritual,
     Dexterity,
     Entangle,
+    Frail,
 }
 
 impl StatusEffect {
     fn ticks_at_end_of_turn(self) -> bool {
-        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle)
+        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle | StatusEffect::Frail)
     }
 }
 
 pub type StatusMap = IndexMap<StatusEffect, i32>;
 
 pub fn resolve_block(base: i32, statuses: &StatusMap) -> i32 {
-    (base + statuses.get(&StatusEffect::Dexterity).copied().unwrap_or(0)).max(0)
+    let base = base + statuses.get(&StatusEffect::Dexterity).copied().unwrap_or(0);
+    let base = if statuses.contains_key(&StatusEffect::Frail) { base * 3 / 4 } else { base };
+    base.max(0)
 }
 
 pub fn resolve_damage(base: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
@@ -135,5 +138,25 @@ mod tests {
         let attacker = map_with(StatusEffect::Strength, 2);
         let defender = map_with(StatusEffect::Vulnerable, 2);
         assert_eq!(resolve_damage(6, &attacker, &defender), 12); // (6 + 2) * 3/2
+    }
+
+    #[test]
+    fn frail_reduces_block_by_25_percent() {
+        let statuses = map_with(StatusEffect::Frail, 1);
+        assert_eq!(resolve_block(8, &statuses), 6); // 8 * 3/4 = 6
+    }
+
+    #[test]
+    fn frail_ticks_at_end_of_turn() {
+        let mut statuses = map_with(StatusEffect::Frail, 2);
+        tick_statuses(&mut statuses);
+        assert_eq!(statuses.get(&StatusEffect::Frail).copied().unwrap_or(0), 1);
+    }
+
+    #[test]
+    fn frail_expires_when_stacks_reach_zero() {
+        let mut statuses = map_with(StatusEffect::Frail, 1);
+        tick_statuses(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::Frail));
     }
 }

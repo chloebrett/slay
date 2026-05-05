@@ -1088,3 +1088,28 @@
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Weak).copied().unwrap_or(0), 1);
     }
+
+    // --- Shame ---
+
+    #[test]
+    fn shame_card_type_is_curse() {
+        assert_eq!(Card::Shame.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn shame_is_not_playable() {
+        assert!(!Card::Shame.is_playable());
+    }
+
+    #[test]
+    fn shame_id_is_shame_string() {
+        assert_eq!(Card::Shame.id(), "shame");
+    }
+
+    #[test]
+    fn shame_in_hand_applies_1_frail_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::Shame]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Frail).copied().unwrap_or(0), 1);
+    }

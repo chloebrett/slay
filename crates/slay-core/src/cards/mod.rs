@@ -6,6 +6,7 @@ mod decay;
 mod doubt;
 mod injury;
 mod regret;
+mod shame;
 mod wound;
 mod bloodletting;
 mod body_slam;
@@ -72,6 +73,7 @@ pub enum Card {
     Wound,
     Burn,
     Doubt,
+    Shame,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -144,11 +146,12 @@ impl Card {
             Card::Wound           => wound::def(),
             Card::Burn            => burn::def(),
             Card::Doubt           => doubt::def(),
+            Card::Shame           => shame::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret | Card::Wound | Card::Burn | Card::Doubt)
+        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret | Card::Wound | Card::Burn | Card::Doubt | Card::Shame)
     }
 
     pub fn is_ethereal(&self) -> bool {
@@ -161,6 +164,7 @@ impl Card {
             Card::Burn   => Some(burn::end_of_turn_hook()),
             Card::Regret => Some(regret::end_of_turn_hook(hand_size)),
             Card::Doubt  => Some(doubt::end_of_turn_hook()),
+            Card::Shame  => Some(shame::end_of_turn_hook()),
             _ => None,
         }
     }
@@ -179,7 +183,7 @@ impl Card {
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt => None,
+            Card::Wound | Card::Burn | Card::Doubt | Card::Shame => None,
         }
     }
 
@@ -211,7 +215,7 @@ impl Card {
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt => unreachable!(),
+            Card::Wound | Card::Burn | Card::Doubt | Card::Shame => unreachable!(),
         }
     }
 
@@ -283,6 +287,7 @@ impl Card {
             Card::Wound           => wound::id(),
             Card::Burn            => burn::id(),
             Card::Doubt           => doubt::id(),
+            Card::Shame           => shame::id(),
         }
     }
 
@@ -323,6 +328,7 @@ impl Card {
             Card::Wound,
             Card::Burn,
             Card::Doubt,
+            Card::Shame,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -364,7 +370,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-        Card::Wound | Card::Burn | Card::Doubt => {} // unplayable
+        Card::Wound | Card::Burn | Card::Doubt | Card::Shame => {} // unplayable
     }
 }
 

@@ -98,6 +98,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Ritual     => ("🔮", "Ritual"),
         StatusEffect::Dexterity  => ("🛡️", "Dexterity"),
         StatusEffect::Entangle   => ("🕸️", "Entangle"),
+        StatusEffect::Frail      => ("🫧", "Frail"),
     }
 }
 
