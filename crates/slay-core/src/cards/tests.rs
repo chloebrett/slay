@@ -1004,3 +1004,87 @@
         assert_eq!(state.player.hp, Hp(79));
         assert_eq!(state.player.block, Block(10));
     }
+
+    #[test]
+    fn regret_deals_damage_equal_to_hand_size() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::Regret, Card::Strike(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(77));
+    }
+
+    // --- Wound ---
+
+    #[test]
+    fn wound_card_type_is_status() {
+        assert_eq!(Card::Wound.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn wound_is_not_playable() {
+        assert!(!Card::Wound.is_playable());
+    }
+
+    #[test]
+    fn wound_id_is_wound_string() {
+        assert_eq!(Card::Wound.id(), "wound");
+    }
+
+    // --- Burn ---
+
+    #[test]
+    fn burn_card_type_is_status() {
+        assert_eq!(Card::Burn.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn burn_is_not_playable() {
+        assert!(!Card::Burn.is_playable());
+    }
+
+    #[test]
+    fn burn_id_is_burn_string() {
+        assert_eq!(Card::Burn.id(), "burn");
+    }
+
+    #[test]
+    fn burn_in_hand_deals_2_blockable_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::Burn]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78));
+    }
+
+    #[test]
+    fn burn_in_draw_pile_does_not_deal_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile.push(Card::Burn);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    // --- Doubt ---
+
+    #[test]
+    fn doubt_card_type_is_curse() {
+        assert_eq!(Card::Doubt.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn doubt_is_not_playable() {
+        assert!(!Card::Doubt.is_playable());
+    }
+
+    #[test]
+    fn doubt_id_is_doubt_string() {
+        assert_eq!(Card::Doubt.id(), "doubt");
+    }
+
+    #[test]
+    fn doubt_in_hand_applies_1_weak_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::Doubt]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Weak).copied().unwrap_or(0), 1);
+    }

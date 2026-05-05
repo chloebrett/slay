@@ -271,16 +271,17 @@ pub(crate) fn apply_combat_command(
                 return Err(CommandError::InvalidPhase);
             }
             events.push(Event::TurnEnded);
+            let hand_size = state.player.hand.len() as i32;
             let hooks: Vec<EndOfTurnHook> = state.player.hand.iter()
-                .filter_map(|c| c.end_of_turn_hook())
+                .filter_map(|c| c.end_of_turn_hook(hand_size))
                 .collect();
             let (ethereal, normal): (Vec<_>, Vec<_>) = state.player.hand.drain(..).partition(|c| c.is_ethereal());
             state.player.exhaust_pile.extend(ethereal);
             state.player.discard_pile.extend(normal);
+            tick_statuses(&mut state.player.statuses);
             if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
                 return Ok((state, events));
             }
-            tick_statuses(&mut state.player.statuses);
             for i in 0..state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { continue; }
                 let poison_dmg = drain_poison(&mut state.enemies[i].statuses);
@@ -434,6 +435,9 @@ fn apply_end_of_turn_card_hooks(hooks: &[EndOfTurnHook], state: &mut CombatState
             }
             EndOfTurnHook::DirectHpLoss(amount) => {
                 damage_player(state, events, amount);
+            }
+            EndOfTurnHook::ApplyPlayerStatus { effect, amount } => {
+                apply_status(&mut state.player.statuses, Target::Player, effect, amount, events);
             }
         }
         if state.player.hp <= Hp(0) {

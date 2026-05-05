@@ -1,9 +1,12 @@
 mod anger;
 mod bash;
+mod burn;
 mod clumsy;
 mod decay;
+mod doubt;
 mod injury;
 mod regret;
+mod wound;
 mod bloodletting;
 mod body_slam;
 mod bludgeon;
@@ -30,7 +33,7 @@ mod true_grit;
 mod twin_strike;
 mod uppercut;
 
-use crate::status::{StatusMap, resolve_damage};
+use crate::status::{StatusEffect, StatusMap, resolve_damage};
 use crate::types::Energy;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +69,9 @@ pub enum Card {
     Clumsy,
     Decay,
     Regret,
+    Wound,
+    Burn,
+    Doubt,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -84,6 +90,7 @@ pub enum CardType {
 pub enum EndOfTurnHook {
     BlockableDamage(i32),
     DirectHpLoss(i32),
+    ApplyPlayerStatus { effect: StatusEffect, amount: i32 },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -134,21 +141,26 @@ impl Card {
             Card::Clumsy          => clumsy::def(),
             Card::Decay           => decay::def(),
             Card::Regret          => regret::def(),
+            Card::Wound           => wound::def(),
+            Card::Burn            => burn::def(),
+            Card::Doubt           => doubt::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret)
+        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret | Card::Wound | Card::Burn | Card::Doubt)
     }
 
     pub fn is_ethereal(&self) -> bool {
         matches!(self, Card::Dazed | Card::Clumsy)
     }
 
-    pub fn end_of_turn_hook(&self) -> Option<EndOfTurnHook> {
+    pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
         match self {
             Card::Decay  => Some(decay::end_of_turn_hook()),
-            Card::Regret => Some(regret::end_of_turn_hook()),
+            Card::Burn   => Some(burn::end_of_turn_hook()),
+            Card::Regret => Some(regret::end_of_turn_hook(hand_size)),
+            Card::Doubt  => Some(doubt::end_of_turn_hook()),
             _ => None,
         }
     }
@@ -166,7 +178,8 @@ impl Card {
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => None,
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Wound | Card::Burn | Card::Doubt => None,
         }
     }
 
@@ -197,7 +210,8 @@ impl Card {
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => unreachable!(),
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Wound | Card::Burn | Card::Doubt => unreachable!(),
         }
     }
 
@@ -266,6 +280,9 @@ impl Card {
             Card::Clumsy          => clumsy::id(),
             Card::Decay           => decay::id(),
             Card::Regret          => regret::id(),
+            Card::Wound           => wound::id(),
+            Card::Burn            => burn::id(),
+            Card::Doubt           => doubt::id(),
         }
     }
 
@@ -303,6 +320,9 @@ impl Card {
             Card::Clumsy,
             Card::Decay,
             Card::Regret,
+            Card::Wound,
+            Card::Burn,
+            Card::Doubt,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -343,7 +363,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
-        Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => {} // unplayable
+        Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+        Card::Wound | Card::Burn | Card::Doubt => {} // unplayable
     }
 }
 
