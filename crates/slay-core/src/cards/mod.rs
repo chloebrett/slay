@@ -1,9 +1,7 @@
 mod anger;
 mod bash;
-mod blood_wall;
-mod body_slam;
 mod bloodletting;
-mod breakthrough;
+mod body_slam;
 mod bludgeon;
 mod cleave;
 mod clothesline;
@@ -11,18 +9,20 @@ mod dazed;
 mod deadly_poison;
 mod defend;
 mod disarm;
+mod entrench;
 mod hemokinesis;
 mod impervious;
 mod inflame;
 mod iron_wave;
-mod mangle;
-mod not_yet;
 mod pommel_strike;
+mod pummel;
+mod reckless_charge;
+mod seeing_red;
 mod shrug_it_off;
+mod spot_weakness;
 mod strike;
-mod taunt;
 mod thunderclap;
-mod tremble;
+mod true_grit;
 mod twin_strike;
 mod uppercut;
 
@@ -40,19 +40,19 @@ pub enum Card {
     Disarm,
     Cleave(Grade),
     IronWave(Grade),
-    Tremble(Grade),
+    SpotWeakness(Grade),
     TwinStrike(Grade),
     Bludgeon(Grade),
     Impervious(Grade),
-    NotYet(Grade),
-    Mangle(Grade),
+    SeeingRed(Grade),
+    Pummel(Grade),
     Uppercut(Grade),
-    Taunt(Grade),
+    TrueGrit(Grade),
     Thunderclap(Grade),
     PommelStrike(Grade),
     ShrugItOff(Grade),
-    Breakthrough(Grade),
-    BloodWall(Grade),
+    RecklessCharge(Grade),
+    Entrench(Grade),
     Bloodletting(Grade),
     Hemokinesis(Grade),
     BodySlam(Grade),
@@ -96,19 +96,19 @@ impl Card {
             Card::Disarm          => disarm::def(),
             Card::Cleave(g)       => cleave::def(*g),
             Card::IronWave(g)     => iron_wave::def(*g),
-            Card::Tremble(g)      => tremble::def(*g),
+            Card::SpotWeakness(g) => spot_weakness::def(*g),
             Card::TwinStrike(g)   => twin_strike::def(*g),
             Card::Bludgeon(g)     => bludgeon::def(*g),
             Card::Impervious(g)   => impervious::def(*g),
-            Card::NotYet(g)       => not_yet::def(*g),
-            Card::Mangle(g)       => mangle::def(*g),
+            Card::SeeingRed(g)    => seeing_red::def(*g),
+            Card::Pummel(g)       => pummel::def(*g),
             Card::Uppercut(g)     => uppercut::def(*g),
-            Card::Taunt(g)        => taunt::def(*g),
+            Card::TrueGrit(g)     => true_grit::def(*g),
             Card::Thunderclap(g)  => thunderclap::def(*g),
             Card::PommelStrike(g) => pommel_strike::def(*g),
             Card::ShrugItOff(g)   => shrug_it_off::def(*g),
-            Card::Breakthrough(g) => breakthrough::def(*g),
-            Card::BloodWall(g)    => blood_wall::def(*g),
+            Card::RecklessCharge(g) => reckless_charge::def(*g),
+            Card::Entrench(g)     => entrench::def(*g),
             Card::Bloodletting(g) => bloodletting::def(*g),
             Card::Hemokinesis(g)  => hemokinesis::def(*g),
             Card::BodySlam(g)     => body_slam::def(*g),
@@ -122,17 +122,17 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::Dazed)
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Dazed)
     }
 
     pub fn grade(&self) -> Option<Grade> {
         match self {
             Card::Strike(g) | Card::Defend(g) | Card::Bash(g) | Card::Clothesline(g) |
             Card::Inflame(g) | Card::DeadlyPoison(g) | Card::Cleave(g) | Card::IronWave(g) |
-            Card::Tremble(g) | Card::TwinStrike(g) | Card::Bludgeon(g) | Card::Impervious(g) |
-            Card::NotYet(g) | Card::Mangle(g) | Card::Uppercut(g) | Card::Taunt(g) |
+            Card::SpotWeakness(g) | Card::TwinStrike(g) | Card::Bludgeon(g) | Card::Impervious(g) |
+            Card::SeeingRed(g) | Card::Pummel(g) | Card::Uppercut(g) | Card::TrueGrit(g) |
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
-            Card::Breakthrough(g) | Card::BloodWall(g) | Card::Bloodletting(g) |
+            Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
             Card::Disarm | Card::Dazed => None,
         }
@@ -147,20 +147,20 @@ impl Card {
             Card::Inflame(_)      => Card::Inflame(g),
             Card::DeadlyPoison(_) => Card::DeadlyPoison(g),
             Card::Cleave(_)       => Card::Cleave(g),
-            Card::IronWave(_)     => Card::IronWave(g),
-            Card::Tremble(_)      => Card::Tremble(g),
-            Card::TwinStrike(_)   => Card::TwinStrike(g),
-            Card::Bludgeon(_)     => Card::Bludgeon(g),
-            Card::Impervious(_)   => Card::Impervious(g),
-            Card::NotYet(_)       => Card::NotYet(g),
-            Card::Mangle(_)       => Card::Mangle(g),
-            Card::Uppercut(_)     => Card::Uppercut(g),
-            Card::Taunt(_)        => Card::Taunt(g),
-            Card::Thunderclap(_)  => Card::Thunderclap(g),
-            Card::PommelStrike(_) => Card::PommelStrike(g),
-            Card::ShrugItOff(_)   => Card::ShrugItOff(g),
-            Card::Breakthrough(_) => Card::Breakthrough(g),
-            Card::BloodWall(_)    => Card::BloodWall(g),
+            Card::IronWave(_)       => Card::IronWave(g),
+            Card::SpotWeakness(_)   => Card::SpotWeakness(g),
+            Card::TwinStrike(_)     => Card::TwinStrike(g),
+            Card::Bludgeon(_)       => Card::Bludgeon(g),
+            Card::Impervious(_)     => Card::Impervious(g),
+            Card::SeeingRed(_)      => Card::SeeingRed(g),
+            Card::Pummel(_)         => Card::Pummel(g),
+            Card::Uppercut(_)       => Card::Uppercut(g),
+            Card::TrueGrit(_)       => Card::TrueGrit(g),
+            Card::Thunderclap(_)    => Card::Thunderclap(g),
+            Card::PommelStrike(_)   => Card::PommelStrike(g),
+            Card::ShrugItOff(_)     => Card::ShrugItOff(g),
+            Card::RecklessCharge(_) => Card::RecklessCharge(g),
+            Card::Entrench(_)       => Card::Entrench(g),
             Card::Bloodletting(_) => Card::Bloodletting(g),
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
@@ -212,19 +212,19 @@ impl Card {
             Card::Disarm          => disarm::id(),
             Card::Cleave(g)       => cleave::id(*g),
             Card::IronWave(g)     => iron_wave::id(*g),
-            Card::Tremble(g)      => tremble::id(*g),
-            Card::TwinStrike(g)   => twin_strike::id(*g),
-            Card::Bludgeon(g)     => bludgeon::id(*g),
-            Card::Impervious(g)   => impervious::id(*g),
-            Card::NotYet(g)       => not_yet::id(*g),
-            Card::Mangle(g)       => mangle::id(*g),
-            Card::Uppercut(g)     => uppercut::id(*g),
-            Card::Taunt(g)        => taunt::id(*g),
-            Card::Thunderclap(g)  => thunderclap::id(*g),
-            Card::PommelStrike(g) => pommel_strike::id(*g),
-            Card::ShrugItOff(g)   => shrug_it_off::id(*g),
-            Card::Breakthrough(g) => breakthrough::id(*g),
-            Card::BloodWall(g)    => blood_wall::id(*g),
+            Card::SpotWeakness(g)   => spot_weakness::id(*g),
+            Card::TwinStrike(g)     => twin_strike::id(*g),
+            Card::Bludgeon(g)       => bludgeon::id(*g),
+            Card::Impervious(g)     => impervious::id(*g),
+            Card::SeeingRed(g)      => seeing_red::id(*g),
+            Card::Pummel(g)         => pummel::id(*g),
+            Card::Uppercut(g)       => uppercut::id(*g),
+            Card::TrueGrit(g)       => true_grit::id(*g),
+            Card::Thunderclap(g)    => thunderclap::id(*g),
+            Card::PommelStrike(g)   => pommel_strike::id(*g),
+            Card::ShrugItOff(g)     => shrug_it_off::id(*g),
+            Card::RecklessCharge(g) => reckless_charge::id(*g),
+            Card::Entrench(g)       => entrench::id(*g),
             Card::Bloodletting(g) => bloodletting::id(*g),
             Card::Hemokinesis(g)  => hemokinesis::id(*g),
             Card::BodySlam(g)     => body_slam::id(*g),
@@ -245,19 +245,19 @@ impl Card {
             Card::Disarm,
             Card::Cleave(Base),       Card::Cleave(Plus),
             Card::IronWave(Base),     Card::IronWave(Plus),
-            Card::Tremble(Base),      Card::Tremble(Plus),
-            Card::TwinStrike(Base),   Card::TwinStrike(Plus),
-            Card::Bludgeon(Base),     Card::Bludgeon(Plus),
-            Card::Impervious(Base),   Card::Impervious(Plus),
-            Card::NotYet(Base),       Card::NotYet(Plus),
-            Card::Mangle(Base),       Card::Mangle(Plus),
-            Card::Uppercut(Base),     Card::Uppercut(Plus),
-            Card::Taunt(Base),        Card::Taunt(Plus),
-            Card::Thunderclap(Base),  Card::Thunderclap(Plus),
-            Card::PommelStrike(Base), Card::PommelStrike(Plus),
-            Card::ShrugItOff(Base),   Card::ShrugItOff(Plus),
-            Card::Breakthrough(Base), Card::Breakthrough(Plus),
-            Card::BloodWall(Base),    Card::BloodWall(Plus),
+            Card::SpotWeakness(Base),   Card::SpotWeakness(Plus),
+            Card::TwinStrike(Base),     Card::TwinStrike(Plus),
+            Card::Bludgeon(Base),       Card::Bludgeon(Plus),
+            Card::Impervious(Base),     Card::Impervious(Plus),
+            Card::SeeingRed(Base),      Card::SeeingRed(Plus),
+            Card::Pummel(Base),         Card::Pummel(Plus),
+            Card::Uppercut(Base),       Card::Uppercut(Plus),
+            Card::TrueGrit(Base),       Card::TrueGrit(Plus),
+            Card::Thunderclap(Base),    Card::Thunderclap(Plus),
+            Card::PommelStrike(Base),   Card::PommelStrike(Plus),
+            Card::ShrugItOff(Base),     Card::ShrugItOff(Plus),
+            Card::RecklessCharge(Base), Card::RecklessCharge(Plus),
+            Card::Entrench(Base),       Card::Entrench(Plus),
             Card::Bloodletting(Base), Card::Bloodletting(Plus),
             Card::Hemokinesis(Base),  Card::Hemokinesis(Plus),
             Card::BodySlam(Base),     Card::BodySlam(Plus),
@@ -286,19 +286,19 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Disarm          => disarm::apply(state, events, target),
         Card::Cleave(g)       => cleave::apply(state, events, *g),
         Card::IronWave(g)     => iron_wave::apply(state, events, *g, target),
-        Card::Tremble(g)      => tremble::apply(state, events, *g, target),
-        Card::TwinStrike(g)   => twin_strike::apply(state, events, *g, target),
-        Card::Bludgeon(g)     => bludgeon::apply(state, events, *g, target),
-        Card::Impervious(g)   => impervious::apply(state, events, *g, target),
-        Card::NotYet(g)       => not_yet::apply(state, events, *g, target),
-        Card::Mangle(g)       => mangle::apply(state, events, *g, target),
-        Card::Uppercut(g)     => uppercut::apply(state, events, *g, target),
-        Card::Taunt(g)        => taunt::apply(state, events, *g, target),
-        Card::Thunderclap(g)  => thunderclap::apply(state, events, *g),
-        Card::PommelStrike(g) => pommel_strike::apply(state, events, *g, target, rng),
-        Card::ShrugItOff(g)   => shrug_it_off::apply(state, events, *g, rng),
-        Card::Breakthrough(g) => breakthrough::apply(state, events, *g),
-        Card::BloodWall(g)    => blood_wall::apply(state, events, *g),
+        Card::SpotWeakness(g)   => spot_weakness::apply(state, events, *g, target),
+        Card::TwinStrike(g)     => twin_strike::apply(state, events, *g, target),
+        Card::Bludgeon(g)       => bludgeon::apply(state, events, *g, target),
+        Card::Impervious(g)     => impervious::apply(state, events, *g, target),
+        Card::SeeingRed(g)      => seeing_red::apply(state, events, *g),
+        Card::Pummel(g)         => pummel::apply(state, events, *g, target),
+        Card::Uppercut(g)       => uppercut::apply(state, events, *g, target),
+        Card::TrueGrit(g)       => true_grit::apply(state, events, *g, rng),
+        Card::Thunderclap(g)    => thunderclap::apply(state, events, *g),
+        Card::PommelStrike(g)   => pommel_strike::apply(state, events, *g, target, rng),
+        Card::ShrugItOff(g)     => shrug_it_off::apply(state, events, *g, rng),
+        Card::RecklessCharge(g) => reckless_charge::apply(state, events, *g, target, rng),
+        Card::Entrench(g)       => entrench::apply(state, events, *g),
         Card::Bloodletting(g) => bloodletting::apply(state, events, *g),
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
@@ -312,11 +312,11 @@ pub fn reward_pool() -> Vec<Card> {
     vec![
         Card::Bash(Base), Card::Clothesline(Base), Card::Inflame(Base), Card::DeadlyPoison(Base),
         Card::Cleave(Base), Card::IronWave(Base), Card::TwinStrike(Base), Card::Bludgeon(Base),
-        Card::Impervious(Base), Card::NotYet(Base), Card::Mangle(Base), Card::Uppercut(Base),
-        Card::Taunt(Base), Card::Thunderclap(Base),
+        Card::Impervious(Base), Card::SeeingRed(Base), Card::Pummel(Base), Card::Uppercut(Base),
+        Card::SpotWeakness(Base), Card::Thunderclap(Base),
         Card::PommelStrike(Base), Card::ShrugItOff(Base),
-        Card::Breakthrough(Base), Card::BloodWall(Base), Card::Bloodletting(Base), Card::Hemokinesis(Base),
-        Card::BodySlam(Base), Card::Anger(Base),
+        Card::RecklessCharge(Base), Card::TrueGrit(Base), Card::Bloodletting(Base), Card::Hemokinesis(Base),
+        Card::BodySlam(Base), Card::Anger(Base), Card::Entrench(Base),
     ]
 }
 

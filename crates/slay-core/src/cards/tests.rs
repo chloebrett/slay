@@ -355,20 +355,30 @@
         assert_eq!(state.player.block, Block(7));
     }
 
-    // --- Tremble ---
+    // --- Spot Weakness ---
 
     #[test]
-    fn tremble_applies_3_vulnerable_to_enemy() {
-        let state = combat_with_hand(vec![Card::Tremble(Grade::Base)]);
+    fn spot_weakness_grants_3_strength_when_enemy_intends_to_attack() {
+        let state = combat_with_hand(vec![Card::SpotWeakness(Grade::Base)]);
+        // default enemy intent is Attack
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&3));
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&3));
     }
 
     #[test]
-    fn tremble_plus_applies_4_vulnerable() {
-        let state = combat_with_hand(vec![Card::Tremble(Grade::Plus)]);
+    fn spot_weakness_grants_no_strength_when_enemy_defends() {
+        let mut state = combat_with_hand(vec![Card::SpotWeakness(Grade::Base)]);
+        use crate::enemies::Move;
+        state.enemies[0].move_ = Move::LouseBlock;
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&4));
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), None);
+    }
+
+    #[test]
+    fn spot_weakness_plus_grants_4_strength() {
+        let state = combat_with_hand(vec![Card::SpotWeakness(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&4));
     }
 
     // --- Twin Strike ---
@@ -422,53 +432,50 @@
         assert!(state.player.discard_pile.is_empty());
     }
 
-    // --- Not Yet ---
+    // --- Seeing Red ---
 
     #[test]
-    fn not_yet_heals_10_hp() {
-        let mut state = combat_with_hand(vec![Card::NotYet(Grade::Base)]);
-        state.player.hp = Hp(50);
+    fn seeing_red_gains_2_energy() {
+        let mut state = combat_with_hand(vec![Card::SeeingRed(Grade::Base)]);
+        state.player.energy = Energy(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(60));
+        assert_eq!(state.player.energy, Energy(2)); // spent 1 to play, gained 2
     }
 
     #[test]
-    fn not_yet_cannot_overheal() {
-        let state = combat_with_hand(vec![Card::NotYet(Grade::Base)]); // already at 80/80
+    fn seeing_red_goes_to_exhaust_pile() {
+        let state = combat_with_hand(vec![Card::SeeingRed(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(80));
+        assert_eq!(state.player.exhaust_pile, vec![Card::SeeingRed(Grade::Base)]);
+        assert!(state.player.discard_pile.is_empty());
     }
 
     #[test]
-    fn not_yet_plus_heals_13_hp() {
-        let mut state = combat_with_hand(vec![Card::NotYet(Grade::Plus)]);
-        state.player.hp = Hp(50);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(63));
+    fn seeing_red_plus_costs_0_energy() {
+        assert_eq!(Card::SeeingRed(Grade::Plus).energy_cost(), Energy(0));
     }
 
-    // --- Mangle ---
+    // --- Pummel ---
 
     #[test]
-    fn mangle_deals_15_damage() {
-        let state = combat_with_hand(vec![Card::Mangle(Grade::Base)]);
+    fn pummel_deals_2_damage_4_times() {
+        let state = combat_with_hand(vec![Card::Pummel(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(5));
+        assert_eq!(state.enemies[0].hp, Hp(12));
     }
 
     #[test]
-    fn mangle_reduces_enemy_strength_by_10() {
-        let state = combat_with_hand(vec![Card::Mangle(Grade::Base)]);
+    fn pummel_plus_deals_2_damage_5_times() {
+        let state = combat_with_hand(vec![Card::Pummel(Grade::Plus)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength), Some(&-10));
+        assert_eq!(state.enemies[0].hp, Hp(10));
     }
 
     #[test]
-    fn mangle_plus_deals_20_damage() {
-        let mut state = combat_with_hand(vec![Card::Mangle(Grade::Plus)]);
-        state.enemies[0].hp = Hp(50);
+    fn pummel_goes_to_exhaust_pile() {
+        let state = combat_with_hand(vec![Card::Pummel(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(30));
+        assert_eq!(state.player.exhaust_pile, vec![Card::Pummel(Grade::Base)]);
     }
 
     // --- Uppercut ---
@@ -496,22 +503,34 @@
         assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
     }
 
-    // --- Taunt ---
+    // --- True Grit ---
 
     #[test]
-    fn taunt_grants_7_block_and_applies_1_vulnerable() {
-        let state = combat_with_hand(vec![Card::Taunt(Grade::Base)]);
+    fn true_grit_grants_7_block() {
+        let state = combat_with_hand(vec![Card::TrueGrit(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(7));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&1));
     }
 
     #[test]
-    fn taunt_plus_grants_8_block_and_2_vulnerable() {
-        let state = combat_with_hand(vec![Card::Taunt(Grade::Plus)]);
+    fn true_grit_exhausts_a_card_from_hand() {
+        let state = combat_with_hand(vec![Card::TrueGrit(Grade::Base), Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(8));
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable), Some(&2));
+        assert_eq!(state.player.exhaust_pile, vec![Card::Strike(Grade::Base)]);
+    }
+
+    #[test]
+    fn true_grit_does_not_exhaust_from_hand_when_hand_is_empty() {
+        let state = combat_with_hand(vec![Card::TrueGrit(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.is_empty());
+    }
+
+    #[test]
+    fn true_grit_plus_grants_9_block() {
+        let state = combat_with_hand(vec![Card::TrueGrit(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(9));
     }
 
     // --- Thunderclap ---
@@ -699,59 +718,54 @@
         assert_eq!(state.player.discard_pile.iter().filter(|c| **c == Card::Anger(Grade::Plus)).count(), 2);
     }
 
-    // --- Breakthrough ---
+    // --- Reckless Charge ---
 
     #[test]
-    fn breakthrough_deals_9_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::Breakthrough(Grade::Base)]);
+    fn reckless_charge_deals_7_damage() {
+        let state = combat_with_hand(vec![Card::RecklessCharge(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(11));
-        assert_eq!(state.enemies[1].hp, Hp(11));
+        assert_eq!(state.enemies[0].hp, Hp(13));
     }
 
     #[test]
-    fn breakthrough_costs_1_hp() {
-        let state = combat_with_hand(vec![Card::Breakthrough(Grade::Base)]);
+    fn reckless_charge_costs_0_energy() {
+        assert_eq!(Card::RecklessCharge(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn reckless_charge_shuffles_dazed_into_draw_pile() {
+        let state = combat_with_hand(vec![Card::RecklessCharge(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(79));
+        assert!(state.player.draw_pile.contains(&Card::Dazed) || state.player.discard_pile.contains(&Card::Dazed));
     }
 
     #[test]
-    fn breakthrough_emits_player_self_damaged_event() {
-        let state = combat_with_hand(vec![Card::Breakthrough(Grade::Base)]);
-        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::PlayerSelfDamaged { amount: 1 }));
-    }
-
-    #[test]
-    fn breakthrough_plus_deals_13_damage_to_all_enemies() {
-        let state = combat_with_two_enemies(vec![Card::Breakthrough(Grade::Plus)]);
+    fn reckless_charge_plus_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::RecklessCharge(Grade::Plus)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(7));
-        assert_eq!(state.enemies[1].hp, Hp(7));
+        assert_eq!(state.enemies[0].hp, Hp(10));
     }
 
-    // --- Blood Wall ---
+    // --- Entrench ---
 
     #[test]
-    fn blood_wall_grants_16_block() {
-        let state = combat_with_hand(vec![Card::BloodWall(Grade::Base)]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.block, Block(16));
-    }
-
-    #[test]
-    fn blood_wall_costs_2_hp() {
-        let state = combat_with_hand(vec![Card::BloodWall(Grade::Base)]);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(78));
-    }
-
-    #[test]
-    fn blood_wall_plus_grants_20_block() {
-        let state = combat_with_hand(vec![Card::BloodWall(Grade::Plus)]);
+    fn entrench_doubles_current_block() {
+        let mut state = combat_with_hand(vec![Card::Entrench(Grade::Base)]);
+        state.player.block = Block(10);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(20));
+    }
+
+    #[test]
+    fn entrench_with_no_block_stays_zero() {
+        let state = combat_with_hand(vec![Card::Entrench(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    #[test]
+    fn entrench_plus_costs_1_energy() {
+        assert_eq!(Card::Entrench(Grade::Plus).energy_cost(), Energy(1));
     }
 
     // --- Bloodletting ---
