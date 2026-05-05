@@ -1,7 +1,9 @@
 mod anger;
 mod bash;
 mod clumsy;
+mod decay;
 mod injury;
+mod regret;
 mod bloodletting;
 mod body_slam;
 mod bludgeon;
@@ -62,6 +64,8 @@ pub enum Card {
     Dazed,
     Injury,
     Clumsy,
+    Decay,
+    Regret,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -122,11 +126,13 @@ impl Card {
             Card::Dazed           => dazed::def(),
             Card::Injury          => injury::def(),
             Card::Clumsy          => clumsy::def(),
+            Card::Decay           => decay::def(),
+            Card::Regret          => regret::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy)
+        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret)
     }
 
     pub fn is_ethereal(&self) -> bool {
@@ -146,7 +152,7 @@ impl Card {
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy => None,
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => None,
         }
     }
 
@@ -177,7 +183,7 @@ impl Card {
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy => unreachable!(),
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => unreachable!(),
         }
     }
 
@@ -244,6 +250,8 @@ impl Card {
             Card::Dazed           => dazed::id(),
             Card::Injury          => injury::id(),
             Card::Clumsy          => clumsy::id(),
+            Card::Decay           => decay::id(),
+            Card::Regret          => regret::id(),
         }
     }
 
@@ -279,6 +287,8 @@ impl Card {
             Card::Dazed,
             Card::Injury,
             Card::Clumsy,
+            Card::Decay,
+            Card::Regret,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -319,7 +329,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
-        Card::Dazed | Card::Injury | Card::Clumsy => {} // unplayable — guarded before reaching apply()
+        Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret => {} // unplayable
     }
 }
 

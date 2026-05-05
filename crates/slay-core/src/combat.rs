@@ -274,6 +274,29 @@ pub(crate) fn apply_combat_command(
             let (ethereal, normal): (Vec<_>, Vec<_>) = state.player.hand.drain(..).partition(|c| c.is_ethereal());
             state.player.exhaust_pile.extend(ethereal);
             state.player.discard_pile.extend(normal);
+            let decay_count = state.player.draw_pile.iter()
+                .chain(state.player.discard_pile.iter())
+                .filter(|c| matches!(c, crate::cards::Card::Decay))
+                .count();
+            let regret_count = state.player.draw_pile.iter()
+                .chain(state.player.discard_pile.iter())
+                .filter(|c| matches!(c, crate::cards::Card::Regret))
+                .count();
+            for _ in 0..decay_count {
+                let dealt = deal_damage(2, &mut state.player.hp, &mut state.player.block);
+                events.push(Event::PlayerAttacked { raw: 2, damage: dealt });
+                if state.player.hp <= Hp(0) {
+                    state.phase = CombatPhase::Defeat;
+                    return Ok((state, events));
+                }
+            }
+            for _ in 0..regret_count {
+                damage_player(&mut state, &mut events, 1);
+                if state.player.hp <= Hp(0) {
+                    state.phase = CombatPhase::Defeat;
+                    return Ok((state, events));
+                }
+            }
             tick_statuses(&mut state.player.statuses);
             for i in 0..state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { continue; }

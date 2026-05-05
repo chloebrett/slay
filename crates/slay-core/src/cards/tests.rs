@@ -925,3 +925,83 @@
         assert!(state.player.discard_pile.contains(&Card::Strike(Grade::Base)));
         assert!(!state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
     }
+
+    // --- Decay ---
+
+    #[test]
+    fn decay_card_type_is_curse() {
+        assert_eq!(Card::Decay.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn decay_is_not_playable() {
+        assert!(!Card::Decay.is_playable());
+    }
+
+    #[test]
+    fn decay_id_is_decay_string() {
+        assert_eq!(Card::Decay.id(), "decay");
+    }
+
+    #[test]
+    fn decay_in_hand_deals_2_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::Decay]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78));
+    }
+
+    #[test]
+    fn decay_in_draw_pile_deals_2_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile.push(Card::Decay);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78));
+    }
+
+    #[test]
+    fn decay_damage_is_blockable() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![Card::Decay]);
+        state.player.block = Block(5);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+        assert_eq!(state.player.block, Block(3));
+    }
+
+    #[test]
+    fn two_decays_deal_4_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![Card::Decay]);
+        state.player.draw_pile.push(Card::Decay);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(76));
+    }
+
+    // --- Regret ---
+
+    #[test]
+    fn regret_card_type_is_curse() {
+        assert_eq!(Card::Regret.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn regret_is_not_playable() {
+        assert!(!Card::Regret.is_playable());
+    }
+
+    #[test]
+    fn regret_id_is_regret_string() {
+        assert_eq!(Card::Regret.id(), "regret");
+    }
+
+    #[test]
+    fn regret_deals_1_damage_bypassing_block_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![Card::Regret]);
+        state.player.block = Block(10);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(79));
+        assert_eq!(state.player.block, Block(10));
+    }
