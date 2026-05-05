@@ -10,7 +10,7 @@ use ratatui::{
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatState, GameState, MapNode, MapState, RestSiteState, ShopState,
-    StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
 
@@ -133,6 +133,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
         GameState::Map(m) => Some(&m.player),
         GameState::Combat { state, .. } => Some(&state.player),
         GameState::RestSite(rs) => Some(&rs.player),
+        GameState::TreasureRoom(tr) => Some(&tr.player),
         GameState::CardReward(cr) => Some(&cr.player),
         GameState::Shop(shop) => Some(&shop.player),
         GameState::GameOver { .. } => None,
@@ -164,6 +165,7 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
         GameState::Map(map) => render_map(f, area, map),
         GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log),
         GameState::RestSite(rs) => render_rest(f, area, rs),
+        GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
         GameState::Shop(shop) => render_shop(f, area, shop),
         GameState::GameOver { victory } => render_game_over(f, area, *victory),
@@ -228,7 +230,23 @@ fn node_label(node: &MapNode) -> (&'static str, &'static str) {
         MapNode::RestSite  => ("🔥", "Rest Site"),
         MapNode::Boss(_)   => ("💀", "Boss"),
         MapNode::Merchant  => ("🛒", "Shop"),
+        MapNode::Treasure  => ("📦", "Treasure"),
     }
+}
+
+fn render_treasure(f: &mut Frame, area: Rect, tr: &TreasureRoomState) {
+    let lines = vec![
+        Line::from("📦 Treasure Room"),
+        Line::from(""),
+        Line::from("You found a chest containing:"),
+        Line::from(format!("  ✨ {}", tr.relic.name())),
+        Line::from(""),
+        Line::from("[leave / take] Take the relic and leave"),
+    ];
+    let para = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title(" Treasure "))
+        .wrap(Wrap { trim: false });
+    f.render_widget(para, area);
 }
 
 fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<String>) {

@@ -314,7 +314,8 @@ pub(crate) fn apply_combat_command(
         | Command::LeaveShop
         | Command::BuyCard(_)
         | Command::BuyRelic
-        | Command::BuyPotion => {
+        | Command::BuyPotion
+        | Command::LeaveTreasure => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {

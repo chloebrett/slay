@@ -38,6 +38,7 @@ pub enum Command {
     BuyCard(usize),
     BuyRelic,
     BuyPotion,
+    LeaveTreasure,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,6 +71,7 @@ pub enum MapNode {
     RestSite,
     Boss(Vec<EnemyKind>),
     Merchant,
+    Treasure,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -94,6 +96,15 @@ pub struct RestSiteState {
     pub floor: usize,
     pub graph: MapGraph,
     pub available_cols: Vec<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TreasureRoomState {
+    pub player: Player,
+    pub floor: usize,
+    pub graph: MapGraph,
+    pub available_cols: Vec<usize>,
+    pub relic: Relic,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -126,6 +137,7 @@ pub enum GameState {
     Map(MapState),
     Combat { state: CombatState, floor: usize, is_boss: bool, graph: MapGraph, next_floor_cols: Vec<usize>, scenario: Scenario },
     RestSite(RestSiteState),
+    TreasureRoom(TreasureRoomState),
     CardReward(CardRewardState),
     Shop(ShopState),
     GameOver { victory: bool },
@@ -342,6 +354,15 @@ pub fn apply_command(
                         GameState::Shop(generate_shop(player, floor, graph, next_floor_cols, rng)),
                         Vec::new(),
                     )),
+                    MapNode::Treasure => {
+                        let mut relic_pool = Relic::all();
+                        rng.shuffle(&mut relic_pool);
+                        let relic = relic_pool.into_iter().next().unwrap(); // SAFETY: Relic::all() is non-empty
+                        Ok((
+                            GameState::TreasureRoom(TreasureRoomState { player, floor, graph, available_cols: next_floor_cols, relic }),
+                            Vec::new(),
+                        ))
+                    }
                 }
             }
             Command::SkipFloor => {
@@ -414,7 +435,8 @@ pub fn apply_command(
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
             | Command::SkipFloor | Command::UpgradeCard(_) | Command::LeaveShop
-            | Command::BuyCard(_) | Command::BuyRelic | Command::BuyPotion => {
+            | Command::BuyCard(_) | Command::BuyRelic | Command::BuyPotion
+            | Command::LeaveTreasure => {
                 Err(CommandError::InvalidPhase)
             }
             cmd => {
@@ -490,6 +512,14 @@ pub fn apply_command(
                 let potion = player.potions.remove(slot);
                 Ok((GameState::RestSite(RestSiteState { player, floor, graph, available_cols }),
                     vec![Event::PotionDiscarded { potion }]))
+            }
+            _ => Err(CommandError::InvalidPhase),
+        },
+
+        GameState::TreasureRoom(TreasureRoomState { mut player, floor, graph, available_cols, relic }) => match command {
+            Command::LeaveTreasure => {
+                let events = crate::relics::grant_relic(&mut player, relic, rng);
+                Ok((GameState::Map(MapState { player, floor: floor + 1, graph, available_cols, next_enemies: None, scenario: Scenario::Main }), events))
             }
             _ => Err(CommandError::InvalidPhase),
         },
@@ -2684,5 +2714,72 @@ mod tests {
         // Should draw exactly 5 cards (no bonus)
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hand.len(), 5);
+    }
+
+    // --- treasure room ---
+
+    fn treasure_map_at(floor: usize) -> GameState {
+        let graph = MapGraph {
+            rows: vec![vec![MapNode::Treasure], vec![MapNode::RestSite]],
+            edges: vec![vec![vec![0]], vec![vec![]]],
+        };
+        GameState::Map(MapState {
+            player: make_player(),
+            floor,
+            graph,
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        })
+    }
+
+    #[test]
+    fn choosing_treasure_node_transitions_to_treasure_room() {
+        let (next, _) = apply_command(treasure_map_at(0), Command::ChooseNode(0), &mut rng()).unwrap();
+        assert!(matches!(next, GameState::TreasureRoom(_)));
+    }
+
+    #[test]
+    fn treasure_room_state_contains_relic() {
+        let (next, _) = apply_command(treasure_map_at(0), Command::ChooseNode(0), &mut rng()).unwrap();
+        let GameState::TreasureRoom(tr) = next else { panic!("expected TreasureRoom") };
+        let _relic = tr.relic; // confirm relic field accessible
+    }
+
+    #[test]
+    fn leave_treasure_returns_to_map_at_next_floor() {
+        let (tr_state, _) = apply_command(treasure_map_at(0), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (next, _) = apply_command(tr_state, Command::LeaveTreasure, &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.floor, 1);
+    }
+
+    #[test]
+    fn leave_treasure_grants_relic_to_player() {
+        let state = GameState::TreasureRoom(TreasureRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0],
+            relic: Relic::Anchor,
+        });
+        let (next, _) = apply_command(state, Command::LeaveTreasure, &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(map.player.relics.contains(&Relic::Anchor));
+    }
+
+    #[test]
+    fn non_treasure_commands_rejected_in_treasure_room() {
+        let state = GameState::TreasureRoom(TreasureRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0],
+            relic: Relic::Anchor,
+        });
+        assert_eq!(
+            apply_command(state, Command::EndTurn, &mut rng()),
+            Err(CommandError::InvalidPhase)
+        );
     }
 }

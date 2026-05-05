@@ -3,7 +3,7 @@ use crate::engine::{
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatState, Event, GameState, MapState, RestSiteState, ShopState,
-    StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
 
@@ -78,6 +78,7 @@ fn render(state: &GameState, w: &mut impl Write) {
         GameState::Map(map) => render_map(map, w),
         GameState::Combat { state, .. } => render_combat(state, w),
         GameState::RestSite(rs) => render_rest(rs, w),
+        GameState::TreasureRoom(tr) => render_treasure(tr, w),
         GameState::CardReward(cr) => render_card_reward(cr, w),
         GameState::Shop(shop) => render_shop(shop, w),
         GameState::GameOver { .. } => {}
@@ -124,11 +125,22 @@ fn render_map(map: &MapState, w: &mut impl Write) {
 
 fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
     match node {
-        slay_core::MapNode::Combat(_) => ("⚔️ ", "Combat"),
-        slay_core::MapNode::RestSite  => ("🔥", "Rest Site"),
-        slay_core::MapNode::Boss(_)   => ("💀", "Boss"),
-        slay_core::MapNode::Merchant  => ("🛒", "Shop"),
+        slay_core::MapNode::Combat(_)  => ("⚔️ ", "Combat"),
+        slay_core::MapNode::RestSite   => ("🔥", "Rest Site"),
+        slay_core::MapNode::Boss(_)    => ("💀", "Boss"),
+        slay_core::MapNode::Merchant   => ("🛒", "Shop"),
+        slay_core::MapNode::Treasure   => ("📦", "Treasure"),
     }
+}
+
+fn render_treasure(tr: &TreasureRoomState, w: &mut impl Write) {
+    let _ = writeln!(w, "📦 Treasure Room");
+    let _ = writeln!(w, "❤️  {}/{}", tr.player.hp.0, tr.player.max_hp.0);
+    let _ = writeln!(w);
+    let _ = writeln!(w, "You found a chest containing:");
+    let _ = writeln!(w, "  ✨ {}", tr.relic.name());
+    let _ = writeln!(w);
+    let _ = writeln!(w, "[leave] Take the relic and leave");
 }
 
 fn render_rest(rs: &RestSiteState, w: &mut impl Write) {

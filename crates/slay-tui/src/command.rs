@@ -6,6 +6,7 @@ pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
         GameState::Map(_) => parse_map(&s, debug),
         GameState::Combat { .. } => parse_combat(&s, debug),
         GameState::RestSite(_) => parse_rest(&s),
+        GameState::TreasureRoom(_) => parse_treasure(&s),
         GameState::CardReward(_) => parse_card_reward(&s),
         GameState::Shop(_) => parse_shop(&s),
         GameState::GameOver { .. } => None,
@@ -111,6 +112,13 @@ fn parse_rest(s: &str) -> Option<Command> {
     }
     match s {
         "rest" | "r" => Some(Command::Rest),
+        _ => None,
+    }
+}
+
+fn parse_treasure(s: &str) -> Option<Command> {
+    match s {
+        "leave" | "l" | "take" | "t" => Some(Command::LeaveTreasure),
         _ => None,
     }
 }
