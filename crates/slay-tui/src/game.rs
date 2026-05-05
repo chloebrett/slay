@@ -195,8 +195,8 @@ fn render_shop(shop: &ShopState, w: &mut impl Write) {
     let _ = writeln!(w);
     let _ = writeln!(w, "Relic:");
     match &shop.relic {
-        Some((relic, true))  => { let _ = writeln!(w, "  [r] {} — [sold]", relic.id()); }
-        Some((relic, false)) => { let _ = writeln!(w, "  [r] {} — {}g", relic.id(), RELIC_PRICE); }
+        Some((relic, true))  => { let _ = writeln!(w, "  [r] {} — [sold]", relic.name()); }
+        Some((relic, false)) => { let _ = writeln!(w, "  [r] {} — {}g", relic.name(), RELIC_PRICE); }
         None => { let _ = writeln!(w, "  (none)"); }
     }
     let _ = writeln!(w);

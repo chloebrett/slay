@@ -1,6 +1,8 @@
 use crate::combat::{CombatState, Event};
+use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "cloak-clasp" }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Cloak Clasp" } }
 
 pub(super) fn on_turn_end(state: &mut CombatState, events: &mut Vec<Event>, hand_size_before_discard: usize) {
     let gain = hand_size_before_discard as i32;

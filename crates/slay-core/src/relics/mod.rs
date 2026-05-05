@@ -41,6 +41,11 @@ use crate::combat::{deal_damage, CombatPhase, CombatState, Event, Player};
 use crate::rng::Rng;
 use crate::types::Hp;
 
+#[derive(Debug, Clone, Copy)]
+pub struct RelicDef {
+    pub name: &'static str,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Relic {
     // Tier 1 — pickup effects only
@@ -152,6 +157,52 @@ impl Relic {
 
     pub fn from_id(s: &str) -> Option<Relic> {
         Self::all().into_iter().find(|r| r.id() == s)
+    }
+
+    pub fn def(&self) -> RelicDef {
+        match self {
+            Relic::Strawberry       => strawberry::def(),
+            Relic::Pear             => pear::def(),
+            Relic::Mango            => mango::def(),
+            Relic::OldCoin          => old_coin::def(),
+            Relic::Whetstone        => whetstone::def(),
+            Relic::WarPaint         => war_paint::def(),
+            Relic::BurningBlood     => burning_blood::def(),
+            Relic::BlackBlood       => black_blood::def(),
+            Relic::Anchor           => anchor::def(),
+            Relic::Vajra            => vajra::def(),
+            Relic::Lantern          => lantern::def(),
+            Relic::BloodVial        => blood_vial::def(),
+            Relic::BagOfMarbles     => bag_of_marbles::def(),
+            Relic::RedMask          => red_mask::def(),
+            Relic::FestivePopper    => festive_popper::def(),
+            Relic::Pantograph       => pantograph::def(),
+            Relic::BagOfPreparation => bag_of_preparation::def(),
+            Relic::MercuryHourglass => mercury_hourglass::def(),
+            Relic::CaptainsWheel    => captains_wheel::def(),
+            Relic::Chandelier       => chandelier::def(),
+            Relic::Candelabra       => candelabra::def(),
+            Relic::HornCleat        => horn_cleat::def(),
+            Relic::HappyFlower      => happy_flower::def(),
+            Relic::Pendulum         => pendulum::def(),
+            Relic::StoneCalendar    => stone_calendar::def(),
+            Relic::Orichalcum       => orichalcum::def(),
+            Relic::CloakClasp       => cloak_clasp::def(),
+            Relic::RegalPillow      => regal_pillow::def(),
+            Relic::Nunchaku         => nunchaku::def(),
+            Relic::OrnamentalFan    => ornamental_fan::def(),
+            Relic::Kunai            => kunai::def(),
+            Relic::Shuriken         => shuriken::def(),
+            Relic::Kusarigama       => kusarigama::def(),
+            Relic::LetterOpener     => letter_opener::def(),
+            Relic::TuningFork       => tuning_fork::def(),
+            Relic::GremlinHorn      => gremlin_horn::def(),
+            Relic::Pocketwatch      => pocketwatch::def(),
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.def().name
     }
 }
 

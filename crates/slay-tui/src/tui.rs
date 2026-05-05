@@ -439,10 +439,10 @@ fn render_shop(f: &mut Frame, area: Rect, shop: &ShopState) {
     items.push(ListItem::new(Line::styled("Relic:", Style::default().add_modifier(Modifier::BOLD))));
     match &shop.relic {
         Some((relic, true)) => items.push(ListItem::new(Line::styled(
-            format!("[r]  {} — [sold]", relic.id()), Style::default().fg(Color::DarkGray),
+            format!("[r]  {} — [sold]", relic.name()), Style::default().fg(Color::DarkGray),
         ))),
         Some((relic, false)) => items.push(ListItem::new(Line::raw(
-            format!("[r]  {} — {}g", relic.id(), RELIC_PRICE),
+            format!("[r]  {} — {}g", relic.name(), RELIC_PRICE),
         ))),
         None => items.push(ListItem::new(Line::styled("  (none)", Style::default().fg(Color::DarkGray)))),
     }

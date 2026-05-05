@@ -894,6 +894,23 @@ fn from_id_returns_none_for_unknown_id() {
     assert_eq!(Relic::from_id("not-a-relic"), None);
 }
 
+#[test]
+fn relic_name_is_human_readable() {
+    assert_eq!(Relic::BurningBlood.name(), "Burning Blood");
+    assert_eq!(Relic::BlackBlood.name(), "Black Blood");
+    assert_eq!(Relic::CaptainsWheel.name(), "Captain's Wheel");
+    assert_eq!(Relic::OldCoin.name(), "Old Coin");
+    assert_eq!(Relic::BagOfMarbles.name(), "Bag of Marbles");
+    assert_eq!(Relic::GremlinHorn.name(), "Gremlin Horn");
+    assert_eq!(Relic::MercuryHourglass.name(), "Mercury Hourglass");
+    for relic in Relic::all() {
+        let name = relic.name();
+        assert!(!name.contains('-'), "relic name contains hyphen: {name}");
+        let first = name.chars().next().unwrap();
+        assert!(first.is_uppercase(), "relic name not capitalised: {name}");
+    }
+}
+
 // --- Tier 4: Nunchaku ---
 
 #[test]
