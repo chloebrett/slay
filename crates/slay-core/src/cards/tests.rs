@@ -861,3 +861,67 @@
         let id = Card::Injury.id();
         assert_eq!(Card::from_id(id), Some(Card::Injury));
     }
+
+    // --- Dazed (ethereal) ---
+
+    #[test]
+    fn dazed_card_type_is_status() {
+        assert_eq!(Card::Dazed.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn dazed_is_ethereal() {
+        assert!(Card::Dazed.is_ethereal());
+    }
+
+    #[test]
+    fn dazed_in_hand_exhausts_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command, CombatPhase};
+        let mut state = combat_with_hand(vec![Card::Dazed]);
+        state.phase = CombatPhase::PlayerTurn;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Dazed));
+        assert!(!state.player.discard_pile.contains(&Card::Dazed));
+    }
+
+    // --- Clumsy ---
+
+    #[test]
+    fn clumsy_card_type_is_status() {
+        assert_eq!(Card::Clumsy.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn clumsy_is_not_playable() {
+        assert!(!Card::Clumsy.is_playable());
+    }
+
+    #[test]
+    fn clumsy_is_ethereal() {
+        assert!(Card::Clumsy.is_ethereal());
+    }
+
+    #[test]
+    fn clumsy_id_is_clumsy_string() {
+        assert_eq!(Card::Clumsy.id(), "clumsy");
+    }
+
+    #[test]
+    fn clumsy_in_hand_exhausts_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command, CombatPhase};
+        let mut state = combat_with_hand(vec![Card::Clumsy]);
+        state.phase = CombatPhase::PlayerTurn;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Clumsy));
+        assert!(!state.player.discard_pile.contains(&Card::Clumsy));
+    }
+
+    #[test]
+    fn non_ethereal_card_in_hand_discards_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command, CombatPhase};
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.phase = CombatPhase::PlayerTurn;
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(state.player.discard_pile.contains(&Card::Strike(Grade::Base)));
+        assert!(!state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+    }

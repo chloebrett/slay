@@ -1,5 +1,6 @@
 mod anger;
 mod bash;
+mod clumsy;
 mod injury;
 mod bloodletting;
 mod body_slam;
@@ -60,6 +61,7 @@ pub enum Card {
     Anger(Grade),
     Dazed,
     Injury,
+    Clumsy,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -119,15 +121,20 @@ impl Card {
             Card::Anger(g)        => anger::def(*g),
             Card::Dazed           => dazed::def(),
             Card::Injury          => injury::def(),
+            Card::Clumsy          => clumsy::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed | Card::Injury)
+        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy)
+    }
+
+    pub fn is_ethereal(&self) -> bool {
+        matches!(self, Card::Dazed | Card::Clumsy)
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Dazed)
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -139,7 +146,7 @@ impl Card {
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
-            Card::Disarm | Card::Dazed | Card::Injury => None,
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy => None,
         }
     }
 
@@ -170,7 +177,7 @@ impl Card {
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
-            Card::Disarm | Card::Dazed | Card::Injury => unreachable!(),
+            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy => unreachable!(),
         }
     }
 
@@ -236,6 +243,7 @@ impl Card {
             Card::Anger(g)        => anger::id(*g),
             Card::Dazed           => dazed::id(),
             Card::Injury          => injury::id(),
+            Card::Clumsy          => clumsy::id(),
         }
     }
 
@@ -270,6 +278,7 @@ impl Card {
             Card::Anger(Base),        Card::Anger(Plus),
             Card::Dazed,
             Card::Injury,
+            Card::Clumsy,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -310,7 +319,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
-        Card::Dazed | Card::Injury => {} // unplayable — guarded before reaching apply()
+        Card::Dazed | Card::Injury | Card::Clumsy => {} // unplayable — guarded before reaching apply()
     }
 }
 
