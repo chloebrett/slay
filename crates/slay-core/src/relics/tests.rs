@@ -894,6 +894,42 @@ fn from_id_returns_none_for_unknown_id() {
     assert_eq!(Relic::from_id("not-a-relic"), None);
 }
 
+// --- Damage helper edge cases ---
+
+#[test]
+fn damage_all_enemies_skips_already_dead_enemies() {
+    let mut state = combat_with_two_enemies(vec![]);
+    state.enemies[0].hp = Hp(0); // pre-killed
+    state.player.relics.push(Relic::MercuryHourglass);
+    let mut events = vec![];
+    apply_turn_start_relics(&mut state, &mut events, &mut rng());
+    assert_eq!(state.enemies[0].hp, Hp(0));
+    assert_eq!(events.iter().filter(|e| matches!(e, Event::EnemyAttacked { .. })).count(), 1);
+}
+
+#[test]
+fn damage_random_living_enemy_skips_dead_enemies() {
+    let mut state = combat_with_two_enemies(vec![]);
+    state.enemies[0].hp = Hp(0); // pre-killed
+    state.player.relics.push(Relic::Kusarigama);
+    state.attacks_this_turn = 3;
+    let mut events = vec![];
+    apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+    assert_eq!(state.enemies[0].hp, Hp(0));
+    assert_eq!(state.enemies[1].hp, Hp(14)); // 20 - 6
+}
+
+#[test]
+fn damage_random_living_enemy_does_not_emit_enemy_died_when_enemy_survives() {
+    let mut state = combat_with_hand(vec![]);
+    state.player.relics.push(Relic::Kusarigama);
+    state.attacks_this_turn = 3;
+    let mut events = vec![];
+    apply_card_play_relics(&mut state, &mut events, CardType::Attack, &mut rng());
+    assert_eq!(state.enemies[0].hp, Hp(14)); // survived
+    assert!(!events.contains(&Event::EnemyDied));
+}
+
 #[test]
 fn relic_name_is_human_readable() {
     assert_eq!(Relic::BurningBlood.name(), "Burning Blood");
