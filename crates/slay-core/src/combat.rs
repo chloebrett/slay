@@ -1,4 +1,4 @@
-use crate::cards::Card;
+use crate::cards::{Card, EndOfTurnHook};
 use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
 use crate::potions::Potion;
 use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
@@ -271,31 +271,14 @@ pub(crate) fn apply_combat_command(
                 return Err(CommandError::InvalidPhase);
             }
             events.push(Event::TurnEnded);
+            let hooks: Vec<EndOfTurnHook> = state.player.hand.iter()
+                .filter_map(|c| c.end_of_turn_hook())
+                .collect();
             let (ethereal, normal): (Vec<_>, Vec<_>) = state.player.hand.drain(..).partition(|c| c.is_ethereal());
             state.player.exhaust_pile.extend(ethereal);
             state.player.discard_pile.extend(normal);
-            let decay_count = state.player.draw_pile.iter()
-                .chain(state.player.discard_pile.iter())
-                .filter(|c| matches!(c, crate::cards::Card::Decay))
-                .count();
-            let regret_count = state.player.draw_pile.iter()
-                .chain(state.player.discard_pile.iter())
-                .filter(|c| matches!(c, crate::cards::Card::Regret))
-                .count();
-            for _ in 0..decay_count {
-                let dealt = deal_damage(2, &mut state.player.hp, &mut state.player.block);
-                events.push(Event::PlayerAttacked { raw: 2, damage: dealt });
-                if state.player.hp <= Hp(0) {
-                    state.phase = CombatPhase::Defeat;
-                    return Ok((state, events));
-                }
-            }
-            for _ in 0..regret_count {
-                damage_player(&mut state, &mut events, 1);
-                if state.player.hp <= Hp(0) {
-                    state.phase = CombatPhase::Defeat;
-                    return Ok((state, events));
-                }
+            if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
+                return Ok((state, events));
             }
             tick_statuses(&mut state.player.statuses);
             for i in 0..state.enemies.len() {
@@ -440,6 +423,25 @@ pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
 pub(crate) fn damage_player(state: &mut CombatState, events: &mut Vec<Event>, amount: i32) {
     state.player.hp.0 = (state.player.hp.0 - amount).max(0);
     events.push(Event::PlayerSelfDamaged { amount });
+}
+
+fn apply_end_of_turn_card_hooks(hooks: &[EndOfTurnHook], state: &mut CombatState, events: &mut Vec<Event>) -> bool {
+    for &hook in hooks {
+        match hook {
+            EndOfTurnHook::BlockableDamage(amount) => {
+                let dealt = deal_damage(amount, &mut state.player.hp, &mut state.player.block);
+                events.push(Event::PlayerAttacked { raw: amount, damage: dealt });
+            }
+            EndOfTurnHook::DirectHpLoss(amount) => {
+                damage_player(state, events, amount);
+            }
+        }
+        if state.player.hp <= Hp(0) {
+            state.phase = CombatPhase::Defeat;
+            return true;
+        }
+    }
+    false
 }
 
 fn apply_potion(

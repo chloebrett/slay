@@ -6,3 +6,7 @@ pub(super) fn def() -> CardDef {
 }
 
 pub(super) fn id() -> &'static str { "decay" }
+
+pub(super) fn end_of_turn_hook() -> super::EndOfTurnHook {
+    super::EndOfTurnHook::BlockableDamage(2)
+}

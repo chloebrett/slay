@@ -952,12 +952,12 @@
     }
 
     #[test]
-    fn decay_in_draw_pile_deals_2_damage_at_end_of_turn() {
+    fn decay_in_draw_pile_does_not_deal_damage_at_end_of_turn() {
         use crate::combat::{combat_with_hand, apply_combat_command};
         let mut state = combat_with_hand(vec![]);
         state.player.draw_pile.push(Card::Decay);
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(78));
+        assert_eq!(state.player.hp, Hp(80));
     }
 
     #[test]
@@ -971,10 +971,9 @@
     }
 
     #[test]
-    fn two_decays_deal_4_damage_at_end_of_turn() {
+    fn two_decays_in_hand_deal_4_damage_at_end_of_turn() {
         use crate::combat::{combat_with_hand, apply_combat_command};
-        let mut state = combat_with_hand(vec![Card::Decay]);
-        state.player.draw_pile.push(Card::Decay);
+        let state = combat_with_hand(vec![Card::Decay, Card::Decay]);
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(76));
     }

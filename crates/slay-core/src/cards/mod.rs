@@ -81,6 +81,12 @@ pub enum CardType {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub enum EndOfTurnHook {
+    BlockableDamage(i32),
+    DirectHpLoss(i32),
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum CardDescription {
     Static(&'static str),
     WithDamage { template: &'static str, base: i32 },
@@ -137,6 +143,14 @@ impl Card {
 
     pub fn is_ethereal(&self) -> bool {
         matches!(self, Card::Dazed | Card::Clumsy)
+    }
+
+    pub fn end_of_turn_hook(&self) -> Option<EndOfTurnHook> {
+        match self {
+            Card::Decay  => Some(decay::end_of_turn_hook()),
+            Card::Regret => Some(regret::end_of_turn_hook()),
+            _ => None,
+        }
     }
 
     pub fn exhausts(&self) -> bool {
