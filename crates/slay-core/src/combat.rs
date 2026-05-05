@@ -89,7 +89,7 @@ impl CombatState {
             relics: Vec::new(),
             potions: Vec::new(),
         };
-        Self::from_player(player, vec![EnemyKind::Louse], rng)
+        Self::from_player(player, vec![EnemyKind::RedLouse], rng)
     }
 
     pub fn from_player(player: Player, enemy_kinds: Vec<EnemyKind>, rng: &mut impl Rng) -> Self {
@@ -499,11 +499,11 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             potions: Vec::new(),
         },
         enemies: vec![Enemy {
-            kind: EnemyKind::Louse,
+            kind: EnemyKind::RedLouse,
             hp: Hp(20),
             max_hp: Hp(20),
             block: Block(0),
-            move_: Move::LouseBite,
+            move_: Move::RedLouseBite,
             last_move: None,
             statuses: StatusMap::new(),
         }],
@@ -521,11 +521,11 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
 #[cfg(test)]
 pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
     let louse = || Enemy {
-        kind: EnemyKind::Louse,
+        kind: EnemyKind::RedLouse,
         hp: Hp(20),
         max_hp: Hp(20),
         block: Block(0),
-        move_: Move::LouseBite,
+        move_: Move::RedLouseBite,
         last_move: None,
         statuses: StatusMap::new(),
     };
@@ -703,17 +703,17 @@ mod tests {
     // --- Enemy attack (full turn cycle) ---
 
     #[test]
-    fn full_turn_cycle_causes_enemy_to_attack_for_8() {
+    fn full_turn_cycle_causes_enemy_to_attack_for_6() {
         let state = combat_with_hand(Vec::new());
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(72));
+        assert_eq!(state.player.hp, Hp(74));
     }
 
     #[test]
     fn full_turn_cycle_emits_enemy_attacked_event() {
         let state = combat_with_hand(Vec::new());
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
-        assert!(events.contains(&Event::EnemyAttacked { raw: 8, damage: 8 }));
+        assert!(events.contains(&Event::EnemyAttacked { raw: 6, damage: 6 }));
     }
 
     #[test]
@@ -722,7 +722,7 @@ mod tests {
         state.player.block = Block(5);
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.block, Block(0));
-        assert_eq!(state.player.hp, Hp(77));
+        assert_eq!(state.player.hp, Hp(79)); // 6 damage - 5 block = 1 hp lost
     }
 
     #[test]
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     fn new_combat_sets_initial_attack_intent() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.enemies[0].move_.intent(), Intent::Attack(8));
+        assert_eq!(state.enemies[0].move_.intent(), Intent::Attack(6));
     }
 
     #[test]
@@ -834,23 +834,6 @@ mod tests {
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::PlayerTurn);
-    }
-
-    #[test]
-    fn intent_alternates_to_defend_on_turn_2() {
-        let state = combat_with_hand(Vec::new());
-        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.turn, 2);
-        assert_eq!(state.enemies[0].move_.intent(), Intent::Defend(5));
-    }
-
-    #[test]
-    fn intent_alternates_back_to_attack_on_turn_3() {
-        let state = combat_with_hand(Vec::new());
-        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.turn, 3);
-        assert_eq!(state.enemies[0].move_.intent(), Intent::Attack(8));
     }
 
     #[test]
@@ -1035,7 +1018,7 @@ mod tests {
     fn intent_revealed_event_fires_at_turn_start() {
         let state = combat_with_hand(Vec::new());
         let (_, events) = end_turn_full(state, &mut rng()).unwrap();
-        assert!(events.contains(&Event::IntentRevealed { intent: Intent::Defend(5) }));
+        assert!(events.contains(&Event::IntentRevealed { intent: Intent::Attack(6) }));
     }
 
     // --- Phase 8: targeting ---
@@ -1068,7 +1051,7 @@ mod tests {
         let mut state = combat_with_two_enemies(Vec::new());
         state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(64)); // 80 - 8 - 8
+        assert_eq!(state.player.hp, Hp(68)); // 80 - 6 - 6
     }
 
     #[test]
@@ -1077,7 +1060,7 @@ mod tests {
         state.enemies[0].hp = Hp(0); // first enemy already dead
         state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        assert_eq!(state.player.hp, Hp(72)); // only one attack (8 dmg)
+        assert_eq!(state.player.hp, Hp(74)); // only one attack (6 dmg)
     }
 
     #[test]
@@ -1101,7 +1084,7 @@ mod tests {
     #[test]
     fn effective_intent_includes_enemy_strength() {
         let mut enemy = Enemy {
-            kind: EnemyKind::Louse,
+            kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
             last_move: None,
@@ -1115,7 +1098,7 @@ mod tests {
     #[test]
     fn effective_intent_applies_player_vulnerable() {
         let enemy = Enemy {
-            kind: EnemyKind::Louse,
+            kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
             last_move: None,
@@ -1129,7 +1112,7 @@ mod tests {
     #[test]
     fn effective_intent_applies_enemy_weak() {
         let mut enemy = Enemy {
-            kind: EnemyKind::Louse,
+            kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
             last_move: None,

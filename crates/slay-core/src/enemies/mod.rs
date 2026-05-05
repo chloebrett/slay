@@ -3,7 +3,6 @@ mod cultist;
 mod fungibeast;
 mod green_louse;
 mod jaw_worm;
-mod louse;
 mod red_louse;
 mod red_slaver;
 mod small_acid_slime;
@@ -16,7 +15,6 @@ use crate::types::Hp;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum EnemyKind {
-    Louse,
     Fungibeast,
     Cultist,
     JawWorm,
@@ -141,7 +139,6 @@ pub struct EnemyDef {
 impl EnemyKind {
     pub fn def(&self) -> EnemyDef {
         match self {
-            EnemyKind::Louse           => louse::DEF,
             EnemyKind::Fungibeast      => fungibeast::DEF,
             EnemyKind::Cultist         => cultist::DEF,
             EnemyKind::JawWorm         => jaw_worm::DEF,
@@ -159,7 +156,6 @@ impl EnemyKind {
 
     pub fn id(&self) -> &'static str {
         match self {
-            EnemyKind::Louse           => "louse",
             EnemyKind::Fungibeast      => "fungibeast",
             EnemyKind::Cultist         => "cultist",
             EnemyKind::JawWorm         => "jaw-worm",
@@ -174,7 +170,6 @@ impl EnemyKind {
 
     pub fn from_id(s: &str) -> Option<EnemyKind> {
         match s {
-            "louse"            => Some(EnemyKind::Louse),
             "fungibeast"       => Some(EnemyKind::Fungibeast),
             "cultist"          => Some(EnemyKind::Cultist),
             "jaw-worm"         => Some(EnemyKind::JawWorm),
@@ -191,7 +186,6 @@ impl EnemyKind {
 
 pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Move {
     match kind {
-        EnemyKind::Louse           => louse::next_move(last),
         EnemyKind::Fungibeast      => fungibeast::next_move(last),
         EnemyKind::Cultist         => cultist::next_move(last),
         EnemyKind::JawWorm         => jaw_worm::next_move(last, rng),
@@ -210,26 +204,6 @@ mod tests {
     use crate::rng::NoOpRng;
 
     fn rng() -> NoOpRng { NoOpRng }
-
-    #[test]
-    fn louse_has_20_hp() {
-        assert_eq!(EnemyKind::Louse.max_hp(), Hp(20));
-    }
-
-    #[test]
-    fn louse_bites_first_turn() {
-        assert_eq!(next_move(&EnemyKind::Louse, None, &mut rng()), Move::LouseBite);
-    }
-
-    #[test]
-    fn louse_blocks_after_biting() {
-        assert_eq!(next_move(&EnemyKind::Louse, Some(Move::LouseBite), &mut rng()), Move::LouseBlock);
-    }
-
-    #[test]
-    fn louse_bites_after_blocking() {
-        assert_eq!(next_move(&EnemyKind::Louse, Some(Move::LouseBlock), &mut rng()), Move::LouseBite);
-    }
 
     #[test]
     fn fungibeast_has_22_hp() {
@@ -371,7 +345,6 @@ mod tests {
     #[test]
     fn all_enemy_ids_round_trip() {
         let kinds = [
-            EnemyKind::Louse,
             EnemyKind::Fungibeast,
             EnemyKind::Cultist,
             EnemyKind::JawWorm,
@@ -396,7 +369,6 @@ mod tests {
 
     #[test]
     fn enemy_ids_are_kebab_case() {
-        assert_eq!(EnemyKind::Louse.id(), "louse");
         assert_eq!(EnemyKind::Fungibeast.id(), "fungibeast");
         assert_eq!(EnemyKind::Cultist.id(), "cultist");
         assert_eq!(EnemyKind::JawWorm.id(), "jaw-worm");

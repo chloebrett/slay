@@ -125,7 +125,6 @@ pub fn card_type_icon(card_type: CardType) -> &'static str {
 
 pub fn enemy_icon(enemy: &Enemy) -> &'static str {
     match enemy.kind {
-        EnemyKind::Louse           => "🐛",
         EnemyKind::Fungibeast      => "🍄",
         EnemyKind::Cultist         => "🐦",
         EnemyKind::JawWorm         => "🪱",
@@ -152,7 +151,7 @@ mod tests {
     fn in_combat() -> GameState {
         let mut state = new_simple_run();
         let mut r = rng();
-        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::Louse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
         apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0
     }
 

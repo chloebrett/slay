@@ -171,7 +171,7 @@ pub fn new_simple_run() -> GameState {
         potions: Vec::new(),
     };
     let graph = MapGraph {
-        rows: vec![vec![MapNode::Combat(vec![EnemyKind::Louse])]],
+        rows: vec![vec![MapNode::Combat(vec![EnemyKind::RedLouse])]],
         edges: vec![vec![vec![]]],
     };
     GameState::Map(MapState { player, floor: 0, graph, available_cols: vec![0], next_enemies: None, scenario: Scenario::Simple })
@@ -179,7 +179,7 @@ pub fn new_simple_run() -> GameState {
 
 fn pick_combat_pair(rng: &mut impl Rng) -> (Vec<EnemyKind>, Vec<EnemyKind>) {
     let mut pool = vec![
-        EnemyKind::Louse,
+        EnemyKind::RedLouse,
         EnemyKind::Cultist,
         EnemyKind::Fungibeast,
         EnemyKind::JawWorm,
@@ -218,7 +218,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
         rows.push(vec![MapNode::Combat(e0), MapNode::Combat(e1)]);
         edges.push(if i == 0 { both.clone() } else { converge.clone() });
     }
-    rows.push(vec![MapNode::Boss(vec![EnemyKind::Louse, EnemyKind::Louse])]);
+    rows.push(vec![MapNode::Boss(vec![EnemyKind::RedLouse, EnemyKind::RedLouse])]);
     edges.push(vec![vec![]]);
 
     MapGraph { rows, edges }
@@ -653,7 +653,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -684,7 +684,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1021,7 +1021,7 @@ mod tests {
         let cs = CombatState {
             player,
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1180,7 +1180,7 @@ mod tests {
         let (state, _) = apply_command(map_at_floor(0), Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         // With NoOpRng the pool is unshuffled, so floor 0 col 0 = Louse
-        assert_eq!(cs.enemies[0].kind, EnemyKind::Louse);
+        assert_eq!(cs.enemies[0].kind, EnemyKind::RedLouse);
     }
 
     // --- player state persists across combat ---
@@ -1195,7 +1195,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1303,7 +1303,7 @@ mod tests {
         let cs = CombatState {
             player,
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1804,7 +1804,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(1),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1936,7 +1936,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -1976,7 +1976,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -2010,7 +2010,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -2210,7 +2210,7 @@ mod tests {
     #[test]
     fn dazed_card_is_not_playable() {
         let player = make_player();
-        let mut state = CombatState::from_player(player, vec![EnemyKind::Louse], &mut rng());
+        let mut state = CombatState::from_player(player, vec![EnemyKind::RedLouse], &mut rng());
         state.player.hand = vec![Card::Dazed];
         let result = apply_combat_command(state, Command::PlayCard(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidCard));
@@ -2237,7 +2237,7 @@ mod tests {
     #[test]
     fn dexterity_increases_block_gained_from_defend() {
         let player = make_player();
-        let mut state = CombatState::from_player(player, vec![EnemyKind::Louse], &mut rng());
+        let mut state = CombatState::from_player(player, vec![EnemyKind::RedLouse], &mut rng());
         state.player.hand = vec![Card::Defend(Grade::Base)];
         state.player.statuses.insert(crate::status::StatusEffect::Dexterity, 2);
         let (state, _) = apply_combat_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -2270,7 +2270,7 @@ mod tests {
         let state = new_simple_run();
         let (state, _) = apply_command(
             state,
-            Command::Spawn(vec![EnemyKind::Louse]),
+            Command::Spawn(vec![EnemyKind::RedLouse]),
             &mut rng(),
         ).unwrap();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
@@ -2305,7 +2305,7 @@ mod tests {
     fn potions_persist_through_combat() {
         let state = new_simple_run();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
-        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::Louse]), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
         let GameState::Map(map) = state else { panic!("expected Map") };
@@ -2436,7 +2436,7 @@ mod tests {
     fn discard_potion_in_combat_removes_potion() {
         let state = new_simple_run();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
-        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::Louse]), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let (state, events) = apply_command(state, Command::DiscardPotion(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
@@ -2498,7 +2498,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(enemy_hp),
                 max_hp: Hp(enemy_hp),
                 block: Block(0),
@@ -2562,7 +2562,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(200),
                 max_hp: Hp(200),
                 block: Block(0),
@@ -2617,7 +2617,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(20),
                 max_hp: Hp(20),
                 block: Block(0),
@@ -2657,7 +2657,7 @@ mod tests {
                 ..player
             },
             enemies: vec![Enemy {
-                kind: EnemyKind::Louse,
+                kind: EnemyKind::RedLouse,
                 hp: Hp(200),
                 max_hp: Hp(200),
                 block: Block(0),

@@ -26,7 +26,7 @@ mod tests {
         let mut rng = AnyRng::NoOp(NoOpRng);
         let mut state = new_simple_run();
         // Spawn a louse and enter combat
-        state = apply_command(state, Command::Spawn(vec![EnemyKind::Louse]), &mut rng).unwrap().0;
+        state = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut rng).unwrap().0;
         state = apply_command(state, Command::ChooseNode(0), &mut rng).unwrap().0;
 
         let mut output = Vec::<u8>::new();

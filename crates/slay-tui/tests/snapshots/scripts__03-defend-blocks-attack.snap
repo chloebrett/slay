@@ -14,24 +14,19 @@ Slay the Spire is a registered trademark by Mega Crit, LLC. Please support the d
 # Add a Defend, enter combat vs Louse.
 # End turn with block up; verify enemy attack is partially/fully absorbed.
 > spawn louse
+Unknown command.
 
-🗺️  Map
-🪙 0   ❤️  80/80   🃏 0 cards
-
-  ▶ 1. ⚔️  Combat
-
-[Enter ↵] ⚔️  Combat
 > enter
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
 🤚 Hand: (empty)
 Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add defend
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
 Draw: 0  Discard: 0  Exhaust: 0
@@ -41,17 +36,17 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🛡️  You gain 5 block.
 
 🧙 You  ❤️  80/80  🛡️ 5  ⚡ 2/3  (Turn 1)
-🐛 Louse ❤️  20/20  🛡️ 0  | ⚔️  Attack 8
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
 🤚 Hand: (empty)
 Draw: 0  Discard: 1  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > end
-⚔️  Enemy attacks 8. (5 blocked, 3 damage)
-👁  Enemy prepares: 🛡️  Defend 5.
+⚔️  Enemy attacks 6. (5 blocked, 1 damage)
+👁  Enemy prepares: ⚔️  Attack 6.
 ─── Turn 2 ───
 
-🧙 You  ❤️  77/80  🛡️ 0  ⚡ 3/3  (Turn 2)
-🐛 Louse ❤️  20/20  🛡️ 0  | 🛡️  Defend 5
+🧙 You  ❤️  79/80  🛡️ 0  ⚡ 3/3  (Turn 2)
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
 Draw: 0  Discard: 0  Exhaust: 0

@@ -645,7 +645,7 @@ mod tests {
     fn make_combat_tui() -> TuiState {
         let mut state = new_simple_run();
         let mut r = rng();
-        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::Louse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
         TuiState::new(state, false)
     }
@@ -843,7 +843,7 @@ mod tests {
         // Build a realistic combat: spawn a Louse, enter combat, add some cards to hand
         let mut state = new_simple_run();
         let mut r = rng();
-        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::Louse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::AddCard(Card::Strike(Grade::Base)), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::AddCard(Card::Defend(Grade::Base)), &mut r).unwrap().0;
@@ -915,7 +915,7 @@ mod tests {
         // Build a combat about to lose: player at 1 HP, end turn lets enemy kill.
         let mut state = new_simple_run();
         let mut r = rng();
-        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::Louse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
         state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
         if let GameState::Combat { state: ref mut cs, .. } = state {
             cs.player.hp = slay_core::Hp(1);

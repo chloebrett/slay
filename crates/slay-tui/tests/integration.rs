@@ -39,7 +39,7 @@ impl TestHarness {
                     potions: vec![],
                 },
                 enemies: vec![Enemy {
-                    kind: EnemyKind::Louse,
+                    kind: EnemyKind::RedLouse,
                     hp: Hp(20),
                     max_hp: Hp(20),
                     block: Block(0),
@@ -151,55 +151,13 @@ fn play_zero_is_invalid() {
 }
 
 #[test]
-fn enemy_alternates_attack_and_defend_intents() {
-    let mut game = TestHarness::with_hand(Vec::new());
+fn enemy_block_absorbs_player_attack() {
+    let mut game = TestHarness::with_hand(vec![Card::Strike(Grade::Base)]);
     if let GameState::Combat { state, .. } = &mut game.state {
-        state.player.draw_pile = vec![Card::Strike(Grade::Base); 10];
+        state.enemies[0].block = slay_core::Block(5);
     }
-    let intent_attack = matches!(
-        &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Attack(8)
-    );
-    assert!(intent_attack);
-
-    game.send("end").unwrap();
-    let intent_defend = matches!(
-        &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Defend(5)
-    );
-    assert!(intent_defend);
-
-    game.send("end").unwrap();
-    let intent_attack2 = matches!(
-        &game.state,
-        GameState::Combat { state: cs, .. } if cs.enemies[0].move_.intent() == Intent::Attack(8)
-    );
-    assert!(intent_attack2);
-}
-
-#[test]
-fn enemy_block_from_defend_absorbs_player_attack() {
-    let mut game = TestHarness::with_hand(Vec::new());
-    if let GameState::Combat { state, .. } = &mut game.state {
-        state.player.draw_pile = vec![Card::Strike(Grade::Base); 10];
-    }
-    game.send("end").unwrap(); // turn 2: intent Defend
-    game.send("end").unwrap(); // enemy defends; now turn 3, enemy has 5 block
-
-    let enemy_block = match &game.state {
-        GameState::Combat { state, .. } => state.enemies[0].block,
-        _ => panic!("not in combat"),
-    };
-    assert_eq!(enemy_block, slay_core::Block(5));
-
-    game.send("play 1").unwrap(); // Strike: 5 absorbed, 1 to HP
+    game.send("play 1").unwrap(); // Strike 6 damage: 5 absorbed, 1 to HP
     assert_eq!(game.enemy_hp(), 19);
-
-    let enemy_block2 = match &game.state {
-        GameState::Combat { state, .. } => state.enemies[0].block,
-        _ => panic!("not in combat"),
-    };
-    assert_eq!(enemy_block2, slay_core::Block(0));
 }
 
 // --- Card rewards ---

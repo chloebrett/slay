@@ -175,8 +175,8 @@ mod tests {
     fn spawn_single_enemy() {
         let state = map_state();
         assert_eq!(
-            parse("spawn louse", &state, false),
-            Some(Command::Spawn(vec![EnemyKind::Louse]))
+            parse("spawn red-louse", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::RedLouse]))
         );
     }
 
@@ -184,8 +184,8 @@ mod tests {
     fn spawn_multiple_enemies() {
         let state = map_state();
         assert_eq!(
-            parse("spawn louse cultist", &state, false),
-            Some(Command::Spawn(vec![EnemyKind::Louse, EnemyKind::Cultist]))
+            parse("spawn red-louse cultist", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::RedLouse, EnemyKind::Cultist]))
         );
     }
 
@@ -193,8 +193,8 @@ mod tests {
     fn spawn_unknown_ids_are_ignored() {
         let state = map_state();
         assert_eq!(
-            parse("spawn louse dragon louse", &state, false),
-            Some(Command::Spawn(vec![EnemyKind::Louse, EnemyKind::Louse]))
+            parse("spawn red-louse dragon red-louse", &state, false),
+            Some(Command::Spawn(vec![EnemyKind::RedLouse, EnemyKind::RedLouse]))
         );
     }
 
@@ -208,7 +208,7 @@ mod tests {
     fn spawn_not_valid_in_other_phases() {
         // spawn is only parsed in Map phase
         let state = map_state();
-        assert_eq!(parse("spawn louse", &state, false), Some(Command::Spawn(vec![EnemyKind::Louse])));
+        assert_eq!(parse("spawn red-louse", &state, false), Some(Command::Spawn(vec![EnemyKind::RedLouse])));
         // just verify it parses in map — other phases return None via their own parse fns
     }
 
@@ -248,7 +248,7 @@ mod tests {
                     deck: vec![], gold: 0, relics: vec![], potions: vec![],
                 },
                 enemies: vec![Enemy {
-                    kind: EnemyKind::Louse,
+                    kind: EnemyKind::RedLouse,
                     hp: Hp(20), max_hp: Hp(20), block: Block(0),
                     move_: Move::LouseBite, last_move: None,
                     statuses: StatusMap::new(),
