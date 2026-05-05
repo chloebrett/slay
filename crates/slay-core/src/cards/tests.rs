@@ -833,3 +833,31 @@
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Defeat);
     }
+
+    // --- Injury ---
+
+    #[test]
+    fn injury_card_type_is_curse() {
+        assert_eq!(Card::Injury.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn injury_is_not_playable() {
+        assert!(!Card::Injury.is_playable());
+    }
+
+    #[test]
+    fn injury_name_is_injury() {
+        assert_eq!(Card::Injury.name(), "Injury");
+    }
+
+    #[test]
+    fn injury_id_is_injury_string() {
+        assert_eq!(Card::Injury.id(), "injury");
+    }
+
+    #[test]
+    fn injury_id_round_trips() {
+        let id = Card::Injury.id();
+        assert_eq!(Card::from_id(id), Some(Card::Injury));
+    }

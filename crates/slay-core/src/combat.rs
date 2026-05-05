@@ -248,7 +248,9 @@ pub(crate) fn apply_combat_command(
                     state.skills_this_turn += 1;
                     state.skills_this_combat += 1;
                 }
-                crate::cards::CardType::Power => {}
+                crate::cards::CardType::Power |
+                crate::cards::CardType::Curse |
+                crate::cards::CardType::Status => {}
             }
             state.cards_played_this_turn += 1;
             apply_card_play_relics(&mut state, &mut events, card_type, rng);

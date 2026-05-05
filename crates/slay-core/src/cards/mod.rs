@@ -1,5 +1,6 @@
 mod anger;
 mod bash;
+mod injury;
 mod bloodletting;
 mod body_slam;
 mod bludgeon;
@@ -58,6 +59,7 @@ pub enum Card {
     BodySlam(Grade),
     Anger(Grade),
     Dazed,
+    Injury,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -68,6 +70,8 @@ pub enum CardType {
     Attack,
     Skill,
     Power,
+    Curse,
+    Status,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -114,11 +118,12 @@ impl Card {
             Card::BodySlam(g)     => body_slam::def(*g),
             Card::Anger(g)        => anger::def(*g),
             Card::Dazed           => dazed::def(),
+            Card::Injury          => injury::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed)
+        !matches!(self, Card::Dazed | Card::Injury)
     }
 
     pub fn exhausts(&self) -> bool {
@@ -134,7 +139,7 @@ impl Card {
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
-            Card::Disarm | Card::Dazed => None,
+            Card::Disarm | Card::Dazed | Card::Injury => None,
         }
     }
 
@@ -165,7 +170,7 @@ impl Card {
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
-            Card::Disarm | Card::Dazed => unreachable!(),
+            Card::Disarm | Card::Dazed | Card::Injury => unreachable!(),
         }
     }
 
@@ -230,6 +235,7 @@ impl Card {
             Card::BodySlam(g)     => body_slam::id(*g),
             Card::Anger(g)        => anger::id(*g),
             Card::Dazed           => dazed::id(),
+            Card::Injury          => injury::id(),
         }
     }
 
@@ -263,6 +269,7 @@ impl Card {
             Card::BodySlam(Base),     Card::BodySlam(Plus),
             Card::Anger(Base),        Card::Anger(Plus),
             Card::Dazed,
+            Card::Injury,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -303,7 +310,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
-        Card::Dazed           => {} // unplayable — guarded before reaching apply()
+        Card::Dazed | Card::Injury => {} // unplayable — guarded before reaching apply()
     }
 }
 

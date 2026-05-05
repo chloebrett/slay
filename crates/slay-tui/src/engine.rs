@@ -117,9 +117,11 @@ pub fn statuses_inline(statuses: &StatusMap) -> String {
 
 pub fn card_type_icon(card_type: CardType) -> &'static str {
     match card_type {
-        CardType::Attack => "⚔️ ",
-        CardType::Skill  => "🪄 ",
-        CardType::Power  => "🔮 ",
+        CardType::Attack  => "⚔️ ",
+        CardType::Skill   => "🪄 ",
+        CardType::Power   => "🔮 ",
+        CardType::Curse   => "😈 ",
+        CardType::Status  => "🩹 ",
     }
 }
 
