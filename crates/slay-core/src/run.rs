@@ -225,11 +225,11 @@ pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
     rows.push(vec![MapNode::RestSite]);
     edges.push(from_one.clone());
 
-    for i in 0..2 {
-        let (e0, e1) = pick_combat_pair(rng);
-        rows.push(vec![MapNode::Combat(e0), MapNode::Combat(e1)]);
-        edges.push(if i == 0 { both.clone() } else { converge.clone() });
-    }
+    let (e0, e1) = pick_combat_pair(rng);
+    rows.push(vec![MapNode::Combat(e0), MapNode::Combat(e1)]);
+    edges.push(converge.clone());
+    rows.push(vec![MapNode::Treasure]);
+    edges.push(vec![vec![0]]);
     rows.push(vec![MapNode::Boss(vec![EnemyKind::RedLouse, EnemyKind::RedLouse])]);
     edges.push(vec![vec![]]);
 
@@ -1383,13 +1383,14 @@ mod tests {
         let graph = test_graph();
         assert_eq!(graph.rows[3].len(), 1);
         assert_eq!(graph.rows[6].len(), 1);
+        assert_eq!(graph.rows[8].len(), 1);
         assert_eq!(graph.rows[9].len(), 1);
     }
 
     #[test]
     fn combat_floors_have_two_columns() {
         let graph = test_graph();
-        for floor in [0usize, 1, 2, 4, 5, 7, 8] {
+        for floor in [0usize, 1, 2, 4, 5, 7] {
             assert_eq!(graph.rows[floor].len(), 2, "floor {floor} should have 2 columns");
         }
     }
@@ -1433,7 +1434,7 @@ mod tests {
     fn segment_internal_floors_have_branching_edges() {
         let graph = test_graph();
         let both = vec![vec![0usize, 1], vec![0, 1]];
-        for floor in [0usize, 1, 4, 7] {
+        for floor in [0usize, 1, 4] {
             assert_eq!(graph.edges[floor], both, "floor {floor} should have branching edges");
         }
     }
@@ -1442,9 +1443,32 @@ mod tests {
     fn segment_end_floors_have_converging_edges() {
         let graph = test_graph();
         let converge = vec![vec![0usize], vec![0]];
-        for floor in [2usize, 5, 8] {
+        for floor in [2usize, 5, 7] {
             assert_eq!(graph.edges[floor], converge, "floor {floor} should have converging edges");
         }
+    }
+
+    #[test]
+    fn treasure_floor_edges_point_to_boss() {
+        let graph = test_graph();
+        assert_eq!(graph.edges[8], vec![vec![0usize]]);
+    }
+
+    #[test]
+    fn treasure_floor_node_is_treasure_variant() {
+        let graph = test_graph();
+        assert!(matches!(graph.rows[8][0], MapNode::Treasure));
+    }
+
+    #[test]
+    fn treasure_floor_has_single_column() {
+        assert_eq!(test_graph().rows[8].len(), 1);
+    }
+
+    #[test]
+    fn entering_treasure_node_from_map_transitions_to_treasure_room() {
+        let (next, _) = apply_command(map_at_floor(8), Command::ChooseNode(0), &mut rng()).unwrap();
+        assert!(matches!(next, GameState::TreasureRoom(_)));
     }
 
     // --- shop ---

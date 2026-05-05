@@ -259,13 +259,14 @@ fn full_run_reaches_victory() {
     game.send("").unwrap(); // floor 6: enter rest site
     game.send("rest").unwrap(); // rest → Map floor 7
 
-    // segment 3: floors 7-8 (2 combats)
-    for _ in 0..2 {
-        game.send("").unwrap(); // enter combat
-        set_instant_win(&mut game.state);
-        game.send("play 1").unwrap(); // kill → CardReward
-        game.send("skip").unwrap(); // skip → Map
-    }
+    // segment 3: floor 7 (1 combat)
+    game.send("").unwrap(); // enter combat
+    set_instant_win(&mut game.state);
+    game.send("play 1").unwrap(); // kill → CardReward
+    game.send("skip").unwrap(); // skip → Map
+
+    game.send("").unwrap(); // floor 8: enter treasure room
+    game.send("leave").unwrap(); // take relic → Map floor 9
 
     game.send("").unwrap(); // floor 9: enter boss (2 enemies)
     set_instant_win(&mut game.state);
