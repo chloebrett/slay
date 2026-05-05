@@ -1113,3 +1113,59 @@
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Frail).copied().unwrap_or(0), 1);
     }
+
+    // --- Parasite ---
+
+    #[test]
+    fn parasite_card_type_is_curse() {
+        assert_eq!(Card::Parasite.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn parasite_is_not_playable() {
+        assert!(!Card::Parasite.is_playable());
+    }
+
+    #[test]
+    fn parasite_id_is_parasite_string() {
+        assert_eq!(Card::Parasite.id(), "parasite");
+    }
+
+    // --- Curse of the Bell ---
+
+    #[test]
+    fn curse_of_the_bell_card_type_is_curse() {
+        assert_eq!(Card::CurseOfTheBell.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn curse_of_the_bell_is_not_playable() {
+        assert!(!Card::CurseOfTheBell.is_playable());
+    }
+
+    #[test]
+    fn curse_of_the_bell_id_is_curse_of_the_bell_string() {
+        assert_eq!(Card::CurseOfTheBell.id(), "curse_of_the_bell");
+    }
+
+    // --- Ascender's Bane ---
+
+    #[test]
+    fn ascenders_bane_card_type_is_curse() {
+        assert_eq!(Card::AscendersBane.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn ascenders_bane_is_not_playable() {
+        assert!(!Card::AscendersBane.is_playable());
+    }
+
+    #[test]
+    fn ascenders_bane_is_ethereal() {
+        assert!(Card::AscendersBane.is_ethereal());
+    }
+
+    #[test]
+    fn ascenders_bane_id_is_ascenders_bane_string() {
+        assert_eq!(Card::AscendersBane.id(), "ascenders_bane");
+    }

@@ -1,10 +1,13 @@
 mod anger;
 mod bash;
+mod ascenders_bane;
 mod burn;
 mod clumsy;
+mod curse_of_the_bell;
 mod decay;
 mod doubt;
 mod injury;
+mod parasite;
 mod regret;
 mod shame;
 mod wound;
@@ -74,6 +77,9 @@ pub enum Card {
     Burn,
     Doubt,
     Shame,
+    Parasite,
+    CurseOfTheBell,
+    AscendersBane,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -147,15 +153,20 @@ impl Card {
             Card::Burn            => burn::def(),
             Card::Doubt           => doubt::def(),
             Card::Shame           => shame::def(),
+            Card::Parasite        => parasite::def(),
+            Card::CurseOfTheBell  => curse_of_the_bell::def(),
+            Card::AscendersBane   => ascenders_bane::def(),
         }
     }
 
     pub fn is_playable(&self) -> bool {
-        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret | Card::Wound | Card::Burn | Card::Doubt | Card::Shame)
+        !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane)
     }
 
     pub fn is_ethereal(&self) -> bool {
-        matches!(self, Card::Dazed | Card::Clumsy)
+        matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane)
     }
 
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
@@ -183,7 +194,8 @@ impl Card {
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt | Card::Shame => None,
+            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
     }
 
@@ -215,7 +227,8 @@ impl Card {
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt | Card::Shame => unreachable!(),
+            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
     }
 
@@ -288,6 +301,9 @@ impl Card {
             Card::Burn            => burn::id(),
             Card::Doubt           => doubt::id(),
             Card::Shame           => shame::id(),
+            Card::Parasite        => parasite::id(),
+            Card::CurseOfTheBell  => curse_of_the_bell::id(),
+            Card::AscendersBane   => ascenders_bane::id(),
         }
     }
 
@@ -329,6 +345,9 @@ impl Card {
             Card::Burn,
             Card::Doubt,
             Card::Shame,
+            Card::Parasite,
+            Card::CurseOfTheBell,
+            Card::AscendersBane,
         ];
         all.iter().find(|c| c.id() == s).cloned()
     }
@@ -370,7 +389,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-        Card::Wound | Card::Burn | Card::Doubt | Card::Shame => {} // unplayable
+        Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable
     }
 }
 
