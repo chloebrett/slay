@@ -7,6 +7,7 @@ mod red_louse;
 mod red_slaver;
 mod small_acid_slime;
 mod small_spike_slime;
+mod the_guardian;
 
 use crate::cards::Card;
 use crate::rng::Rng;
@@ -24,6 +25,7 @@ pub enum EnemyKind {
     SmallAcidSlime,
     BlueSlaver,
     RedSlaver,
+    TheGuardian,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,15 +61,23 @@ pub enum Move {
     RedStab,
     Scrape,
     SlaveEntangle,
+    // The Guardian
+    GuardianChargingUp,
+    GuardianFierceBash,
+    GuardianVentSteam,
+    GuardianWhirlwind,
+    GuardianRollAttack,
+    GuardianTwinSlam,
 }
 
 #[derive(Debug, Clone)]
 pub enum Effect {
     DealDamage(i32),
     GainBlock(i32),
-    GainStatus(StatusEffect, i32),  // applies to self
-    ApplyStatus(StatusEffect, i32), // applies to player
-    AddToDiscard(Card),             // adds a card to the player's discard pile
+    GainStatus(StatusEffect, i32),      // applies to self
+    ApplyStatus(StatusEffect, i32),     // applies to player
+    AddToDiscard(Card),                 // adds a card to the player's discard pile
+    ClearSelfStatus(StatusEffect),      // removes all stacks of a status from self
 }
 
 pub struct MoveDef {
@@ -99,6 +109,12 @@ impl Move {
             Move::RedStab       => MoveDef { name: "Stab",          effects: vec![Effect::DealDamage(13)] },
             Move::Scrape        => MoveDef { name: "Scrape",        effects: vec![Effect::DealDamage(8), Effect::ApplyStatus(StatusEffect::Vulnerable, 1)] },
             Move::SlaveEntangle => MoveDef { name: "Entangle",      effects: vec![Effect::ApplyStatus(StatusEffect::Entangle, 1)] },
+            Move::GuardianChargingUp  => MoveDef { name: "Charging Up",  effects: vec![Effect::GainBlock(9)] },
+            Move::GuardianFierceBash  => MoveDef { name: "Fierce Bash",  effects: vec![Effect::DealDamage(32)] },
+            Move::GuardianVentSteam   => MoveDef { name: "Vent Steam",   effects: vec![Effect::ApplyStatus(StatusEffect::Weak, 2), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
+            Move::GuardianWhirlwind   => MoveDef { name: "Whirlwind",    effects: vec![Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5)] },
+            Move::GuardianRollAttack  => MoveDef { name: "Roll Attack",  effects: vec![Effect::DealDamage(9)] },
+            Move::GuardianTwinSlam    => MoveDef { name: "Twin Slam",    effects: vec![Effect::DealDamage(8), Effect::DealDamage(8), Effect::ClearSelfStatus(StatusEffect::SharpHide)] },
         }
     }
 
@@ -148,6 +164,7 @@ impl EnemyKind {
             EnemyKind::SmallAcidSlime  => small_acid_slime::DEF,
             EnemyKind::BlueSlaver      => blue_slaver::DEF,
             EnemyKind::RedSlaver       => red_slaver::DEF,
+            EnemyKind::TheGuardian     => the_guardian::DEF,
         }
     }
 
@@ -165,6 +182,7 @@ impl EnemyKind {
             EnemyKind::SmallAcidSlime  => "small-acid-slime",
             EnemyKind::BlueSlaver      => "blue-slaver",
             EnemyKind::RedSlaver       => "red-slaver",
+            EnemyKind::TheGuardian     => "the-guardian",
         }
     }
 
@@ -179,6 +197,7 @@ impl EnemyKind {
             "small-acid-slime" => Some(EnemyKind::SmallAcidSlime),
             "blue-slaver"      => Some(EnemyKind::BlueSlaver),
             "red-slaver"       => Some(EnemyKind::RedSlaver),
+            "the-guardian"     => Some(EnemyKind::TheGuardian),
             _                  => None,
         }
     }
@@ -195,6 +214,7 @@ pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Mo
         EnemyKind::SmallAcidSlime  => small_acid_slime::next_move(last),
         EnemyKind::BlueSlaver      => blue_slaver::next_move(last, rng),
         EnemyKind::RedSlaver       => red_slaver::next_move(last, rng),
+        EnemyKind::TheGuardian     => the_guardian::next_move(last),
     }
 }
 
@@ -509,5 +529,82 @@ mod tests {
     #[test]
     fn slave_entangle_is_debuff() {
         assert_eq!(Move::SlaveEntangle.intent(), Intent::Debuff);
+    }
+
+    // --- The Guardian ---
+
+    #[test]
+    fn guardian_has_240_hp() {
+        assert_eq!(EnemyKind::TheGuardian.max_hp(), Hp(240));
+    }
+
+    #[test]
+    fn guardian_name_is_the_guardian() {
+        assert_eq!(EnemyKind::TheGuardian.name(), "The Guardian");
+    }
+
+    #[test]
+    fn guardian_charging_up_is_buff() {
+        assert_eq!(Move::GuardianChargingUp.intent(), Intent::Defend(9));
+    }
+
+    #[test]
+    fn guardian_fierce_bash_is_attack_32() {
+        assert_eq!(Move::GuardianFierceBash.intent(), Intent::Attack(32));
+    }
+
+    #[test]
+    fn guardian_vent_steam_is_debuff() {
+        assert_eq!(Move::GuardianVentSteam.intent(), Intent::Debuff);
+    }
+
+    #[test]
+    fn guardian_whirlwind_is_attack_20() {
+        assert_eq!(Move::GuardianWhirlwind.intent(), Intent::Attack(20));
+    }
+
+    #[test]
+    fn guardian_roll_attack_is_attack_9() {
+        assert_eq!(Move::GuardianRollAttack.intent(), Intent::Attack(9));
+    }
+
+    #[test]
+    fn guardian_twin_slam_is_attack_16() {
+        assert_eq!(Move::GuardianTwinSlam.intent(), Intent::Attack(16));
+    }
+
+    #[test]
+    fn guardian_first_move_is_charging_up() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, None, &mut rng()), Move::GuardianChargingUp);
+    }
+
+    #[test]
+    fn guardian_fierce_bash_after_charging_up() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianChargingUp), &mut rng()), Move::GuardianFierceBash);
+    }
+
+    #[test]
+    fn guardian_vent_steam_after_fierce_bash() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianFierceBash), &mut rng()), Move::GuardianVentSteam);
+    }
+
+    #[test]
+    fn guardian_whirlwind_after_vent_steam() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianVentSteam), &mut rng()), Move::GuardianWhirlwind);
+    }
+
+    #[test]
+    fn guardian_charging_up_after_whirlwind() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianWhirlwind), &mut rng()), Move::GuardianChargingUp);
+    }
+
+    #[test]
+    fn guardian_roll_attack_after_twin_slam_setup() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianRollAttack), &mut rng()), Move::GuardianTwinSlam);
+    }
+
+    #[test]
+    fn guardian_twin_slam_leads_to_whirlwind() {
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianTwinSlam), &mut rng()), Move::GuardianWhirlwind);
     }
 }

@@ -10,6 +10,10 @@ pub enum StatusEffect {
     Dexterity,
     Entangle,
     Frail,
+    SharpHide,
+    ModeShiftProgress,
+    ModeShiftCount,
+    GuardianMode,
 }
 
 impl StatusEffect {

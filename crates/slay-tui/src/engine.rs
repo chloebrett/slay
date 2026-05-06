@@ -97,8 +97,12 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Strength   => ("💪", "Strength"),
         StatusEffect::Ritual     => ("🔮", "Ritual"),
         StatusEffect::Dexterity  => ("🛡️", "Dexterity"),
-        StatusEffect::Entangle   => ("🕸️", "Entangle"),
-        StatusEffect::Frail      => ("🫧", "Frail"),
+        StatusEffect::Entangle          => ("🕸️", "Entangle"),
+        StatusEffect::Frail             => ("🫧", "Frail"),
+        StatusEffect::SharpHide         => ("🦔", "Sharp Hide"),
+        StatusEffect::ModeShiftProgress => ("⚡", "Mode Shift"),
+        StatusEffect::ModeShiftCount    => ("🔄", "Mode Shifts"),
+        StatusEffect::GuardianMode      => ("🛡️", "Guardian Mode"),
     }
 }
 
@@ -137,6 +141,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::SmallAcidSlime  => "🫧",
         EnemyKind::BlueSlaver      => "⛓️",
         EnemyKind::RedSlaver       => "⛓️",
+        EnemyKind::TheGuardian     => "🗿",
     }
 }
 

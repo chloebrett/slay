@@ -273,7 +273,7 @@ pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
     edges.push(converge.clone());
     rows.push(vec![MapNode::Treasure]);
     edges.push(vec![vec![0]]);
-    rows.push(vec![MapNode::Boss(vec![EnemyKind::RedLouse, EnemyKind::RedLouse])]);
+    rows.push(vec![MapNode::Boss(vec![EnemyKind::TheGuardian])]);
     edges.push(vec![vec![]]);
 
     MapGraph { rows, edges }
@@ -1992,11 +1992,12 @@ mod tests {
     // --- Phase 8: multiple enemies ---
 
     #[test]
-    fn boss_floor_has_two_enemies() {
+    fn boss_floor_has_the_guardian() {
         let map = map_at_floor(9);
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
-        assert_eq!(cs.enemies.len(), 2);
+        assert_eq!(cs.enemies.len(), 1);
+        assert_eq!(cs.enemies[0].kind, EnemyKind::TheGuardian);
     }
 
     #[test]

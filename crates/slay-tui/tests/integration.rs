@@ -268,10 +268,9 @@ fn full_run_reaches_victory() {
     game.send("").unwrap(); // floor 8: enter treasure room
     game.send("leave").unwrap(); // take relic → Map floor 9
 
-    game.send("").unwrap(); // floor 9: enter boss (2 enemies)
+    game.send("").unwrap(); // floor 9: enter boss (The Guardian)
     set_instant_win(&mut game.state);
-    game.send("play 1").unwrap(); // kill enemy 1
-    game.send("play 1").unwrap(); // auto-target enemy 2 → GameOver
+    game.send("play 1").unwrap(); // kill Guardian → GameOver
 
     assert!(matches!(game.state, GameState::GameOver { victory: true }));
 }

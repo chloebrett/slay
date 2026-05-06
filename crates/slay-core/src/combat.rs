@@ -362,6 +362,9 @@ pub(crate) fn apply_combat_command(
                             state.player.discard_pile.push(card.clone());
                             events.push(Event::StatusCardAddedToDiscard { card });
                         }
+                        Effect::ClearSelfStatus(status) => {
+                            state.enemies[i].statuses.remove(&status);
+                        }
                     }
                 }
                 tick_statuses(&mut state.enemies[i].statuses);
