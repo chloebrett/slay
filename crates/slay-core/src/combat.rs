@@ -241,29 +241,32 @@ pub(crate) fn apply_combat_command(
                     events.push(Event::EnemyAttacked { raw, damage });
                 }
             }
-            if state.enemies[actual_target].kind == EnemyKind::TheGuardian
-                && state.enemies[actual_target].hp > Hp(0)
-            {
-                let mode = state.enemies[actual_target].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
-                if mode == 0 {
-                    let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
-                    if hp_lost > 0 {
-                        let progress = {
-                            let p = state.enemies[actual_target].statuses.entry(StatusEffect::ModeShiftProgress).or_insert(0);
-                            *p += hp_lost;
-                            *p
-                        };
-                        let count = state.enemies[actual_target].statuses.get(&StatusEffect::ModeShiftCount).copied().unwrap_or(0);
-                        if progress >= 30 + count * 10 {
-                            state.enemies[actual_target].block.0 += 20;
-                            *state.enemies[actual_target].statuses.entry(StatusEffect::SharpHide).or_insert(0) += 3;
-                            state.enemies[actual_target].move_ = Move::GuardianRollAttack;
-                            state.enemies[actual_target].statuses.insert(StatusEffect::GuardianMode, 1);
-                            state.enemies[actual_target].statuses.insert(StatusEffect::ModeShiftProgress, 0);
-                            *state.enemies[actual_target].statuses.entry(StatusEffect::ModeShiftCount).or_insert(0) += 1;
-                            events.push(Event::EnemyDefended { amount: 20 });
-                            events.push(Event::StatusApplied { target: Target::Enemy, status: StatusEffect::SharpHide, stacks: 3 });
-                        }
+            if state.enemies[actual_target].hp > Hp(0) {
+                let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
+                if let Some(reaction) = enemies::on_player_attack_damage(
+                    &state.enemies[actual_target].kind,
+                    &state.enemies[actual_target].statuses,
+                    hp_lost,
+                ) {
+                    let enemy = &mut state.enemies[actual_target];
+                    enemy.block.0 += reaction.block_gain;
+                    for &(status, stacks) in &reaction.status_events {
+                        *enemy.statuses.entry(status).or_insert(0) += stacks;
+                    }
+                    for &(status, stacks) in &reaction.silent_adds {
+                        *enemy.statuses.entry(status).or_insert(0) += stacks;
+                    }
+                    for &(status, value) in &reaction.silent_sets {
+                        enemy.statuses.insert(status, value);
+                    }
+                    if let Some(mv) = reaction.force_move {
+                        enemy.move_ = mv;
+                    }
+                    if reaction.block_gain > 0 {
+                        events.push(Event::EnemyDefended { amount: reaction.block_gain });
+                    }
+                    for &(status, stacks) in &reaction.status_events {
+                        events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
                     }
                 }
             }

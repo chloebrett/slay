@@ -11,7 +11,7 @@ mod the_guardian;
 
 use crate::cards::Card;
 use crate::rng::Rng;
-use crate::status::StatusEffect;
+use crate::status::{StatusEffect, StatusMap};
 use crate::types::Hp;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -200,6 +200,28 @@ impl EnemyKind {
             "the-guardian"     => Some(EnemyKind::TheGuardian),
             _                  => None,
         }
+    }
+}
+
+/// Returned by `on_player_attack_damage` to describe mutations + events from an enemy reaction.
+pub struct EnemyDamageReaction {
+    pub block_gain: i32,
+    pub status_events: Vec<(StatusEffect, i32)>,  // applied + emit StatusApplied events
+    pub silent_adds: Vec<(StatusEffect, i32)>,     // applied silently (add stacks)
+    pub silent_sets: Vec<(StatusEffect, i32)>,     // applied silently (set absolute value)
+    pub force_move: Option<Move>,
+}
+
+/// Called after a player card deals HP damage to `kind`. Returns a reaction if the enemy
+/// has any damage-triggered behaviour, `None` otherwise.
+pub fn on_player_attack_damage(
+    kind: &EnemyKind,
+    statuses: &StatusMap,
+    hp_lost: i32,
+) -> Option<EnemyDamageReaction> {
+    match kind {
+        EnemyKind::TheGuardian => the_guardian::on_player_attack_damage(statuses, hp_lost),
+        _ => None,
     }
 }
 
