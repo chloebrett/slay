@@ -1,6 +1,8 @@
 mod anger;
 mod bash;
 mod ascenders_bane;
+mod carnage;
+mod clash;
 mod burn;
 mod clumsy;
 mod curse_of_the_bell;
@@ -34,8 +36,11 @@ mod spot_weakness;
 mod strike;
 mod thunderclap;
 mod true_grit;
+mod heavy_blade;
+mod sword_boomerang;
 mod twin_strike;
 mod uppercut;
+mod wild_strike;
 
 use crate::status::{StatusEffect, StatusMap, resolve_damage};
 use crate::types::Energy;
@@ -68,6 +73,11 @@ pub enum Card {
     Hemokinesis(Grade),
     BodySlam(Grade),
     Anger(Grade),
+    Carnage(Grade),
+    Clash(Grade),
+    WildStrike(Grade),
+    HeavyBlade(Grade),
+    SwordBoomerang(Grade),
     Dazed,
     Injury,
     Clumsy,
@@ -144,6 +154,11 @@ impl Card {
             Card::Hemokinesis(g)  => hemokinesis::def(*g),
             Card::BodySlam(g)     => body_slam::def(*g),
             Card::Anger(g)        => anger::def(*g),
+            Card::Carnage(g)      => carnage::def(*g),
+            Card::Clash(g)        => clash::def(*g),
+            Card::WildStrike(g)   => wild_strike::def(*g),
+            Card::HeavyBlade(g)   => heavy_blade::def(*g),
+            Card::SwordBoomerang(g) => sword_boomerang::def(*g),
             Card::Dazed           => dazed::def(),
             Card::Injury          => injury::def(),
             Card::Clumsy          => clumsy::def(),
@@ -166,7 +181,7 @@ impl Card {
     }
 
     pub fn is_ethereal(&self) -> bool {
-        matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane)
+        matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane | Card::Carnage(_))
     }
 
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
@@ -181,7 +196,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -192,7 +207,9 @@ impl Card {
             Card::SeeingRed(g) | Card::Pummel(g) | Card::Uppercut(g) | Card::TrueGrit(g) |
             Card::Thunderclap(g) | Card::PommelStrike(g) | Card::ShrugItOff(g) |
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
-            Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) => Some(*g),
+            Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) |
+            Card::Carnage(g) | Card::Clash(g) | Card::WildStrike(g) |
+            Card::HeavyBlade(g) | Card::SwordBoomerang(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -226,6 +243,11 @@ impl Card {
             Card::Hemokinesis(_)  => Card::Hemokinesis(g),
             Card::BodySlam(_)     => Card::BodySlam(g),
             Card::Anger(_)        => Card::Anger(g),
+            Card::Carnage(_)      => Card::Carnage(g),
+            Card::Clash(_)        => Card::Clash(g),
+            Card::WildStrike(_)   => Card::WildStrike(g),
+            Card::HeavyBlade(_)   => Card::HeavyBlade(g),
+            Card::SwordBoomerang(_) => Card::SwordBoomerang(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
@@ -292,6 +314,11 @@ impl Card {
             Card::Hemokinesis(g)  => hemokinesis::id(*g),
             Card::BodySlam(g)     => body_slam::id(*g),
             Card::Anger(g)        => anger::id(*g),
+            Card::Carnage(g)      => carnage::id(*g),
+            Card::Clash(g)        => clash::id(*g),
+            Card::WildStrike(g)   => wild_strike::id(*g),
+            Card::HeavyBlade(g)   => heavy_blade::id(*g),
+            Card::SwordBoomerang(g) => sword_boomerang::id(*g),
             Card::Dazed           => dazed::id(),
             Card::Injury          => injury::id(),
             Card::Clumsy          => clumsy::id(),
@@ -336,6 +363,11 @@ impl Card {
             Card::Hemokinesis(Base),  Card::Hemokinesis(Plus),
             Card::BodySlam(Base),     Card::BodySlam(Plus),
             Card::Anger(Base),        Card::Anger(Plus),
+            Card::Carnage(Base),      Card::Carnage(Plus),
+            Card::Clash(Base),        Card::Clash(Plus),
+            Card::WildStrike(Base),   Card::WildStrike(Plus),
+            Card::HeavyBlade(Base),   Card::HeavyBlade(Plus),
+            Card::SwordBoomerang(Base), Card::SwordBoomerang(Plus),
             Card::Dazed,
             Card::Injury,
             Card::Clumsy,
@@ -388,6 +420,11 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Hemokinesis(g)  => hemokinesis::apply(state, events, *g, target),
         Card::BodySlam(_)     => body_slam::apply(state, events, target),
         Card::Anger(g)        => anger::apply(state, events, *g, target),
+        Card::Carnage(g)      => carnage::apply(state, events, *g, target),
+        Card::Clash(g)        => clash::apply(state, events, *g, target),
+        Card::WildStrike(g)   => wild_strike::apply(state, events, *g, target, rng),
+        Card::HeavyBlade(g)   => heavy_blade::apply(state, events, *g, target),
+        Card::SwordBoomerang(g) => sword_boomerang::apply(state, events, *g, rng),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
         Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable
@@ -404,6 +441,8 @@ pub fn reward_pool() -> Vec<Card> {
         Card::PommelStrike(Base), Card::ShrugItOff(Base),
         Card::RecklessCharge(Base), Card::TrueGrit(Base), Card::Bloodletting(Base), Card::Hemokinesis(Base),
         Card::BodySlam(Base), Card::Anger(Base), Card::Entrench(Base),
+        Card::Carnage(Base), Card::Clash(Base), Card::WildStrike(Base),
+        Card::HeavyBlade(Base), Card::SwordBoomerang(Base),
     ]
 }
 

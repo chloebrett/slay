@@ -31,7 +31,11 @@ pub fn resolve_block(base: i32, statuses: &StatusMap) -> i32 {
 }
 
 pub fn resolve_damage(base: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
-    let dmg = base + attacker.get(&StatusEffect::Strength).copied().unwrap_or(0);
+    resolve_damage_with_strength_multiplier(base, 1, attacker, defender)
+}
+
+pub fn resolve_damage_with_strength_multiplier(base: i32, str_multiplier: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
+    let dmg = base + attacker.get(&StatusEffect::Strength).copied().unwrap_or(0) * str_multiplier;
     let dmg = if attacker.contains_key(&StatusEffect::Weak) { dmg * 3 / 4 } else { dmg };
     let dmg = if defender.contains_key(&StatusEffect::Vulnerable) { dmg * 3 / 2 } else { dmg };
     dmg.max(0)

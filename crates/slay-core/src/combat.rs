@@ -211,6 +211,11 @@ pub(crate) fn apply_combat_command(
             if !card.is_playable() {
                 return Err(CommandError::InvalidCard);
             }
+            if let Card::Clash(_) = &card {
+                if !state.player.hand.iter().all(|c| c.card_type() == crate::cards::CardType::Attack) {
+                    return Err(CommandError::InvalidCard);
+                }
+            }
             if state.player.energy < card.energy_cost() {
                 return Err(CommandError::NotEnoughEnergy);
             }
@@ -1563,6 +1568,146 @@ mod tests {
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
         assert_eq!(mode, 0); // still Offensive, threshold not reached
+    }
+
+    // --- Carnage ---
+
+    #[test]
+    fn carnage_deals_20_damage() {
+        let mut state = combat_with_hand(vec![Card::Carnage(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(80));
+    }
+
+    #[test]
+    fn carnage_plus_deals_28_damage() {
+        let mut state = combat_with_hand(vec![Card::Carnage(Grade::Plus)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(72));
+    }
+
+    #[test]
+    fn carnage_exhausts_at_end_of_turn_if_unplayed() {
+        let mut state = combat_with_hand(vec![Card::Carnage(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Carnage(Grade::Base)));
+        assert!(!state.player.discard_pile.contains(&Card::Carnage(Grade::Base)));
+    }
+
+    // --- Clash ---
+
+    #[test]
+    fn clash_deals_14_damage_when_hand_all_attacks() {
+        let mut state = combat_with_hand(vec![Card::Clash(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(86));
+    }
+
+    #[test]
+    fn clash_plus_deals_18_damage() {
+        let mut state = combat_with_hand(vec![Card::Clash(Grade::Plus)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(82));
+    }
+
+    #[test]
+    fn clash_is_invalid_when_hand_contains_skill() {
+        let state = combat_with_hand(vec![Card::Clash(Grade::Base), Card::Defend(Grade::Base)]);
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
+    }
+
+    #[test]
+    fn clash_is_playable_when_only_card_in_hand() {
+        let mut state = combat_with_hand(vec![Card::Clash(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        assert!(apply_command(state, Command::PlayCard(0, 0), &mut rng()).is_ok());
+    }
+
+    // --- Wild Strike ---
+
+    #[test]
+    fn wild_strike_deals_12_damage() {
+        let mut state = combat_with_hand(vec![Card::WildStrike(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(88));
+    }
+
+    #[test]
+    fn wild_strike_plus_deals_17_damage() {
+        let mut state = combat_with_hand(vec![Card::WildStrike(Grade::Plus)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(83));
+    }
+
+    #[test]
+    fn wild_strike_shuffles_wound_into_draw_pile() {
+        let state = combat_with_hand(vec![Card::WildStrike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.draw_pile.contains(&Card::Wound));
+    }
+
+    // --- Heavy Blade ---
+
+    #[test]
+    fn heavy_blade_deals_14_damage_with_no_strength() {
+        let mut state = combat_with_hand(vec![Card::HeavyBlade(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(86));
+    }
+
+    #[test]
+    fn heavy_blade_plus_deals_21_damage_with_no_strength() {
+        let mut state = combat_with_hand(vec![Card::HeavyBlade(Grade::Plus)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(79));
+    }
+
+    #[test]
+    fn heavy_blade_applies_strength_3_times() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(vec![Card::HeavyBlade(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(80)); // 14 + 2*3 = 20
+    }
+
+    #[test]
+    fn heavy_blade_plus_applies_strength_5_times() {
+        use crate::status::StatusEffect;
+        let mut state = combat_with_hand(vec![Card::HeavyBlade(Grade::Plus)]);
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(69)); // 21 + 2*5 = 31
+    }
+
+    // --- Sword Boomerang ---
+
+    #[test]
+    fn sword_boomerang_deals_3_damage_3_times() {
+        let mut state = combat_with_hand(vec![Card::SwordBoomerang(Grade::Base)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(91)); // 3 * 3 = 9
+    }
+
+    #[test]
+    fn sword_boomerang_plus_deals_3_damage_4_times() {
+        let mut state = combat_with_hand(vec![Card::SwordBoomerang(Grade::Plus)]);
+        state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(88)); // 4 * 3 = 12
     }
 
     #[test]
