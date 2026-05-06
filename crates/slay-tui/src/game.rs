@@ -2,8 +2,8 @@ use crate::engine::{
     apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, statuses_inline,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, Event, GameState, MapState, RestSiteState, ShopState,
-    TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    AnyRng, CardRewardState, CombatState, Event, EventRoomState, GameState, MapState,
+    RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
 
@@ -81,6 +81,7 @@ fn render(state: &GameState, w: &mut impl Write) {
         GameState::TreasureRoom(tr) => render_treasure(tr, w),
         GameState::CardReward(cr) => render_card_reward(cr, w),
         GameState::Shop(shop) => render_shop(shop, w),
+        GameState::EventRoom(er) => render_event(er, w),
         GameState::GameOver { .. } => {}
     }
 }
@@ -130,6 +131,7 @@ fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
         slay_core::MapNode::Boss(_)    => ("💀", "Boss"),
         slay_core::MapNode::Merchant   => ("🛒", "Shop"),
         slay_core::MapNode::Treasure   => ("📦", "Treasure"),
+        slay_core::MapNode::Event      => ("❓", "Event"),
     }
 }
 
@@ -312,6 +314,50 @@ fn print_events(events: &[Event], w: &mut impl Write) {
         if !msg.is_empty() {
             let _ = writeln!(w, "{msg}");
         }
+    }
+}
+
+fn render_event(er: &EventRoomState, w: &mut impl Write) {
+    use slay_core::EventKind;
+    let (title, options) = match er.event {
+        EventKind::Ssssserpent => (
+            "🐍 The Ssssserpent",
+            vec![
+                "[1] Agree — Gain 150 gold. Become Cursed — Doubt.",
+                "[2] Disagree — Nothing happens.",
+                "[3] Leave",
+            ],
+        ),
+        EventKind::BigFish => (
+            "🐟 Big Fish",
+            vec![
+                "[1] Banana — Heal ~30% of max HP.",
+                "[2] Donut — Gain 3 Max HP.",
+                "[3] Box — Obtain a random Relic. Become Cursed — Regret.",
+                "[4] Leave",
+            ],
+        ),
+        EventKind::Mushrooms => (
+            "🍄 Mushrooms",
+            vec![
+                "[1] Eat — Heal 12 HP. Become Cursed — Parasite.",
+                "[2] Leave",
+            ],
+        ),
+        EventKind::GoldenIdol => (
+            "🏺 Golden Idol",
+            vec![
+                "[1] Outrun — Gain 250 gold. Become Cursed — Injury.",
+                "[2] Smash — Gain 250 gold. Take 25 damage.",
+                "[3] Hide — Gain 250 gold. Lose 6 Max HP.",
+                "[4] Leave",
+            ],
+        ),
+    };
+    let _ = writeln!(w, "{title}");
+    let _ = writeln!(w);
+    for opt in options {
+        let _ = writeln!(w, "  {opt}");
     }
 }
 

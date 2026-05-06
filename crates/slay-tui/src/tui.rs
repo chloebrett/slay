@@ -9,8 +9,8 @@ use ratatui::{
     Frame, Terminal,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, GameState, MapNode, MapState, RestSiteState, ShopState,
-    TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    AnyRng, CardRewardState, CombatState, EventKind, EventRoomState, GameState, MapNode, MapState,
+    RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
 
@@ -136,6 +136,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
         GameState::TreasureRoom(tr) => Some(&tr.player),
         GameState::CardReward(cr) => Some(&cr.player),
         GameState::Shop(shop) => Some(&shop.player),
+        GameState::EventRoom(er) => Some(&er.player),
         GameState::GameOver { .. } => None,
     };
     let line = match player {
@@ -168,6 +169,7 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
         GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
         GameState::Shop(shop) => render_shop(f, area, shop),
+        GameState::EventRoom(er) => render_event_room(f, area, er),
         GameState::GameOver { victory } => render_game_over(f, area, *victory),
     }
 }
@@ -231,6 +233,7 @@ fn node_label(node: &MapNode) -> (&'static str, &'static str) {
         MapNode::Boss(_)   => ("💀", "Boss"),
         MapNode::Merchant  => ("🛒", "Shop"),
         MapNode::Treasure  => ("📦", "Treasure"),
+        MapNode::Event     => ("❓", "Event"),
     }
 }
 
@@ -485,6 +488,51 @@ fn render_shop(f: &mut Frame, area: Rect, shop: &ShopState) {
 
     let block = Block::default().borders(Borders::ALL)
         .title(format!(" 🛒 Shop  —  🪙 {}g ", shop.player.gold));
+    let list = List::new(items).block(block);
+    f.render_widget(list, area);
+}
+
+fn render_event_room(f: &mut Frame, area: Rect, er: &EventRoomState) {
+    let (title, options): (&str, Vec<&str>) = match er.event {
+        EventKind::Ssssserpent => (
+            "🐍 The Ssssserpent",
+            vec![
+                "[1] Agree — Gain 150 gold. Become Cursed — Doubt.",
+                "[2] Disagree — Nothing happens.",
+                "[3] Leave",
+            ],
+        ),
+        EventKind::BigFish => (
+            "🐟 Big Fish",
+            vec![
+                "[1] Banana — Heal ~30% of max HP.",
+                "[2] Donut — Gain 3 Max HP.",
+                "[3] Box — Obtain a random Relic. Become Cursed — Regret.",
+                "[4] Leave",
+            ],
+        ),
+        EventKind::Mushrooms => (
+            "🍄 Mushrooms",
+            vec![
+                "[1] Eat — Heal 12 HP. Become Cursed — Parasite.",
+                "[2] Leave",
+            ],
+        ),
+        EventKind::GoldenIdol => (
+            "🏺 Golden Idol",
+            vec![
+                "[1] Outrun — Gain 250 gold. Become Cursed — Injury.",
+                "[2] Smash — Gain 250 gold. Take 25 damage.",
+                "[3] Hide — Gain 250 gold. Lose 6 Max HP.",
+                "[4] Leave",
+            ],
+        ),
+    };
+    let items: Vec<ListItem> = std::iter::once(ListItem::new(title))
+        .chain(std::iter::once(ListItem::new("")))
+        .chain(options.into_iter().map(ListItem::new))
+        .collect();
+    let block = ratatui::widgets::Block::default().borders(Borders::ALL).title("Event");
     let list = List::new(items).block(block);
     f.render_widget(list, area);
 }

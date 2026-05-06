@@ -100,8 +100,9 @@ For detailed patterns and examples, load the `functional` skill.
 - MUTATE: Run `cargo mutants` to verify test effectiveness, produce a report
 - KILL MUTANTS: Address surviving mutants (ask human when value is ambiguous)
 - REFACTOR: Assess improvement opportunities (only refactor if adds value)
-- **Wait for commit approval** before every commit
 - Each increment leaves codebase in working state
+- **All work is done directly on `main`.** No feature branches. Commits land on main.
+- **The user handles all commits.** Never run `git commit` — present the work and stop.
 
 For detailed TDD workflow, load the `tdd` skill.
 For refactoring methodology, load the `refactoring` skill.

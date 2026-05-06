@@ -9,6 +9,7 @@ pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
         GameState::TreasureRoom(_) => parse_treasure(&s),
         GameState::CardReward(_) => parse_card_reward(&s),
         GameState::Shop(_) => parse_shop(&s),
+        GameState::EventRoom(_) => parse_event(&s),
         GameState::GameOver { .. } => None,
     }
 }
@@ -135,6 +136,15 @@ fn parse_shop(s: &str) -> Option<Command> {
         "leave" | "l" => Some(Command::LeaveShop),
         _ => None,
     }
+}
+
+fn parse_event(s: &str) -> Option<Command> {
+    if let Ok(n) = s.trim().parse::<usize>() {
+        if n > 0 {
+            return Some(Command::ChooseEventOption(n - 1));
+        }
+    }
+    None
 }
 
 fn parse_card_reward(s: &str) -> Option<Command> {

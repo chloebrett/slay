@@ -39,6 +39,7 @@ pub enum Command {
     BuyRelic,
     BuyPotion,
     LeaveTreasure,
+    ChooseEventOption(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -72,6 +73,24 @@ pub enum MapNode {
     Boss(Vec<EnemyKind>),
     Merchant,
     Treasure,
+    Event,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum EventKind {
+    Ssssserpent,
+    BigFish,
+    Mushrooms,
+    GoldenIdol,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EventRoomState {
+    pub player: Player,
+    pub floor: usize,
+    pub graph: MapGraph,
+    pub available_cols: Vec<usize>,
+    pub event: EventKind,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -140,6 +159,7 @@ pub enum GameState {
     TreasureRoom(TreasureRoomState),
     CardReward(CardRewardState),
     Shop(ShopState),
+    EventRoom(EventRoomState),
     GameOver { victory: bool },
 }
 
@@ -360,6 +380,13 @@ pub fn apply_command(
                         let relic = relic_pool.into_iter().next().unwrap(); // SAFETY: Relic::all() is non-empty
                         Ok((
                             GameState::TreasureRoom(TreasureRoomState { player, floor, graph, available_cols: next_floor_cols, relic }),
+                            Vec::new(),
+                        ))
+                    }
+                    MapNode::Event => {
+                        let event = EventKind::Ssssserpent;
+                        Ok((
+                            GameState::EventRoom(EventRoomState { player, floor, graph, available_cols: next_floor_cols, event }),
                             Vec::new(),
                         ))
                     }
@@ -605,6 +632,72 @@ pub fn apply_command(
                 potion = potion.map(|(p, _)| (p, true));
                 let events = vec![Event::PotionAwarded { potion: pot }];
                 Ok((GameState::Shop(ShopState { player, floor, cards, relic, potion, graph, available_cols }), events))
+            }
+            _ => Err(CommandError::InvalidPhase),
+        },
+
+        GameState::EventRoom(EventRoomState { mut player, floor, graph, available_cols, event }) => match command {
+            Command::ChooseEventOption(opt) => {
+                let events = match event {
+                    EventKind::Ssssserpent => match opt {
+                        0 => {
+                            player.gold += 150;
+                            player.deck.push(Card::Doubt);
+                            vec![Event::CardAdded { card: Card::Doubt }]
+                        }
+                        _ => Vec::new(),
+                    },
+                    EventKind::GoldenIdol => match opt {
+                        0 => {
+                            player.gold += 250;
+                            player.deck.push(Card::Injury);
+                            vec![Event::GoldEarned { amount: 250 }, Event::CardAdded { card: Card::Injury }]
+                        }
+                        1 => {
+                            player.gold += 250;
+                            player.hp.0 = (player.hp.0 - 25).max(1);
+                            vec![Event::GoldEarned { amount: 250 }]
+                        }
+                        2 => {
+                            player.gold += 250;
+                            player.max_hp.0 -= 6;
+                            player.hp.0 = player.hp.0.min(player.max_hp.0);
+                            vec![Event::GoldEarned { amount: 250 }]
+                        }
+                        _ => Vec::new(),
+                    },
+                    EventKind::Mushrooms => match opt {
+                        0 => {
+                            player.hp.0 = (player.hp.0 + 12).min(player.max_hp.0);
+                            player.deck.push(Card::Parasite);
+                            vec![Event::Healed { amount: 12 }, Event::CardAdded { card: Card::Parasite }]
+                        }
+                        _ => Vec::new(),
+                    },
+                    EventKind::BigFish => match opt {
+                        0 => {
+                            let heal = (player.max_hp.0 * 30 / 100).max(1);
+                            player.hp.0 = (player.hp.0 + heal).min(player.max_hp.0);
+                            vec![Event::Healed { amount: heal }]
+                        }
+                        1 => {
+                            player.max_hp.0 += 3;
+                            player.hp.0 += 3;
+                            Vec::new()
+                        }
+                        2 => {
+                            let mut relic_pool = Relic::all();
+                            rng.shuffle(&mut relic_pool);
+                            let relic = relic_pool.into_iter().next().unwrap(); // SAFETY: Relic::all() is non-empty
+                            let mut events = crate::relics::grant_relic(&mut player, relic, rng);
+                            player.deck.push(Card::Regret);
+                            events.push(Event::CardAdded { card: Card::Regret });
+                            events
+                        }
+                        _ => Vec::new(),
+                    },
+                };
+                Ok((GameState::Map(MapState { player, floor: floor + 1, graph, available_cols, next_enemies: None, scenario: Scenario::Main }), events))
             }
             _ => Err(CommandError::InvalidPhase),
         },
@@ -2803,6 +2896,285 @@ mod tests {
         });
         assert_eq!(
             apply_command(state, Command::EndTurn, &mut rng()),
+            Err(CommandError::InvalidPhase)
+        );
+    }
+
+    // --- event room ---
+
+    fn ssssserpent_state() -> GameState {
+        GameState::EventRoom(EventRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::Ssssserpent,
+        })
+    }
+
+    #[test]
+    fn ssssserpent_agree_adds_150_gold() {
+        let (state, _) = apply_command(ssssserpent_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 150);
+    }
+
+    #[test]
+    fn ssssserpent_agree_adds_doubt_to_deck() {
+        let (state, _) = apply_command(ssssserpent_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert!(map.player.deck.contains(&Card::Doubt));
+    }
+
+    #[test]
+    fn ssssserpent_agree_emits_card_added_doubt() {
+        let (_, events) = apply_command(ssssserpent_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardAdded { card: Card::Doubt })));
+    }
+
+    #[test]
+    fn ssssserpent_disagree_changes_nothing() {
+        let (state, _) = apply_command(ssssserpent_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 0);
+        assert!(!map.player.deck.contains(&Card::Doubt));
+    }
+
+    #[test]
+    fn ssssserpent_leave_changes_nothing() {
+        let (state, _) = apply_command(ssssserpent_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 0);
+        assert!(!map.player.deck.contains(&Card::Doubt));
+    }
+
+    #[test]
+    fn ssssserpent_all_options_return_to_map() {
+        for opt in 0..=2 {
+            let (state, _) = apply_command(ssssserpent_state(), Command::ChooseEventOption(opt), &mut rng()).unwrap();
+            assert!(matches!(state, GameState::Map(_)), "option {opt} should return to Map");
+        }
+    }
+
+    #[test]
+    fn ssssserpent_advances_to_next_floor() {
+        let state = GameState::EventRoom(EventRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::Ssssserpent,
+        });
+        let (next, _) = apply_command(state, Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.floor, 4);
+    }
+
+    fn big_fish_state() -> GameState {
+        GameState::EventRoom(EventRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::BigFish,
+        })
+    }
+
+    #[test]
+    fn big_fish_banana_heals_30_percent_of_max_hp() {
+        let mut player = make_player();
+        player.hp = Hp(20);
+        let state = GameState::EventRoom(EventRoomState {
+            player,
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::BigFish,
+        });
+        let (next, _) = apply_command(state, Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(44)); // 20 + (80 * 30 / 100) = 20 + 24 = 44
+    }
+
+    #[test]
+    fn big_fish_banana_cannot_overheal() {
+        let (next, _) = apply_command(big_fish_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn big_fish_donut_increases_max_hp_by_3() {
+        let (next, _) = apply_command(big_fish_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.max_hp, Hp(83));
+    }
+
+    #[test]
+    fn big_fish_donut_also_increases_current_hp() {
+        let (next, _) = apply_command(big_fish_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(83));
+    }
+
+    #[test]
+    fn big_fish_box_adds_relic() {
+        let (next, _) = apply_command(big_fish_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(!map.player.relics.is_empty());
+    }
+
+    #[test]
+    fn big_fish_box_adds_regret_to_deck() {
+        let (next, _) = apply_command(big_fish_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(map.player.deck.contains(&Card::Regret));
+    }
+
+    #[test]
+    fn big_fish_box_emits_card_added_regret() {
+        let (_, events) = apply_command(big_fish_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardAdded { card: Card::Regret })));
+    }
+
+    #[test]
+    fn big_fish_leave_does_nothing() {
+        let (next, events) = apply_command(big_fish_state(), Command::ChooseEventOption(3), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(80));
+        assert_eq!(map.player.max_hp, Hp(80));
+        assert!(map.player.relics.is_empty());
+        assert!(events.is_empty());
+    }
+
+    fn mushrooms_state() -> GameState {
+        GameState::EventRoom(EventRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::Mushrooms,
+        })
+    }
+
+    #[test]
+    fn mushrooms_eat_heals_12_hp() {
+        let mut player = make_player();
+        player.hp = Hp(50);
+        let state = GameState::EventRoom(EventRoomState {
+            player,
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::Mushrooms,
+        });
+        let (next, _) = apply_command(state, Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(62));
+    }
+
+    #[test]
+    fn mushrooms_eat_cannot_overheal() {
+        let (next, _) = apply_command(mushrooms_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn mushrooms_eat_adds_parasite_to_deck() {
+        let (next, _) = apply_command(mushrooms_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(map.player.deck.contains(&Card::Parasite));
+    }
+
+    #[test]
+    fn mushrooms_eat_emits_card_added_parasite() {
+        let (_, events) = apply_command(mushrooms_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardAdded { card: Card::Parasite })));
+    }
+
+    #[test]
+    fn mushrooms_leave_does_nothing() {
+        let (next, events) = apply_command(mushrooms_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(80));
+        assert!(!map.player.deck.contains(&Card::Parasite));
+        assert!(events.is_empty());
+    }
+
+    fn golden_idol_state() -> GameState {
+        GameState::EventRoom(EventRoomState {
+            player: make_player(),
+            floor: 3,
+            graph: test_graph(),
+            available_cols: vec![0, 1],
+            event: EventKind::GoldenIdol,
+        })
+    }
+
+    #[test]
+    fn golden_idol_outrun_adds_injury_to_deck() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert!(map.player.deck.contains(&Card::Injury));
+    }
+
+    #[test]
+    fn golden_idol_outrun_emits_card_added_injury() {
+        let (_, events) = apply_command(golden_idol_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::CardAdded { card: Card::Injury })));
+    }
+
+    #[test]
+    fn golden_idol_outrun_gives_250_gold() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(0), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 250);
+    }
+
+    #[test]
+    fn golden_idol_smash_deals_25_damage() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.hp, Hp(55));
+    }
+
+    #[test]
+    fn golden_idol_smash_gives_250_gold() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(1), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 250);
+    }
+
+    #[test]
+    fn golden_idol_hide_costs_6_max_hp() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.max_hp, Hp(74));
+    }
+
+    #[test]
+    fn golden_idol_hide_gives_250_gold() {
+        let (next, _) = apply_command(golden_idol_state(), Command::ChooseEventOption(2), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 250);
+    }
+
+    #[test]
+    fn golden_idol_leave_does_nothing() {
+        let (next, events) = apply_command(golden_idol_state(), Command::ChooseEventOption(3), &mut rng()).unwrap();
+        let GameState::Map(map) = next else { panic!("expected Map") };
+        assert_eq!(map.player.gold, 0);
+        assert_eq!(map.player.hp, Hp(80));
+        assert_eq!(map.player.max_hp, Hp(80));
+        assert!(!map.player.deck.contains(&Card::Injury));
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn non_event_commands_rejected_in_event_room() {
+        assert_eq!(
+            apply_command(ssssserpent_state(), Command::EndTurn, &mut rng()),
             Err(CommandError::InvalidPhase)
         );
     }

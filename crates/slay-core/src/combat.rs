@@ -326,7 +326,8 @@ pub(crate) fn apply_combat_command(
         | Command::BuyCard(_)
         | Command::BuyRelic
         | Command::BuyPotion
-        | Command::LeaveTreasure => {
+        | Command::LeaveTreasure
+        | Command::ChooseEventOption(_) => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {
