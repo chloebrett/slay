@@ -114,7 +114,7 @@ impl Move {
             Move::GuardianVentSteam   => MoveDef { name: "Vent Steam",   effects: vec![Effect::ApplyStatus(StatusEffect::Weak, 2), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
             Move::GuardianWhirlwind   => MoveDef { name: "Whirlwind",    effects: vec![Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5)] },
             Move::GuardianRollAttack  => MoveDef { name: "Roll Attack",  effects: vec![Effect::DealDamage(9)] },
-            Move::GuardianTwinSlam    => MoveDef { name: "Twin Slam",    effects: vec![Effect::DealDamage(8), Effect::DealDamage(8), Effect::ClearSelfStatus(StatusEffect::SharpHide)] },
+            Move::GuardianTwinSlam    => MoveDef { name: "Twin Slam",    effects: vec![Effect::DealDamage(8), Effect::DealDamage(8), Effect::ClearSelfStatus(StatusEffect::SharpHide), Effect::ClearSelfStatus(StatusEffect::GuardianMode)] },
         }
     }
 

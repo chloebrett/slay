@@ -231,7 +231,42 @@ pub(crate) fn apply_combat_command(
             state.player.hand.remove(index);
             state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
             events.push(Event::CardPlayed { card: card.clone() });
+            let hp_before_card = state.enemies[actual_target].hp;
             crate::cards::apply(&card, &mut state, &mut events, actual_target, rng);
+            if card.card_type() == crate::cards::CardType::Attack {
+                let sharp_hide = state.enemies[actual_target].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
+                if sharp_hide > 0 {
+                    let raw = sharp_hide * 5;
+                    let damage = deal_damage(raw, &mut state.player.hp, &mut state.player.block);
+                    events.push(Event::EnemyAttacked { raw, damage });
+                }
+            }
+            if state.enemies[actual_target].kind == EnemyKind::TheGuardian
+                && state.enemies[actual_target].hp > Hp(0)
+            {
+                let mode = state.enemies[actual_target].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+                if mode == 0 {
+                    let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
+                    if hp_lost > 0 {
+                        let progress = {
+                            let p = state.enemies[actual_target].statuses.entry(StatusEffect::ModeShiftProgress).or_insert(0);
+                            *p += hp_lost;
+                            *p
+                        };
+                        let count = state.enemies[actual_target].statuses.get(&StatusEffect::ModeShiftCount).copied().unwrap_or(0);
+                        if progress >= 30 + count * 10 {
+                            state.enemies[actual_target].block.0 += 20;
+                            *state.enemies[actual_target].statuses.entry(StatusEffect::SharpHide).or_insert(0) += 3;
+                            state.enemies[actual_target].move_ = Move::GuardianRollAttack;
+                            state.enemies[actual_target].statuses.insert(StatusEffect::GuardianMode, 1);
+                            state.enemies[actual_target].statuses.insert(StatusEffect::ModeShiftProgress, 0);
+                            *state.enemies[actual_target].statuses.entry(StatusEffect::ModeShiftCount).or_insert(0) += 1;
+                            events.push(Event::EnemyDefended { amount: 20 });
+                            events.push(Event::StatusApplied { target: Target::Enemy, status: StatusEffect::SharpHide, stacks: 3 });
+                        }
+                    }
+                }
+            }
             if card.exhausts() {
                 events.push(Event::CardExhausted { card: card.clone() });
                 state.player.exhaust_pile.push(card.clone());
@@ -1313,5 +1348,229 @@ mod tests {
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let result = apply_command(state, Command::UsePotion(0, 0), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidPhase));
+    }
+
+    // --- The Guardian: Sharp Hide ---
+
+    fn guardian_combat(hand: Vec<Card>) -> CombatState {
+        use crate::status::StatusMap;
+        CombatState {
+            player: Player {
+                hp: Hp(80),
+                max_hp: Hp(80),
+                block: Block(0),
+                energy: Energy(10),
+                max_energy: Energy(10),
+                hand,
+                draw_pile: Vec::new(),
+                discard_pile: Vec::new(),
+                exhaust_pile: Vec::new(),
+                statuses: StatusMap::new(),
+                deck: Vec::new(),
+                gold: 0,
+                relics: Vec::new(),
+                potions: Vec::new(),
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::TheGuardian,
+                hp: Hp(240),
+                max_hp: Hp(240),
+                block: Block(0),
+                move_: Move::GuardianChargingUp,
+                last_move: None,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0,
+            skills_this_turn: 0,
+            attacks_this_combat: 0,
+            skills_this_combat: 0,
+            cards_played_this_turn: 0,
+            extra_draws_next_turn: 0,
+        }
+    }
+
+    #[test]
+    fn sharp_hide_damages_player_when_playing_attack() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::SharpHide, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(70)); // 80 - 10 (2 stacks × 5)
+    }
+
+    #[test]
+    fn sharp_hide_damage_absorbed_by_player_block() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![Card::Strike(Grade::Base)]);
+        state.player.block = Block(8);
+        state.enemies[0].statuses.insert(StatusEffect::SharpHide, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(78)); // 10 - 8 block = 2 hp damage
+    }
+
+    #[test]
+    fn sharp_hide_triggers_once_for_multi_hit_card() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![Card::TwinStrike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::SharpHide, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(65)); // 80 - 15 (once per card, not per hit)
+    }
+
+    #[test]
+    fn sharp_hide_does_not_trigger_for_skill_card() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![Card::Defend(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::SharpHide, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80)); // no sharp hide damage
+    }
+
+    #[test]
+    fn sharp_hide_emits_enemy_attacked_event() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::SharpHide, 2);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemyAttacked { raw: 10, damage: 10 }));
+    }
+
+    // --- The Guardian: Mode Shift ---
+
+    #[test]
+    fn mode_shift_triggers_at_30_cumulative_damage() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        assert_eq!(mode, 1); // Defensive
+    }
+
+    #[test]
+    fn mode_shift_grants_20_block() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        assert_eq!(state.enemies[0].block, Block(20));
+    }
+
+    #[test]
+    fn mode_shift_grants_3_sharp_hide() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        let sharp_hide = state.enemies[0].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
+        assert_eq!(sharp_hide, 3);
+    }
+
+    #[test]
+    fn mode_shift_sets_move_to_roll_attack() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        assert_eq!(state.enemies[0].move_, Move::GuardianRollAttack);
+    }
+
+    #[test]
+    fn mode_shift_resets_progress_to_zero() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        let progress = state.enemies[0].statuses.get(&StatusEffect::ModeShiftProgress).copied().unwrap_or(99);
+        assert_eq!(progress, 0);
+    }
+
+    #[test]
+    fn mode_shift_increments_shift_count_to_one() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        let count = state.enemies[0].statuses.get(&StatusEffect::ModeShiftCount).copied().unwrap_or(0);
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn mode_shift_does_not_trigger_in_defensive_mode() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+        ]);
+        state.enemies[0].statuses.insert(StatusEffect::GuardianMode, 1); // already Defensive
+        for _ in 0..5 {
+            state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
+        }
+        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        assert_eq!(mode, 1); // stays Defensive, no second shift
+        let sharp_hide = state.enemies[0].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
+        assert_eq!(sharp_hide, 0); // no sharp hide gained from mode shift
+    }
+
+    #[test]
+    fn second_mode_shift_triggers_at_40_hp_loss() {
+        use crate::status::StatusEffect;
+        // ModeShiftCount=1 → threshold=40. Pre-set progress to 34, Strike deals 6 → 40 = threshold.
+        let mut state = guardian_combat(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::ModeShiftCount, 1);
+        state.enemies[0].statuses.insert(StatusEffect::ModeShiftProgress, 34);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        assert_eq!(mode, 1); // shifted to Defensive at 40
+    }
+
+    #[test]
+    fn second_mode_shift_does_not_trigger_below_40() {
+        use crate::status::StatusEffect;
+        // ModeShiftCount=1 → threshold=40. Progress 29 + 6 = 35 < 40 → no shift.
+        let mut state = guardian_combat(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::ModeShiftCount, 1);
+        state.enemies[0].statuses.insert(StatusEffect::ModeShiftProgress, 29);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        assert_eq!(mode, 0); // still Offensive, threshold not reached
+    }
+
+    #[test]
+    fn twin_slam_resets_guardian_mode_to_offensive() {
+        use crate::status::StatusEffect;
+        let mut state = guardian_combat(Vec::new());
+        state.enemies[0].move_ = Move::GuardianTwinSlam;
+        state.enemies[0].statuses.insert(StatusEffect::GuardianMode, 1); // Defensive
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        let (state, _) = end_turn_full(state, &mut rng()).unwrap();
+        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        assert_eq!(mode, 0); // back to Offensive after TwinSlam
     }
 }
