@@ -1,11 +1,11 @@
-use super::{Card, CardDef, CardDescription, CardType, Grade};
+use super::{Card, CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, deal_damage};
 use crate::rng::Rng;
 use crate::status::resolve_damage;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize, rng: &mut impl Rng) {
-    let base = match grade { Grade::Base => 12, Grade::Plus => 17 };
+    let base = GradeValues { base: 12, plus: 17 }.get(grade);
     let raw = resolve_damage(base, &state.player.statuses, &state.enemies[target].statuses);
     let dealt = { let e = &mut state.enemies[target]; deal_damage(raw, &mut e.hp, &mut e.block) };
     events.push(Event::PlayerAttacked { raw, damage: dealt });
