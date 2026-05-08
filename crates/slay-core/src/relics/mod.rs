@@ -44,6 +44,7 @@ use crate::types::Hp;
 #[derive(Debug, Clone, Copy)]
 pub struct RelicDef {
     pub name: &'static str,
+    pub description: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -203,6 +204,10 @@ impl Relic {
 
     pub fn name(&self) -> &'static str {
         self.def().name
+    }
+
+    pub fn description(&self) -> &'static str {
+        self.def().description
     }
 }
 

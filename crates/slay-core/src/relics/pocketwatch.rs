@@ -2,7 +2,7 @@ use crate::combat::{CombatState, Event};
 use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "pocketwatch" }
-pub(super) fn def() -> RelicDef { RelicDef { name: "Pocketwatch" } }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Pocketwatch", description: "Whenever you play 3 or fewer cards in a turn, draw 3 additional cards next turn." } }
 
 pub(super) fn on_turn_end(state: &mut CombatState, _events: &mut Vec<Event>, _hand_size_before_discard: usize) {
     if state.cards_played_this_turn <= 3 {

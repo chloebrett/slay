@@ -5,7 +5,7 @@ use crate::types::Hp;
 use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "bag-of-marbles" }
-pub(super) fn def() -> RelicDef { RelicDef { name: "Bag of Marbles" } }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Bag of Marbles", description: "At the start of each combat, apply 1 Vulnerable to ALL enemies." } }
 
 pub(super) fn on_combat_start(state: &mut CombatState, events: &mut Vec<Event>, _rng: &mut impl Rng, _is_boss: bool) {
     for i in 0..state.enemies.len() {

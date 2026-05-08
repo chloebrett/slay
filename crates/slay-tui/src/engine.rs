@@ -113,6 +113,8 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Combust           => ("🔥", "Combust"),
         StatusEffect::Evolve            => ("🧬", "Evolve"),
         StatusEffect::FireBreathing     => ("🐉", "Fire Breathing"),
+        StatusEffect::StrengthDown      => ("📉", "Strength Down"),
+        StatusEffect::Shackled          => ("⛓️", "Shackled"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
     }
 }

@@ -4,7 +4,7 @@ use crate::rng::Rng;
 use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "nunchaku" }
-pub(super) fn def() -> RelicDef { RelicDef { name: "Nunchaku" } }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Nunchaku", description: "Every 10 Attacks played, gain 1 energy." } }
 
 pub(super) fn on_card_play(state: &mut CombatState, events: &mut Vec<Event>, card_type: CardType, _rng: &mut impl Rng) {
     if card_type == CardType::Attack && state.attacks_this_combat.is_multiple_of(10) {

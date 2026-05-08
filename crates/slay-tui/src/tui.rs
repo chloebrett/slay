@@ -1,6 +1,6 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar,
-    statuses_inline,
+    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relic_emoji,
+    relics_bar, statuses_inline,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -32,6 +32,7 @@ pub struct TuiState {
     pub last_error: Option<String>,
     pub show_pile: Option<PileView>,
     pub show_help: bool,
+    pub show_relics: bool,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -52,6 +53,7 @@ impl TuiState {
             last_error: None,
             show_pile: None,
             show_help: false,
+            show_relics: false,
             debug,
             should_quit: false,
         };
@@ -78,16 +80,25 @@ impl TuiState {
         let input = std::mem::take(&mut self.input_buf);
         let trimmed = input.trim();
 
+        // Global relic overlay toggle
+        if trimmed == "relics" {
+            self.show_relics = !self.show_relics;
+            self.show_pile = None;
+            return;
+        }
+
         // Pile view shortcuts in combat
         if matches!(self.game, GameState::Combat { .. }) {
             if let Some((_, view, _)) = PILE_KEYS.iter().find(|(k, _, _)| *k == trimmed) {
                 self.show_pile = Some(*view);
+                self.show_relics = false;
                 return;
             }
         }
 
-        // Dismiss pile overlay on any other key event
+        // Dismiss pile/relic overlays on any other command
         self.show_pile = None;
+        self.show_relics = false;
 
         let Some(command) = crate::command::parse(trimmed, &self.game, self.debug) else {
             self.last_error = Some("Unknown command.".to_string());
@@ -144,12 +155,13 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
     render_status_line(f, chunks[2], tui);
     render_input(f, chunks[3], tui);
 
-    // Pile overlay (drawn last, on top)
+    // Overlays (drawn last, on top)
     if let Some(view) = tui.show_pile {
         render_pile_overlay(f, f.area(), &tui.game, view);
     }
-
-    // Help overlay (drawn last, on top of everything)
+    if tui.show_relics {
+        render_relic_overlay(f, f.area(), player_relics(&tui.game));
+    }
     if tui.show_help {
         render_help_overlay(f, f.area(), &tui.game);
     }
@@ -706,6 +718,31 @@ fn render_pile_overlay(f: &mut Frame, area: Rect, state: &GameState, view: PileV
     f.render_widget(para, popup);
 }
 
+fn render_relic_overlay(f: &mut Frame, area: Rect, relics: &[Relic]) {
+    let title = format!(" 🎒 Relics ({}) ", relics.len());
+    let lines: Vec<Line> = if relics.is_empty() {
+        vec![Line::styled("(no relics)", Style::default().fg(Color::DarkGray))]
+    } else {
+        relics.iter().map(|r| {
+            Line::raw(format!(" {} {}  —  {}", relic_emoji(r), r.name(), r.description()))
+        }).collect()
+    };
+
+    let w = (area.width * 7) / 10;
+    let h = (area.height * 6) / 10;
+    let x = area.x + (area.width - w) / 2;
+    let y = area.y + (area.height - h) / 2;
+    let popup = Rect { x, y, width: w, height: h };
+
+    f.render_widget(ratatui::widgets::Clear, popup);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .style(Style::default().bg(Color::Black));
+    let para = Paragraph::new(lines).block(block).wrap(Wrap { trim: false });
+    f.render_widget(para, popup);
+}
+
 fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     let lines: Vec<Line> = help_lines(state)
         .into_iter()
@@ -1032,6 +1069,34 @@ mod tests {
         tui.input_buf = "play 1".to_string();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("> play 1"), "expected '> play 1' in:\n{out}");
+    }
+
+    #[test]
+    fn relics_command_opens_relic_overlay() {
+        use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
+        let mut r = rng();
+        let graph = slay_core::generate_map(&mut r);
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0,
+                relics: vec![Relic::Anchor],
+                potions: vec![],
+            },
+            floor: 0, graph, available_cols: vec![0], next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let mut tui = TuiState::new(state, false);
+        let mut r = rng();
+        tui.input_buf = "relics".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.show_relics, "show_relics should be true after 'relics' command");
+        let out = render_to_string(&tui, 120, 30);
+        assert!(out.contains("Anchor"), "expected Anchor name in relic overlay:\n{out}");
+        assert!(out.contains("10 Block"), "expected Anchor description in relic overlay:\n{out}");
     }
 
     #[test]

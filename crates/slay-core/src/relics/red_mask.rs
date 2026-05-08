@@ -5,7 +5,7 @@ use crate::types::Hp;
 use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "red-mask" }
-pub(super) fn def() -> RelicDef { RelicDef { name: "Red Mask" } }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Red Mask", description: "At the start of each combat, apply 1 Weak to ALL enemies." } }
 
 pub(super) fn on_combat_start(state: &mut CombatState, events: &mut Vec<Event>, _rng: &mut impl Rng, _is_boss: bool) {
     for i in 0..state.enemies.len() {

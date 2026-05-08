@@ -1629,3 +1629,47 @@
         assert_eq!(Card::from_id("fire-breathing"),      Some(Card::FireBreathing(Grade::Base)));
         assert_eq!(Card::from_id("fire-breathing-plus"), Some(Card::FireBreathing(Grade::Plus)));
     }
+
+    // --- Flex ---
+
+    #[test]
+    fn flex_base_applies_2_strength() {
+        let state = combat_with_hand(vec![Card::Flex(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(2));
+    }
+
+    #[test]
+    fn flex_base_applies_2_strength_down() {
+        let state = combat_with_hand(vec![Card::Flex(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::StrengthDown).copied(), Some(2));
+    }
+
+    #[test]
+    fn flex_plus_applies_4_strength() {
+        let state = combat_with_hand(vec![Card::Flex(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(4));
+    }
+
+    #[test]
+    fn flex_plus_applies_4_strength_down() {
+        let state = combat_with_hand(vec![Card::Flex(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::StrengthDown).copied(), Some(4));
+    }
+
+    #[test]
+    fn flex_strength_expires_at_end_of_turn() {
+        let state = combat_with_hand(vec![Card::Flex(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 0);
+    }
+
+    #[test]
+    fn flex_id_round_trips() {
+        assert_eq!(Card::from_id("flex"),      Some(Card::Flex(Grade::Base)));
+        assert_eq!(Card::from_id("flex-plus"), Some(Card::Flex(Grade::Plus)));
+    }
