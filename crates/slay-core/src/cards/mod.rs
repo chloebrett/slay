@@ -2,6 +2,8 @@ mod anger;
 mod bash;
 mod ascenders_bane;
 mod barricade;
+mod berserk;
+mod brutality;
 mod carnage;
 mod clash;
 mod dark_embrace;
@@ -32,6 +34,7 @@ mod impervious;
 mod inflame;
 mod iron_wave;
 mod juggernaut;
+mod limit_break;
 mod pommel_strike;
 mod pummel;
 mod reckless_charge;
@@ -91,6 +94,10 @@ pub enum Card {
     DarkEmbrace(Grade),
     Juggernaut(Grade),
     Rupture(Grade),
+    Berserk(Grade),
+    Brutality(Grade),
+    // Skill (exhausts on base)
+    LimitBreak(Grade),
     Dazed,
     Injury,
     Clumsy,
@@ -178,6 +185,9 @@ impl Card {
             Card::DarkEmbrace(g)  => dark_embrace::def(*g),
             Card::Juggernaut(g)   => juggernaut::def(*g),
             Card::Rupture(g)      => rupture::def(*g),
+            Card::Berserk(g)      => berserk::def(*g),
+            Card::Brutality(g)    => brutality::def(*g),
+            Card::LimitBreak(g)   => limit_break::def(*g),
             Card::Dazed           => dazed::def(),
             Card::Injury          => injury::def(),
             Card::Clumsy          => clumsy::def(),
@@ -203,6 +213,10 @@ impl Card {
         matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane | Card::Carnage(_))
     }
 
+    pub fn is_innate(&self) -> bool {
+        matches!(self, Card::Brutality(Grade::Plus))
+    }
+
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
         match self {
             Card::Decay  => Some(decay::end_of_turn_hook()),
@@ -215,7 +229,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -231,7 +245,8 @@ impl Card {
             Card::HeavyBlade(g) | Card::SwordBoomerang(g) |
             Card::Barricade(g) | Card::DemonForm(g) |
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
-            Card::Juggernaut(g) | Card::Rupture(g) => Some(*g),
+            Card::Juggernaut(g) | Card::Rupture(g) |
+            Card::Berserk(g) | Card::Brutality(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -276,6 +291,9 @@ impl Card {
             Card::DarkEmbrace(_)  => Card::DarkEmbrace(g),
             Card::Juggernaut(_)   => Card::Juggernaut(g),
             Card::Rupture(_)      => Card::Rupture(g),
+            Card::Berserk(_)      => Card::Berserk(g),
+            Card::Brutality(_)    => Card::Brutality(g),
+            Card::LimitBreak(_)   => Card::LimitBreak(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
@@ -353,6 +371,9 @@ impl Card {
             Card::DarkEmbrace(g)  => dark_embrace::id(*g),
             Card::Juggernaut(g)   => juggernaut::id(*g),
             Card::Rupture(g)      => rupture::id(*g),
+            Card::Berserk(g)      => berserk::id(*g),
+            Card::Brutality(g)    => brutality::id(*g),
+            Card::LimitBreak(g)   => limit_break::id(*g),
             Card::Dazed           => dazed::id(),
             Card::Injury          => injury::id(),
             Card::Clumsy          => clumsy::id(),
@@ -408,6 +429,9 @@ impl Card {
             Card::DarkEmbrace(Base),  Card::DarkEmbrace(Plus),
             Card::Juggernaut(Base),   Card::Juggernaut(Plus),
             Card::Rupture(Base),      Card::Rupture(Plus),
+            Card::Berserk(Base),      Card::Berserk(Plus),
+            Card::Brutality(Base),    Card::Brutality(Plus),
+            Card::LimitBreak(Base),   Card::LimitBreak(Plus),
             Card::Dazed,
             Card::Injury,
             Card::Clumsy,
@@ -471,6 +495,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::DarkEmbrace(g)  => dark_embrace::apply(state, events, *g, target),
         Card::Juggernaut(g)   => juggernaut::apply(state, events, *g, target),
         Card::Rupture(g)      => rupture::apply(state, events, *g, target),
+        Card::Berserk(g)      => berserk::apply(state, events, *g, target),
+        Card::Brutality(g)    => brutality::apply(state, events, *g, target),
+        Card::LimitBreak(g)   => limit_break::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
         Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable
@@ -492,6 +519,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Barricade(Base), Card::DemonForm(Base),
         Card::FeelNoPain(Base), Card::DarkEmbrace(Base),
         Card::Juggernaut(Base), Card::Rupture(Base),
+        Card::Berserk(Base), Card::Brutality(Base), Card::LimitBreak(Base),
     ]
 }
 

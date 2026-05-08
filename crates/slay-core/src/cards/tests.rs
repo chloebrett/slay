@@ -1,5 +1,5 @@
     use super::*;
-    use crate::combat::{combat_with_hand, combat_with_two_enemies, apply_combat_command, CombatPhase, Event, Target};
+    use crate::combat::{combat_with_hand, combat_with_deck, combat_with_two_enemies, apply_combat_command, CombatPhase, Event, Target};
     use crate::run::{Command, CommandError};
     use crate::status::StatusEffect;
     use crate::types::{Block, Energy, Hp};
@@ -1311,3 +1311,149 @@
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(2));
     }
 
+    // --- Innate ---
+
+    #[test]
+    fn brutality_plus_is_innate() {
+        assert!(Card::Brutality(Grade::Plus).is_innate());
+    }
+
+    #[test]
+    fn brutality_base_is_not_innate() {
+        assert!(!Card::Brutality(Grade::Base).is_innate());
+    }
+
+    #[test]
+    fn innate_card_starts_in_opening_hand() {
+        let state = combat_with_deck(
+            vec![Card::Brutality(Grade::Plus), Card::Strike(Grade::Base)],
+            &mut rng(),
+        );
+        assert!(state.player.hand.contains(&Card::Brutality(Grade::Plus)));
+    }
+
+    #[test]
+    fn innate_card_counts_toward_opening_hand_size() {
+        let state = combat_with_deck(
+            vec![
+                Card::Brutality(Grade::Plus),
+                Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+                Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+                Card::Strike(Grade::Base),
+            ],
+            &mut rng(),
+        );
+        assert_eq!(state.player.hand.len(), 5);
+    }
+
+    // --- Limit Break ---
+
+    #[test]
+    fn limit_break_doubles_strength() {
+        let mut state = combat_with_hand(vec![Card::LimitBreak(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Strength, 5);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(10));
+    }
+
+    #[test]
+    fn limit_break_is_noop_with_no_strength() {
+        let state = combat_with_hand(vec![Card::LimitBreak(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 0);
+    }
+
+    #[test]
+    fn limit_break_base_exhausts() {
+        let state = combat_with_hand(vec![Card::LimitBreak(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::LimitBreak(Grade::Base)));
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn limit_break_plus_does_not_exhaust() {
+        let state = combat_with_hand(vec![Card::LimitBreak(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.is_empty());
+        assert!(state.player.discard_pile.contains(&Card::LimitBreak(Grade::Plus)));
+    }
+
+    // --- Berserk ---
+
+    #[test]
+    fn berserk_base_applies_2_vulnerable_and_berserk_status() {
+        let state = combat_with_hand(vec![Card::Berserk(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Vulnerable).copied(), Some(2));
+        assert_eq!(state.player.statuses.get(&StatusEffect::Berserk).copied(), Some(1));
+    }
+
+    #[test]
+    fn berserk_plus_applies_1_vulnerable_and_berserk_status() {
+        let state = combat_with_hand(vec![Card::Berserk(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Vulnerable).copied(), Some(1));
+        assert_eq!(state.player.statuses.get(&StatusEffect::Berserk).copied(), Some(1));
+    }
+
+    #[test]
+    fn berserk_grants_1_energy_at_start_of_turn() {
+        use crate::types::Energy;
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Berserk, 1);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        let state = full_turn(state);
+        assert_eq!(state.player.energy, Energy(4)); // 3 base + 1 berserk
+    }
+
+    // --- Brutality ---
+
+    #[test]
+    fn brutality_sets_brutality_status() {
+        let state = combat_with_hand(vec![Card::Brutality(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Brutality).copied(), Some(1));
+    }
+
+    #[test]
+    fn brutality_causes_1_hp_loss_at_start_of_turn() {
+        use crate::enemies::Move;
+        use crate::types::Hp;
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Brutality, 1);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        state.enemies[0].move_ = Move::LouseBlock;
+        let initial_hp = state.player.hp;
+        let state = full_turn(state);
+        assert_eq!(state.player.hp, Hp(initial_hp.0 - 1));
+    }
+
+    #[test]
+    fn brutality_draws_1_extra_card_at_start_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Brutality, 1);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 10];
+        let state = full_turn(state);
+        assert_eq!(state.player.hand.len(), 6); // 5 normal + 1 from brutality
+    }
+
+    // --- from_id round-trips ---
+
+    #[test]
+    fn berserk_id_round_trips() {
+        assert_eq!(Card::from_id("berserk"),      Some(Card::Berserk(Grade::Base)));
+        assert_eq!(Card::from_id("berserk-plus"), Some(Card::Berserk(Grade::Plus)));
+    }
+
+    #[test]
+    fn brutality_id_round_trips() {
+        assert_eq!(Card::from_id("brutality"),      Some(Card::Brutality(Grade::Base)));
+        assert_eq!(Card::from_id("brutality-plus"), Some(Card::Brutality(Grade::Plus)));
+    }
+
+    #[test]
+    fn limit_break_id_round_trips() {
+        assert_eq!(Card::from_id("limit-break"),      Some(Card::LimitBreak(Grade::Base)));
+        assert_eq!(Card::from_id("limit-break-plus"), Some(Card::LimitBreak(Grade::Plus)));
+    }

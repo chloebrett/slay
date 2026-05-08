@@ -22,6 +22,8 @@ pub enum StatusEffect {
     Juggernaut,
     Unmovable,
     Rupture,
+    Berserk,
+    Brutality,
     StonePlating,
 }
 

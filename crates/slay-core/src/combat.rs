@@ -96,9 +96,11 @@ impl CombatState {
     pub fn from_player(player: Player, enemy_kinds: Vec<EnemyKind>, rng: &mut impl Rng) -> Self {
         let mut draw_pile = player.deck.clone();
         rng.shuffle(&mut draw_pile);
+        let (innate, rest): (Vec<_>, Vec<_>) = draw_pile.into_iter().partition(|c| c.is_innate());
+        let innate_count = innate.len();
         let mut p = Player {
-            draw_pile,
-            hand: Vec::new(),
+            draw_pile: rest,
+            hand: innate,
             discard_pile: Vec::new(),
             exhaust_pile: Vec::new(),
             block: Block(0),
@@ -106,7 +108,7 @@ impl CombatState {
             statuses: StatusMap::new(),
             ..player
         };
-        draw_cards(&mut p, 5, rng);
+        draw_cards(&mut p, 5usize.saturating_sub(innate_count), rng);
         let enemies = enemy_kinds
             .iter()
             .map(|kind| {
@@ -450,6 +452,17 @@ pub(crate) fn apply_combat_command(
             if demon_form > 0 {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, demon_form, &mut events);
             }
+            let berserk = state.player.statuses.get(&StatusEffect::Berserk).copied().unwrap_or(0);
+            if berserk > 0 {
+                state.player.energy.0 += 1;
+                events.push(Event::EnergyGained { amount: 1 });
+            }
+            let brutality = state.player.statuses.get(&StatusEffect::Brutality).copied().unwrap_or(0);
+            if brutality > 0 {
+                damage_player(&mut state, &mut events, 1);
+                draw_cards(&mut state.player, 1, rng);
+                events.push(Event::CardsDrawn { count: 1 });
+            }
             draw_cards(&mut state.player, 5, rng);
             if extra > 0 {
                 draw_cards(&mut state.player, extra, rng);
@@ -656,6 +669,20 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         cards_played_this_turn: 0,
         extra_draws_next_turn: 0,
     }
+}
+
+#[cfg(test)]
+pub(crate) fn combat_with_deck(deck: Vec<Card>, rng: &mut impl Rng) -> CombatState {
+    let player = Player {
+        hp: Hp(80), max_hp: Hp(80), block: Block(0),
+        energy: Energy(3), max_energy: Energy(3),
+        hand: Vec::new(), draw_pile: Vec::new(),
+        discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+        statuses: StatusMap::new(), gold: 0,
+        relics: Vec::new(), potions: Vec::new(),
+        deck,
+    };
+    CombatState::from_player(player, vec![EnemyKind::RedLouse], rng)
 }
 
 #[cfg(test)]
