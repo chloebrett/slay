@@ -18,7 +18,7 @@ use std::collections::VecDeque;
 
 const LOG_CAPACITY: usize = 200;
 
-const WIPE_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
+const WIPE_DURATION: std::time::Duration = std::time::Duration::from_millis(500);
 const FLASH_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
 
 const PILE_KEYS: &[(&str, PileView, &str)] = &[
@@ -266,7 +266,7 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
         render_help_overlay(f, f.area(), &tui.game);
     }
     if tui.wipe_start.is_some() {
-        render_wipe_overlay(f, f.area());
+        render_wipe_overlay(f, f.area(), &tui.game);
     }
 }
 
@@ -863,10 +863,80 @@ fn render_relic_overlay(f: &mut Frame, area: Rect, relics: &[Relic]) {
     f.render_widget(para, popup);
 }
 
-fn render_wipe_overlay(f: &mut Frame, area: Rect) {
-    let block = Block::default().style(Style::default().bg(Color::Black));
+fn wipe_title_lines(state: &GameState) -> Vec<Line<'static>> {
+    let divider = Line::styled(
+        "━━━━━━━━━━━━━━━━━━━━━━━━",
+        Style::default().fg(Color::DarkGray),
+    );
+    match state {
+        GameState::Combat { floor, is_boss, state: cs, .. } => {
+            let floor_line = Line::styled(
+                format!("Floor {}", floor + 1),
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            );
+            let label = if *is_boss { "BOSS BATTLE" } else { "COMBAT" };
+            let room_line = Line::styled(label, Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+            let enemies: String = cs.enemies.iter().map(|e| e.name()).collect::<Vec<_>>().join("  ·  ");
+            let enemy_line = Line::styled(enemies, Style::default().fg(Color::Gray));
+            vec![floor_line, divider, room_line, enemy_line]
+        }
+        GameState::RestSite(rs) => vec![
+            Line::styled(format!("Floor {}", rs.floor + 1), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            divider,
+            Line::styled("REST SITE", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ],
+        GameState::Shop(s) => vec![
+            Line::styled(format!("Floor {}", s.floor + 1), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            divider,
+            Line::styled("MERCHANT", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ],
+        GameState::CardReward(cr) => vec![
+            Line::styled(format!("Floor {}", cr.floor), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            divider,
+            Line::styled("CARD REWARD", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ],
+        GameState::TreasureRoom(tr) => vec![
+            Line::styled(format!("Floor {}", tr.floor + 1), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            divider,
+            Line::styled("TREASURE", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+        ],
+        GameState::EventRoom(er) => {
+            let event_name = match er.event {
+                EventKind::Ssssserpent => "THE SSSSSERPENT",
+                EventKind::BigFish     => "BIG FISH",
+                EventKind::Mushrooms   => "MUSHROOMS",
+                EventKind::GoldenIdol  => "GOLDEN IDOL",
+            };
+            vec![
+                Line::styled(format!("Floor {}", er.floor + 1), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+                divider,
+                Line::styled("EVENT", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Line::styled(event_name, Style::default().fg(Color::Gray)),
+            ]
+        }
+        GameState::Map(_) | GameState::GameOver { .. } => vec![],
+    }
+}
+
+fn render_wipe_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     f.render_widget(ratatui::widgets::Clear, area);
-    f.render_widget(block, area);
+    f.render_widget(Block::default().style(Style::default().bg(Color::Black)), area);
+
+    let lines = wipe_title_lines(state);
+    if lines.is_empty() { return; }
+
+    let content_height = lines.len() as u16;
+    let y_pad = area.height.saturating_sub(content_height) / 2;
+    let card_area = Rect {
+        x: area.x,
+        y: area.y + y_pad,
+        width: area.width,
+        height: content_height,
+    };
+    let para = Paragraph::new(lines)
+        .alignment(Alignment::Center)
+        .style(Style::default().bg(Color::Black));
+    f.render_widget(para, card_area);
 }
 
 fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
@@ -952,7 +1022,11 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
                 continue;
             }
 
-            // Dismiss pile overlay on any key
+            // Dismiss wipe / pile overlay on any key
+            if tui.wipe_start.is_some() {
+                tui.wipe_start = None;
+                continue;
+            }
             if tui.show_pile.is_some() {
                 tui.show_pile = None;
                 continue;
@@ -1665,8 +1739,25 @@ mod tests {
         let mut tui = make_combat_tui();
         tui.wipe_start = Some(std::time::Instant::now());
         let out = render_to_string(&tui, 100, 30);
-        assert!(!out.contains("Louse"), "combat content should not be visible during wipe");
-        assert!(!out.contains("HP"), "combat content should not be visible during wipe");
+        assert!(!out.contains("Draw:"), "pile counts should not be visible during wipe");
+        assert!(!out.contains("Hand"), "hand panel should not be visible during wipe");
+    }
+
+    #[test]
+    fn wipe_shows_floor_number_and_room_type() {
+        let mut tui = make_combat_tui();
+        tui.wipe_start = Some(std::time::Instant::now());
+        let out = render_to_string(&tui, 100, 30);
+        assert!(out.contains("Floor"), "should show floor label during wipe");
+        assert!(out.contains("COMBAT"), "should show room type in caps during wipe");
+    }
+
+    #[test]
+    fn wipe_shows_enemy_names_during_combat_transition() {
+        let mut tui = make_combat_tui();
+        tui.wipe_start = Some(std::time::Instant::now());
+        let out = render_to_string(&tui, 100, 30);
+        assert!(out.contains("Louse"), "should show enemy name on title card during wipe");
     }
 
     // ─── help overlay render ───────────────────────────────────────
