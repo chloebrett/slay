@@ -2273,3 +2273,39 @@
         assert_eq!(Card::from_id("armaments"),      Some(Card::Armaments(Grade::Base)));
         assert_eq!(Card::from_id("armaments-plus"), Some(Card::Armaments(Grade::Plus)));
     }
+
+    // --- Ghostly Armor ---
+
+    #[test]
+    fn ghostly_armor_gains_13_block() {
+        let state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(13));
+    }
+
+    #[test]
+    fn ghostly_armor_plus_gains_16_block() {
+        let state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(16));
+    }
+
+    #[test]
+    fn ghostly_armor_is_ethereal() {
+        assert!(Card::GhostlyArmor(Grade::Base).is_ethereal());
+    }
+
+    #[test]
+    fn ghostly_armor_exhausts_at_end_of_turn_when_unplayed() {
+        let mut state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Base)]);
+        state.player.draw_pile = vec![];
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::GhostlyArmor(Grade::Base)));
+        assert!(!state.player.discard_pile.contains(&Card::GhostlyArmor(Grade::Base)));
+    }
+
+    #[test]
+    fn ghostly_armor_id_round_trips() {
+        assert_eq!(Card::from_id("ghostly-armor"),      Some(Card::GhostlyArmor(Grade::Base)));
+        assert_eq!(Card::from_id("ghostly-armor-plus"), Some(Card::GhostlyArmor(Grade::Plus)));
+    }
