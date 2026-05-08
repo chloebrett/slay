@@ -2309,3 +2309,143 @@
         assert_eq!(Card::from_id("ghostly-armor"),      Some(Card::GhostlyArmor(Grade::Base)));
         assert_eq!(Card::from_id("ghostly-armor-plus"), Some(Card::GhostlyArmor(Grade::Plus)));
     }
+
+    // --- Second Wind ---
+
+    #[test]
+    fn second_wind_exhausts_non_attack_cards() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Wound,
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Defend(Grade::Base)));
+        assert!(state.player.exhaust_pile.contains(&Card::Wound));
+        assert!(!state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn second_wind_gains_5_block_per_exhausted_card() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::ShrugItOff(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(10)); // 2 non-attack cards × 5
+    }
+
+    #[test]
+    fn second_wind_leaves_attack_cards_in_hand() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Defend(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Base)));
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn second_wind_no_block_when_no_non_attacks() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    #[test]
+    fn second_wind_id_round_trips() {
+        assert_eq!(Card::from_id("second-wind"),      Some(Card::SecondWind(Grade::Base)));
+        assert_eq!(Card::from_id("second-wind-plus"), Some(Card::SecondWind(Grade::Plus)));
+    }
+
+    // --- All-Out Attack ---
+
+    #[test]
+    fn all_out_attack_deals_10_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::AllOutAttack(Grade::Base)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        state.enemies[1].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(10));
+        assert_eq!(state.enemies[1].hp, crate::types::Hp(10));
+    }
+
+    #[test]
+    fn all_out_attack_plus_deals_14_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::AllOutAttack(Grade::Plus)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        state.enemies[1].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(6));
+        assert_eq!(state.enemies[1].hp, crate::types::Hp(6));
+    }
+
+    #[test]
+    fn all_out_attack_discards_one_card_from_hand() {
+        let state = combat_with_hand(vec![
+            Card::AllOutAttack(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Defend(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Started with 2 cards after AllOutAttack removed; 1 should be discarded
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn all_out_attack_no_discard_when_hand_empty() {
+        let state = combat_with_hand(vec![Card::AllOutAttack(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 0);
+    }
+
+    #[test]
+    fn all_out_attack_id_round_trips() {
+        assert_eq!(Card::from_id("all-out-attack"),      Some(Card::AllOutAttack(Grade::Base)));
+        assert_eq!(Card::from_id("all-out-attack-plus"), Some(Card::AllOutAttack(Grade::Plus)));
+    }
+
+    // --- All for One ---
+
+    #[test]
+    fn all_for_one_deals_10_damage() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Base)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(10));
+    }
+
+    #[test]
+    fn all_for_one_retrieves_zero_cost_cards_from_discard() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Base)]);
+        state.player.discard_pile = vec![
+            Card::Wound,         // cost 0 (unplayable status, but cost is 0)
+            Card::Strike(Grade::Base), // cost 1
+            Card::SeeingRed(Grade::Base), // cost 1
+        ];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Wound));
+        assert!(!state.player.hand.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn all_for_one_plus_deals_14_damage() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Plus)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(6));
+    }
+
+    #[test]
+    fn all_for_one_id_round_trips() {
+        assert_eq!(Card::from_id("all-for-one"),      Some(Card::AllForOne(Grade::Base)));
+        assert_eq!(Card::from_id("all-for-one-plus"), Some(Card::AllForOne(Grade::Plus)));
+    }
