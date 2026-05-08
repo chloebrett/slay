@@ -327,6 +327,29 @@ pub(crate) fn apply_combat_command(
             if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
                 return Ok((state, events));
             }
+            // Combust: lose 1 HP, deal damage to all enemies
+            let combust = state.player.statuses.get(&StatusEffect::Combust).copied().unwrap_or(0);
+            if combust > 0 {
+                damage_player(&mut state, &mut events, 1);
+                if state.player.hp <= Hp(0) {
+                    state.phase = CombatPhase::Defeat;
+                    return Ok((state, events));
+                }
+                for i in 0..state.enemies.len() {
+                    if state.enemies[i].hp <= Hp(0) { continue; }
+                    let dmg = resolve_damage(combust, &StatusMap::new(), &state.enemies[i].statuses);
+                    let e = &mut state.enemies[i];
+                    let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+                    events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
+                    if state.enemies[i].hp <= Hp(0) {
+                        events.push(Event::EnemyDied);
+                    }
+                }
+                if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                    state.phase = CombatPhase::Victory;
+                    return Ok((state, events));
+                }
+            }
             for i in 0..state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { continue; }
                 let poison_dmg = drain_poison(&mut state.enemies[i].statuses);

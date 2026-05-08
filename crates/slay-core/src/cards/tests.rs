@@ -1457,3 +1457,74 @@
         assert_eq!(Card::from_id("limit-break"),      Some(Card::LimitBreak(Grade::Base)));
         assert_eq!(Card::from_id("limit-break-plus"), Some(Card::LimitBreak(Grade::Plus)));
     }
+
+    // --- Combust ---
+
+    #[test]
+    fn combust_base_adds_5_to_combust_status() {
+        let state = combat_with_hand(vec![Card::Combust(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Combust).copied(), Some(5));
+    }
+
+    #[test]
+    fn combust_plus_adds_7_to_combust_status() {
+        let state = combat_with_hand(vec![Card::Combust(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Combust).copied(), Some(7));
+    }
+
+    #[test]
+    fn combust_deals_5_damage_to_enemy_at_end_of_turn() {
+        let mut state = combat_with_hand(vec![Card::Combust(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        state.player.hand.clear(); // discard manually to just test EndTurn effect
+        // can't call PlayCard and EndTurn; set up statuses directly
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        let enemy_hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp.0, enemy_hp_before.0 - 5);
+    }
+
+    #[test]
+    fn combust_causes_1_hp_loss_at_end_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        let hp_before = state.player.hp;
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp.0, hp_before.0 - 1);
+    }
+
+    #[test]
+    fn combust_kills_enemy_producing_victory() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        state.enemies[0].hp = Hp(1);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Victory);
+    }
+
+    #[test]
+    fn combust_kills_player_producing_defeat() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        state.player.hp = Hp(1);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Defeat);
+    }
+
+    #[test]
+    fn combust_emits_enemy_died_when_overkilling() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Combust, 5);
+        state.enemies[0].hp = Hp(1);
+        let (_, events) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemyDied));
+    }
+
+    #[test]
+    fn combust_id_round_trips() {
+        assert_eq!(Card::from_id("combust"),      Some(Card::Combust(Grade::Base)));
+        assert_eq!(Card::from_id("combust-plus"), Some(Card::Combust(Grade::Plus)));
+    }
