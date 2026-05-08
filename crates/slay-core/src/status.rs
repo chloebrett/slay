@@ -30,6 +30,7 @@ pub enum StatusEffect {
     StrengthDown,
     Shackled,
     StonePlating,
+    Enrage,
 }
 
 impl StatusEffect {
@@ -236,5 +237,12 @@ mod tests {
     fn neither_status_returns_zero() {
         let mut statuses = empty();
         assert_eq!(tick_strength_modifiers(&mut statuses), 0);
+    }
+
+    #[test]
+    fn enrage_does_not_tick_at_end_of_turn() {
+        let mut statuses = map_with(StatusEffect::Enrage, 2);
+        tick_statuses(&mut statuses);
+        assert_eq!(get_stacks(&statuses, StatusEffect::Enrage), 2);
     }
 }
