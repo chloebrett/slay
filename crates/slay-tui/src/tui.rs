@@ -10,8 +10,9 @@ use ratatui::{
     Frame, Terminal,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, EventKind, EventRoomState, GameState, MapNode, MapState,
-    Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    AnyRng, CardRewardState, CombatPhase, CombatState, EventKind, EventRoomState, GameState,
+    MapNode, MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
+    CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
 
@@ -603,9 +604,31 @@ fn render_status_line(f: &mut Frame, area: Rect, tui: &TuiState) {
     f.render_widget(para, area);
 }
 
+fn command_hint(state: &GameState) -> String {
+    match state {
+        GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::PlayerTurn => {
+            "play N [target] · end · use N potion".to_string()
+        }
+        GameState::Combat { .. } => String::new(),
+        GameState::Map(_) => "N to choose node".to_string(),
+        GameState::RestSite(_) => "rest · upgrade N".to_string(),
+        GameState::TreasureRoom(_) => "take · skip".to_string(),
+        GameState::CardReward(_) => "N to take card · skip".to_string(),
+        GameState::Shop(_) => "N card · r relic · p potion · leave".to_string(),
+        GameState::EventRoom(_) => "N to choose option".to_string(),
+        GameState::GameOver { .. } => String::new(),
+    }
+}
+
 fn render_input(f: &mut Frame, area: Rect, tui: &TuiState) {
     let prompt = format!("> {}", tui.input_buf);
-    let block = Block::default().borders(Borders::ALL).title(" Command ");
+    let hint = command_hint(&tui.game);
+    let title = if hint.is_empty() {
+        " Command ".to_string()
+    } else {
+        format!(" Command: {hint} ")
+    };
+    let block = Block::default().borders(Borders::ALL).title(title);
     let para = Paragraph::new(prompt).block(block);
     f.render_widget(para, area);
 }
@@ -1145,5 +1168,28 @@ mod tests {
         let before = tui.event_log.len();
         tui.push_log(String::new());
         assert_eq!(tui.event_log.len(), before);
+    }
+
+    // ─── command_hint ──────────────────────────────────────────────
+
+    #[test]
+    fn command_hint_combat_contains_play_and_end() {
+        let tui = make_combat_tui();
+        let hint = command_hint(&tui.game);
+        assert!(hint.contains("play"), "combat hint should mention play, got: {hint}");
+        assert!(hint.contains("end"), "combat hint should mention end, got: {hint}");
+    }
+
+    #[test]
+    fn command_hint_map_contains_node_hint() {
+        let tui = make_map_tui();
+        let hint = command_hint(&tui.game);
+        assert!(!hint.is_empty(), "map hint should not be empty");
+    }
+
+    #[test]
+    fn command_hint_game_over_is_empty() {
+        let tui = TuiState::new(GameState::GameOver { victory: true }, false);
+        assert_eq!(command_hint(&tui.game), "");
     }
 }
