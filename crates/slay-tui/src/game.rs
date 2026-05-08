@@ -1,5 +1,6 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar, statuses_inline,
+    apply_and_drain, card_type_icon, connector_rows, describe_event, describe_intent, enemy_icon,
+    map_node_icon, map_node_name, relics_bar, statuses_inline,
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatPhase, CombatState, Event, EventRoomState, GameState, MapState,
@@ -108,40 +109,40 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         let _ = writeln!(w, "{bar}");
     }
     let _ = writeln!(w);
-    for (i, row) in map.graph.rows.iter().enumerate().rev() {
-        let marker = match i.cmp(&floor) {
-            std::cmp::Ordering::Less    => "✓",
-            std::cmp::Ordering::Equal   => "▶",
-            std::cmp::Ordering::Greater => " ",
-        };
-        let nodes: String = row.iter()
-            .map(|node| { let (icon, name) = map_node_label(node); format!("{icon} {name}") })
-            .collect::<Vec<_>>()
-            .join("  ");
-        let _ = writeln!(w, "  {marker} {}. {nodes}", i + 1);
+
+    let max_cols = map.graph.rows.iter().map(|r| r.len()).max().unwrap_or(1);
+    let max_floor = map.graph.rows.len().saturating_sub(1);
+
+    for floor_idx in (0..=max_floor).rev() {
+        let row = &map.graph.rows[floor_idx];
+        let past = floor_idx < floor;
+        let marker = if floor_idx == floor { "▶ " } else { "  " };
+        let mut icons: Vec<String> = Vec::new();
+        for col in 0..max_cols {
+            let icon = if past {
+                row.get(col).map_or("  ", |_| "·· ")
+            } else {
+                row.get(col).map_or("  ", |n| map_node_icon(n))
+            };
+            icons.push(icon.to_string());
+        }
+        let _ = writeln!(w, "{marker}{}", icons.join("    "));
+        if floor_idx > 0 {
+            let (r0, r1) = connector_rows(&map.graph.edges[floor_idx - 1], max_cols);
+            let _ = writeln!(w, "  {r0}");
+            let _ = writeln!(w, "  {r1}");
+        }
     }
+
     let _ = writeln!(w);
     if map.available_cols.len() == 1 {
         let node = &map.graph.rows[floor][map.available_cols[0]];
-        let (icon, name) = map_node_label(node);
-        let _ = writeln!(w, "[Enter ↵] {icon} {name}");
+        let _ = writeln!(w, "[Enter ↵] {} {}", map_node_icon(node), map_node_name(node));
     } else {
         for &col in &map.available_cols {
             let node = &map.graph.rows[floor][col];
-            let (icon, name) = map_node_label(node);
-            let _ = writeln!(w, "[{}] {icon} {name}", col + 1);
+            let _ = writeln!(w, "[{}] {} {}", col + 1, map_node_icon(node), map_node_name(node));
         }
-    }
-}
-
-fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
-    match node {
-        slay_core::MapNode::Combat(_)  => ("⚔️ ", "Combat"),
-        slay_core::MapNode::RestSite   => ("🔥", "Rest Site"),
-        slay_core::MapNode::Boss(_)    => ("💀", "Boss"),
-        slay_core::MapNode::Merchant   => ("🛒", "Shop"),
-        slay_core::MapNode::Treasure   => ("📦", "Treasure"),
-        slay_core::MapNode::Event      => ("❓", "Event"),
     }
 }
 
@@ -433,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn map_grid_shows_both_nodes_on_two_column_floor() {
+    fn map_grid_shows_both_icons_on_two_column_floor() {
         let graph = MapGraph {
             rows: vec![vec![MapNode::Combat(vec![]), MapNode::Combat(vec![])]],
             edges: vec![vec![vec![], vec![]]],
@@ -449,7 +450,57 @@ mod tests {
         let mut out = Vec::new();
         render_map(&map, &mut out);
         let s = String::from_utf8(out).unwrap();
-        let has_double_combat = s.lines().any(|line| line.matches("Combat").count() >= 2);
-        assert!(has_double_combat, "expected a line with 2 Combat labels in:\n{s}");
+        let icon_count = s.lines()
+            .find(|line| line.contains("⚔️") && !line.starts_with('['))
+            .map_or(0, |line| line.matches("⚔️").count());
+        assert!(icon_count >= 2, "expected a node row with 2 ⚔️ icons in:\n{s}");
+    }
+
+    #[test]
+    fn map_node_rows_show_icons_not_text_labels() {
+        let graph = MapGraph {
+            rows: vec![vec![MapNode::RestSite]],
+            edges: vec![vec![vec![]]],
+        };
+        let map = MapState {
+            player: bare_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        };
+        let mut out = Vec::new();
+        render_map(&map, &mut out);
+        let s = String::from_utf8(out).unwrap();
+        let node_row = s.lines()
+            .find(|line| line.contains("🔥") && !line.starts_with('['))
+            .expect("no node row with 🔥 found in:\n{s}");
+        assert!(!node_row.contains("Rest Site"), "node row should not contain label 'Rest Site' in:\n{s}");
+    }
+
+    #[test]
+    fn map_shows_connector_rows_between_floors() {
+        let graph = MapGraph {
+            rows: vec![
+                vec![MapNode::Combat(vec![])],
+                vec![MapNode::RestSite],
+            ],
+            edges: vec![
+                vec![vec![0]],
+            ],
+        };
+        let map = MapState {
+            player: bare_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        };
+        let mut out = Vec::new();
+        render_map(&map, &mut out);
+        let s = String::from_utf8(out).unwrap();
+        assert!(s.contains('│'), "expected connector row with │ in:\n{s}");
     }
 }
