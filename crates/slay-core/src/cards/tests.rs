@@ -1829,3 +1829,66 @@
         assert_eq!(Card::from_id("fiend-fire"),      Some(Card::FiendFire(Grade::Base)));
         assert_eq!(Card::from_id("fiend-fire-plus"), Some(Card::FiendFire(Grade::Plus)));
     }
+
+    // --- Perfected Strike ---
+
+    #[test]
+    fn perfected_strike_counts_itself() {
+        // Only Perfected Strike in hand (no other Strikes) → 1 Strike card (itself)
+        // damage = 6 + 2*1 = 8
+        let state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+    }
+
+    #[test]
+    fn perfected_strike_counts_strikes_in_hand() {
+        // Perfected Strike + 2 Strikes in hand → 3 Strike cards
+        // damage = 6 + 2*3 = 12
+        let state = combat_with_hand(vec![
+            Card::PerfectedStrike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_counts_strikes_in_draw_and_discard_piles() {
+        // 1 Strike in draw pile, 1 Strike in discard pile, Perfected Strike itself → 3
+        // damage = 6 + 2*3 = 12
+        let mut state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Base)]);
+        state.player.draw_pile.push(Card::Strike(Grade::Base));
+        state.player.discard_pile.push(Card::Strike(Grade::Base));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_counts_twin_and_pommel_strike() {
+        // Twin Strike + Pommel Strike in hand + Perfected Strike itself → 3
+        // damage = 6 + 2*3 = 12
+        let state = combat_with_hand(vec![
+            Card::PerfectedStrike(Grade::Base),
+            Card::TwinStrike(Grade::Base),
+            Card::PommelStrike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_plus_gives_3_damage_per_strike() {
+        // Only Perfected Strike+ itself → 1 Strike card
+        // damage = 6 + 3*1 = 9
+        let state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(11));
+    }
+
+    #[test]
+    fn perfected_strike_id_round_trips() {
+        assert_eq!(Card::from_id("perfected-strike"),      Some(Card::PerfectedStrike(Grade::Base)));
+        assert_eq!(Card::from_id("perfected-strike-plus"), Some(Card::PerfectedStrike(Grade::Plus)));
+    }
