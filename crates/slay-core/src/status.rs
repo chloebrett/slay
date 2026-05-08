@@ -40,8 +40,12 @@ impl StatusEffect {
 
 pub type StatusMap = IndexMap<StatusEffect, i32>;
 
+pub fn get_stacks(statuses: &StatusMap, effect: StatusEffect) -> i32 {
+    statuses.get(&effect).copied().unwrap_or(0)
+}
+
 pub fn resolve_block(base: i32, statuses: &StatusMap) -> i32 {
-    let base = base + statuses.get(&StatusEffect::Dexterity).copied().unwrap_or(0);
+    let base = base + get_stacks(statuses, StatusEffect::Dexterity);
     let base = if statuses.contains_key(&StatusEffect::Frail) { base * 3 / 4 } else { base };
     base.max(0)
 }
@@ -51,7 +55,7 @@ pub fn resolve_damage(base: i32, attacker: &StatusMap, defender: &StatusMap) -> 
 }
 
 pub fn resolve_damage_with_strength_multiplier(base: i32, str_multiplier: i32, attacker: &StatusMap, defender: &StatusMap) -> i32 {
-    let dmg = base + attacker.get(&StatusEffect::Strength).copied().unwrap_or(0) * str_multiplier;
+    let dmg = base + get_stacks(attacker, StatusEffect::Strength) * str_multiplier;
     let dmg = if attacker.contains_key(&StatusEffect::Weak) { dmg * 3 / 4 } else { dmg };
     let dmg = if defender.contains_key(&StatusEffect::Vulnerable) { dmg * 3 / 2 } else { dmg };
     dmg.max(0)
@@ -69,7 +73,7 @@ pub fn tick_statuses(statuses: &mut StatusMap) {
 
 /// Ticks ritual: returns Strength gained (= ritual stacks). Ritual does not decrement.
 pub fn tick_ritual(statuses: &mut StatusMap) -> i32 {
-    let ritual = statuses.get(&StatusEffect::Ritual).copied().unwrap_or(0);
+    let ritual = get_stacks(statuses, StatusEffect::Ritual);
     if ritual > 0 {
         *statuses.entry(StatusEffect::Strength).or_insert(0) += ritual;
     }
@@ -87,7 +91,7 @@ pub fn tick_strength_modifiers(statuses: &mut StatusMap) -> i32 {
 /// Drains poison: returns damage dealt and decrements the stack.
 /// Returns 0 if no poison. Caller applies the damage to HP.
 pub fn drain_poison(statuses: &mut StatusMap) -> i32 {
-    let damage = statuses.get(&StatusEffect::Poison).copied().unwrap_or(0);
+    let damage = get_stacks(statuses, StatusEffect::Poison);
     if damage == 0 {
         return 0;
     }
@@ -182,7 +186,7 @@ mod tests {
     fn frail_ticks_at_end_of_turn() {
         let mut statuses = map_with(StatusEffect::Frail, 2);
         tick_statuses(&mut statuses);
-        assert_eq!(statuses.get(&StatusEffect::Frail).copied().unwrap_or(0), 1);
+        assert_eq!(get_stacks(&statuses, StatusEffect::Frail), 1);
     }
 
     #[test]

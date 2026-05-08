@@ -4,7 +4,7 @@ use crate::potions::Potion;
 use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_block, resolve_damage, tick_ritual, tick_statuses, tick_strength_modifiers};
+use crate::status::{StatusEffect, StatusMap, drain_poison, get_stacks, resolve_damage, tick_ritual, tick_statuses, tick_strength_modifiers};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -151,7 +151,7 @@ pub(crate) fn draw_with_triggers(state: &mut CombatState, n: usize, events: &mut
     let curse_drawn = state.player.hand[before..after].iter()
         .filter(|c| c.def().card_type == CardType::Curse).count();
 
-    let fire_breathing = state.player.statuses.get(&StatusEffect::FireBreathing).copied().unwrap_or(0);
+    let fire_breathing = get_stacks(&state.player.statuses, StatusEffect::FireBreathing);
     if fire_breathing > 0 {
         let triggers = (status_drawn + curse_drawn) as i32;
         if triggers > 0 {
@@ -168,7 +168,7 @@ pub(crate) fn draw_with_triggers(state: &mut CombatState, n: usize, events: &mut
         }
     }
 
-    let evolve = state.player.statuses.get(&StatusEffect::Evolve).copied().unwrap_or(0);
+    let evolve = get_stacks(&state.player.statuses, StatusEffect::Evolve);
     if evolve > 0 && status_drawn > 0 {
         for _ in 0..status_drawn {
             draw_with_triggers(state, evolve as usize, events, rng);
@@ -227,6 +227,112 @@ pub enum Target {
     Enemy,
 }
 
+fn apply_play_card(
+    mut state: CombatState,
+    index: usize,
+    target_idx: usize,
+    rng: &mut impl Rng,
+) -> Result<(CombatState, Vec<Event>), CommandError> {
+    use crate::cards::CardType;
+    if state.phase != CombatPhase::PlayerTurn {
+        return Err(CommandError::InvalidPhase);
+    }
+    if index >= state.player.hand.len() {
+        return Err(CommandError::InvalidCard);
+    }
+    let card = state.player.hand[index].clone();
+    if !card.is_playable() {
+        return Err(CommandError::InvalidCard);
+    }
+    if let Card::Clash(_) = &card {
+        if !state.player.hand.iter().all(|c| c.card_type() == CardType::Attack) {
+            return Err(CommandError::InvalidCard);
+        }
+    }
+    if state.player.energy < card.energy_cost() {
+        return Err(CommandError::NotEnoughEnergy);
+    }
+    if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
+        return Err(CommandError::Entangled);
+    }
+    // Resolve target: use specified if alive, else first living; out-of-bounds is error
+    let actual_target = if target_idx >= state.enemies.len() {
+        return Err(CommandError::InvalidCard);
+    } else if state.enemies[target_idx].hp > Hp(0) {
+        target_idx
+    } else {
+        state.enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)?
+    };
+    let mut events = Vec::new();
+    state.player.hand.remove(index);
+    state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
+    events.push(Event::CardPlayed { card: card.clone() });
+    let hp_before_card = state.enemies[actual_target].hp;
+    crate::cards::apply(&card, &mut state, &mut events, actual_target, rng);
+    if card.card_type() == CardType::Attack {
+        let sharp_hide = get_stacks(&state.enemies[actual_target].statuses, StatusEffect::SharpHide);
+        if sharp_hide > 0 {
+            let raw = sharp_hide * 5;
+            let damage = deal_damage(raw, &mut state.player.hp, &mut state.player.block);
+            events.push(Event::EnemyAttacked { raw, damage });
+        }
+    }
+    if state.enemies[actual_target].hp > Hp(0) {
+        let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
+        if let Some(reaction) = enemies::on_player_attack_damage(
+            &state.enemies[actual_target].kind,
+            &state.enemies[actual_target].statuses,
+            hp_lost,
+        ) {
+            let enemy = &mut state.enemies[actual_target];
+            enemy.block.0 += reaction.block_gain;
+            for &(status, stacks) in &reaction.status_events {
+                *enemy.statuses.entry(status).or_insert(0) += stacks;
+            }
+            for &(status, stacks) in &reaction.silent_adds {
+                *enemy.statuses.entry(status).or_insert(0) += stacks;
+            }
+            for &(status, value) in &reaction.silent_sets {
+                enemy.statuses.insert(status, value);
+            }
+            if let Some(mv) = reaction.force_move {
+                enemy.move_ = mv;
+            }
+            if reaction.block_gain > 0 {
+                events.push(Event::EnemyDefended { amount: reaction.block_gain });
+            }
+            for &(status, stacks) in &reaction.status_events {
+                events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
+            }
+        }
+    }
+    if card.exhausts() {
+        exhaust_card(card.clone(), &mut state, &mut events, rng);
+    } else if card.card_type() != CardType::Power {
+        state.player.discard_pile.push(card.clone());
+    }
+    let card_type = card.card_type();
+    match card_type {
+        CardType::Attack => { state.attacks_this_turn += 1; state.attacks_this_combat += 1; }
+        CardType::Skill  => { state.skills_this_turn  += 1; state.skills_this_combat  += 1; }
+        CardType::Power | CardType::Curse | CardType::Status => {}
+    }
+    state.cards_played_this_turn += 1;
+    apply_card_play_relics(&mut state, &mut events, card_type, rng);
+    if state.player.hp <= Hp(0) {
+        state.phase = CombatPhase::Defeat;
+        return Ok((state, events));
+    }
+    if state.enemies[actual_target].hp <= Hp(0) {
+        events.push(Event::EnemyDied);
+        apply_enemy_died_relics(&mut state, &mut events, rng);
+    }
+    if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+        state.phase = CombatPhase::Victory;
+    }
+    Ok((state, events))
+}
+
 pub(crate) fn apply_combat_command(
     mut state: CombatState,
     command: Command,
@@ -240,112 +346,7 @@ pub(crate) fn apply_combat_command(
 
     match command {
         Command::PlayCard(index, target_idx) => {
-            if state.phase != CombatPhase::PlayerTurn {
-                return Err(CommandError::InvalidPhase);
-            }
-            if index >= state.player.hand.len() {
-                return Err(CommandError::InvalidCard);
-            }
-            let card = state.player.hand[index].clone();
-            if !card.is_playable() {
-                return Err(CommandError::InvalidCard);
-            }
-            if let Card::Clash(_) = &card {
-                if !state.player.hand.iter().all(|c| c.card_type() == crate::cards::CardType::Attack) {
-                    return Err(CommandError::InvalidCard);
-                }
-            }
-            if state.player.energy < card.energy_cost() {
-                return Err(CommandError::NotEnoughEnergy);
-            }
-            if card.card_type() == crate::cards::CardType::Attack
-                && state.player.statuses.contains_key(&StatusEffect::Entangle)
-            {
-                return Err(CommandError::Entangled);
-            }
-            // Resolve target: use specified if alive, else first living; out-of-bounds is error
-            let actual_target = if target_idx >= state.enemies.len() {
-                return Err(CommandError::InvalidCard);
-            } else if state.enemies[target_idx].hp > Hp(0) {
-                target_idx
-            } else {
-                state.enemies.iter().position(|e| e.hp > Hp(0))
-                    .ok_or(CommandError::InvalidCard)?
-            };
-            state.player.hand.remove(index);
-            state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
-            events.push(Event::CardPlayed { card: card.clone() });
-            let hp_before_card = state.enemies[actual_target].hp;
-            crate::cards::apply(&card, &mut state, &mut events, actual_target, rng);
-            if card.card_type() == crate::cards::CardType::Attack {
-                let sharp_hide = state.enemies[actual_target].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
-                if sharp_hide > 0 {
-                    let raw = sharp_hide * 5;
-                    let damage = deal_damage(raw, &mut state.player.hp, &mut state.player.block);
-                    events.push(Event::EnemyAttacked { raw, damage });
-                }
-            }
-            if state.enemies[actual_target].hp > Hp(0) {
-                let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
-                if let Some(reaction) = enemies::on_player_attack_damage(
-                    &state.enemies[actual_target].kind,
-                    &state.enemies[actual_target].statuses,
-                    hp_lost,
-                ) {
-                    let enemy = &mut state.enemies[actual_target];
-                    enemy.block.0 += reaction.block_gain;
-                    for &(status, stacks) in &reaction.status_events {
-                        *enemy.statuses.entry(status).or_insert(0) += stacks;
-                    }
-                    for &(status, stacks) in &reaction.silent_adds {
-                        *enemy.statuses.entry(status).or_insert(0) += stacks;
-                    }
-                    for &(status, value) in &reaction.silent_sets {
-                        enemy.statuses.insert(status, value);
-                    }
-                    if let Some(mv) = reaction.force_move {
-                        enemy.move_ = mv;
-                    }
-                    if reaction.block_gain > 0 {
-                        events.push(Event::EnemyDefended { amount: reaction.block_gain });
-                    }
-                    for &(status, stacks) in &reaction.status_events {
-                        events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
-                    }
-                }
-            }
-            if card.exhausts() {
-                exhaust_card(card.clone(), &mut state, &mut events, rng);
-            } else if card.card_type() != crate::cards::CardType::Power {
-                state.player.discard_pile.push(card.clone());
-            }
-            let card_type = card.card_type();
-            match card_type {
-                crate::cards::CardType::Attack => {
-                    state.attacks_this_turn += 1;
-                    state.attacks_this_combat += 1;
-                }
-                crate::cards::CardType::Skill => {
-                    state.skills_this_turn += 1;
-                    state.skills_this_combat += 1;
-                }
-                crate::cards::CardType::Power |
-                crate::cards::CardType::Curse |
-                crate::cards::CardType::Status => {}
-            }
-            state.cards_played_this_turn += 1;
-            apply_card_play_relics(&mut state, &mut events, card_type, rng);
-            if state.player.hp <= Hp(0) {
-                state.phase = CombatPhase::Defeat;
-                return Ok((state, events));
-            }
-            if state.enemies[actual_target].hp <= Hp(0) {
-                events.push(Event::EnemyDied);
-                apply_enemy_died_relics(&mut state, &mut events, rng);
-            }
-            if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
-                state.phase = CombatPhase::Victory;
-            }
+            return apply_play_card(state, index, target_idx, rng);
         }
         Command::EndTurn => {
             if state.phase != CombatPhase::PlayerTurn {
@@ -368,7 +369,7 @@ pub(crate) fn apply_combat_command(
                 return Ok((state, events));
             }
             // Combust: lose 1 HP, deal damage to all enemies
-            let combust = state.player.statuses.get(&StatusEffect::Combust).copied().unwrap_or(0);
+            let combust = get_stacks(&state.player.statuses, StatusEffect::Combust);
             if combust > 0 {
                 damage_player(&mut state, &mut events, 1);
                 if state.player.hp <= Hp(0) {
@@ -415,7 +416,7 @@ pub(crate) fn apply_combat_command(
                 return Err(CommandError::InvalidCard);
             }
             let potion = state.player.potions.remove(slot);
-            apply_potion(potion, target_idx, &mut state, &mut events, rng);
+            crate::potions::apply(potion, target_idx, &mut state, &mut events, rng);
             events.push(Event::PotionUsed { potion });
         }
         Command::ChooseNode(_)
@@ -515,16 +516,16 @@ pub(crate) fn apply_combat_command(
             state.cards_played_this_turn = 0;
             state.extra_draws_next_turn = 0;
             // Start-of-turn power effects
-            let demon_form = state.player.statuses.get(&StatusEffect::DemonForm).copied().unwrap_or(0);
+            let demon_form = get_stacks(&state.player.statuses, StatusEffect::DemonForm);
             if demon_form > 0 {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, demon_form, &mut events);
             }
-            let berserk = state.player.statuses.get(&StatusEffect::Berserk).copied().unwrap_or(0);
+            let berserk = get_stacks(&state.player.statuses, StatusEffect::Berserk);
             if berserk > 0 {
                 state.player.energy.0 += 1;
                 events.push(Event::EnergyGained { amount: 1 });
             }
-            let brutality = state.player.statuses.get(&StatusEffect::Brutality).copied().unwrap_or(0);
+            let brutality = get_stacks(&state.player.statuses, StatusEffect::Brutality);
             if brutality > 0 {
                 damage_player(&mut state, &mut events, 1);
                 draw_with_triggers(&mut state, 1, &mut events, rng);
@@ -558,11 +559,11 @@ pub(crate) fn apply_status(
 pub(crate) fn exhaust_card(card: crate::cards::Card, state: &mut CombatState, events: &mut Vec<Event>, rng: &mut impl Rng) {
     events.push(Event::CardExhausted { card: card.clone() });
     state.player.exhaust_pile.push(card);
-    let feel_no_pain = state.player.statuses.get(&StatusEffect::FeelNoPain).copied().unwrap_or(0);
+    let feel_no_pain = get_stacks(&state.player.statuses, StatusEffect::FeelNoPain);
     if feel_no_pain > 0 {
         gain_player_block(state, events, feel_no_pain, rng);
     }
-    let dark_embrace = state.player.statuses.get(&StatusEffect::DarkEmbrace).copied().unwrap_or(0);
+    let dark_embrace = get_stacks(&state.player.statuses, StatusEffect::DarkEmbrace);
     if dark_embrace > 0 {
         draw_cards(&mut state.player, 1, rng);
         events.push(Event::CardsDrawn { count: 1 });
@@ -574,7 +575,7 @@ pub(crate) fn gain_player_block(state: &mut CombatState, events: &mut Vec<Event>
     if amount <= 0 { return; }
     state.player.block.0 += amount;
     events.push(Event::PlayerBlocked { amount });
-    let juggernaut = state.player.statuses.get(&StatusEffect::Juggernaut).copied().unwrap_or(0);
+    let juggernaut = get_stacks(&state.player.statuses, StatusEffect::Juggernaut);
     if juggernaut > 0 {
         let mut living: Vec<usize> = (0..state.enemies.len())
             .filter(|&i| state.enemies[i].hp.0 > 0)
@@ -593,7 +594,7 @@ pub(crate) fn gain_player_block(state: &mut CombatState, events: &mut Vec<Event>
 pub(crate) fn damage_player_from_card(state: &mut CombatState, events: &mut Vec<Event>, amount: i32) {
     state.player.hp.0 = (state.player.hp.0 - amount).max(0);
     events.push(Event::PlayerSelfDamaged { amount });
-    let rupture = state.player.statuses.get(&StatusEffect::Rupture).copied().unwrap_or(0);
+    let rupture = get_stacks(&state.player.statuses, StatusEffect::Rupture);
     if rupture > 0 {
         apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, rupture, events);
     }
@@ -634,70 +635,6 @@ fn apply_end_of_turn_card_hooks(hooks: &[EndOfTurnHook], state: &mut CombatState
     false
 }
 
-fn apply_potion(
-    potion: Potion,
-    target_idx: usize,
-    state: &mut CombatState,
-    events: &mut Vec<Event>,
-    rng: &mut impl Rng,
-) {
-    match potion {
-        Potion::FirePotion => {
-            let target = target_idx.min(state.enemies.len().saturating_sub(1));
-            let dmg = resolve_damage(20, &StatusMap::new(), &state.enemies[target].statuses);
-            let e = &mut state.enemies[target];
-            let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-            events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-            if state.enemies[target].hp <= Hp(0) {
-                events.push(Event::EnemyDied);
-            }
-        }
-        Potion::ExplosivePotion => {
-            for i in 0..state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { continue; }
-                let dmg = resolve_damage(10, &StatusMap::new(), &state.enemies[i].statuses);
-                let e = &mut state.enemies[i];
-                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-                if state.enemies[i].hp <= Hp(0) {
-                    events.push(Event::EnemyDied);
-                }
-            }
-        }
-        Potion::BlockPotion => {
-            let gained = resolve_block(12, &state.player.statuses);
-            state.player.block.0 += gained;
-            events.push(Event::PlayerBlocked { amount: gained });
-        }
-        Potion::StrengthPotion => {
-            apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 2, events);
-        }
-        Potion::SwiftPotion => {
-            draw_cards(&mut state.player, 3, rng);
-            events.push(Event::CardsDrawn { count: 3 });
-        }
-        Potion::FearPotion => {
-            let target = target_idx.min(state.enemies.len().saturating_sub(1));
-            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Vulnerable, 3, events);
-        }
-        Potion::WeakPotion => {
-            let target = target_idx.min(state.enemies.len().saturating_sub(1));
-            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Weak, 3, events);
-        }
-        Potion::BloodPotion => {
-            let heal = (state.player.max_hp.0 * 20 / 100).max(1);
-            state.player.hp.0 = (state.player.hp.0 + heal).min(state.player.max_hp.0);
-            events.push(Event::Healed { amount: heal });
-        }
-        Potion::EnergyPotion => {
-            state.player.energy.0 += 2;
-            events.push(Event::EnergyGained { amount: 2 });
-        }
-    }
-    if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
-        state.phase = CombatPhase::Victory;
-    }
-}
 
 #[cfg(test)]
 pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
@@ -1255,7 +1192,7 @@ mod tests {
         state.phase = CombatPhase::EnemyTurn;
         state.enemies[0].statuses.insert(StatusEffect::Shackled, 2);
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 2);
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 2);
     }
 
     #[test]
@@ -1654,7 +1591,7 @@ mod tests {
         for _ in 0..5 {
             state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
         }
-        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 1); // Defensive
     }
 
@@ -1681,7 +1618,7 @@ mod tests {
         for _ in 0..5 {
             state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
         }
-        let sharp_hide = state.enemies[0].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
+        let sharp_hide = get_stacks(&state.enemies[0].statuses, StatusEffect::SharpHide);
         assert_eq!(sharp_hide, 3);
     }
 
@@ -1722,7 +1659,7 @@ mod tests {
         for _ in 0..5 {
             state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
         }
-        let count = state.enemies[0].statuses.get(&StatusEffect::ModeShiftCount).copied().unwrap_or(0);
+        let count = get_stacks(&state.enemies[0].statuses, StatusEffect::ModeShiftCount);
         assert_eq!(count, 1);
     }
 
@@ -1737,9 +1674,9 @@ mod tests {
         for _ in 0..5 {
             state = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap().0;
         }
-        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 1); // stays Defensive, no second shift
-        let sharp_hide = state.enemies[0].statuses.get(&StatusEffect::SharpHide).copied().unwrap_or(0);
+        let sharp_hide = get_stacks(&state.enemies[0].statuses, StatusEffect::SharpHide);
         assert_eq!(sharp_hide, 0); // no sharp hide gained from mode shift
     }
 
@@ -1751,7 +1688,7 @@ mod tests {
         state.enemies[0].statuses.insert(StatusEffect::ModeShiftCount, 1);
         state.enemies[0].statuses.insert(StatusEffect::ModeShiftProgress, 34);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 1); // shifted to Defensive at 40
     }
 
@@ -1763,7 +1700,7 @@ mod tests {
         state.enemies[0].statuses.insert(StatusEffect::ModeShiftCount, 1);
         state.enemies[0].statuses.insert(StatusEffect::ModeShiftProgress, 29);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 0); // still Offensive, threshold not reached
     }
 
@@ -1915,7 +1852,7 @@ mod tests {
         state.enemies[0].statuses.insert(StatusEffect::GuardianMode, 1); // Defensive
         state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
-        let mode = state.enemies[0].statuses.get(&StatusEffect::GuardianMode).copied().unwrap_or(0);
+        let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 0); // back to Offensive after TwinSlam
     }
 }

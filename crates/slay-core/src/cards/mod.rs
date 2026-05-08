@@ -8,6 +8,8 @@ mod combust;
 mod evolve;
 mod fire_breathing;
 mod flex;
+mod intimidate;
+mod shockwave;
 mod carnage;
 mod clash;
 mod dark_embrace;
@@ -104,6 +106,8 @@ pub enum Card {
     Evolve(Grade),
     FireBreathing(Grade),
     Flex(Grade),
+    Intimidate(Grade),
+    Shockwave(Grade),
     // Skill (exhausts on base)
     LimitBreak(Grade),
     Dazed,
@@ -198,6 +202,8 @@ impl Card {
             Card::Evolve(g)       => evolve::def(*g),
             Card::FireBreathing(g) => fire_breathing::def(*g),
             Card::Flex(g)         => flex::def(*g),
+            Card::Intimidate(g)   => intimidate::def(*g),
+            Card::Shockwave(g)    => shockwave::def(*g),
             Card::Brutality(g)    => brutality::def(*g),
             Card::LimitBreak(g)   => limit_break::def(*g),
             Card::Dazed           => dazed::def(),
@@ -241,7 +247,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -259,7 +265,8 @@ impl Card {
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
-            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Flex(g) | Card::LimitBreak(g) => Some(*g),
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Flex(g)
+            | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -309,6 +316,8 @@ impl Card {
             Card::Evolve(_)       => Card::Evolve(g),
             Card::FireBreathing(_) => Card::FireBreathing(g),
             Card::Flex(_)         => Card::Flex(g),
+            Card::Intimidate(_)   => Card::Intimidate(g),
+            Card::Shockwave(_)    => Card::Shockwave(g),
             Card::Brutality(_)    => Card::Brutality(g),
             Card::LimitBreak(_)   => Card::LimitBreak(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
@@ -393,6 +402,8 @@ impl Card {
             Card::Evolve(g)       => evolve::id(*g),
             Card::FireBreathing(g) => fire_breathing::id(*g),
             Card::Flex(g)         => flex::id(*g),
+            Card::Intimidate(g)   => intimidate::id(*g),
+            Card::Shockwave(g)    => shockwave::id(*g),
             Card::Brutality(g)    => brutality::id(*g),
             Card::LimitBreak(g)   => limit_break::id(*g),
             Card::Dazed           => dazed::id(),
@@ -455,6 +466,8 @@ impl Card {
             Card::Evolve(Base),       Card::Evolve(Plus),
             Card::FireBreathing(Base), Card::FireBreathing(Plus),
             Card::Flex(Base),         Card::Flex(Plus),
+            Card::Intimidate(Base),   Card::Intimidate(Plus),
+            Card::Shockwave(Base),    Card::Shockwave(Plus),
             Card::Brutality(Base),    Card::Brutality(Plus),
             Card::LimitBreak(Base),   Card::LimitBreak(Plus),
             Card::Dazed,
@@ -525,6 +538,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Evolve(g)       => evolve::apply(state, events, *g, target),
         Card::FireBreathing(g) => fire_breathing::apply(state, events, *g, target),
         Card::Flex(g)         => flex::apply(state, events, *g, target),
+        Card::Intimidate(g)   => intimidate::apply(state, events, *g, target),
+        Card::Shockwave(g)    => shockwave::apply(state, events, *g, target),
         Card::Brutality(g)    => brutality::apply(state, events, *g, target),
         Card::LimitBreak(g)   => limit_break::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
@@ -549,7 +564,8 @@ pub fn reward_pool() -> Vec<Card> {
         Card::FeelNoPain(Base), Card::DarkEmbrace(Base),
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
-        Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base), Card::LimitBreak(Base),
+        Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
+        Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 
