@@ -1737,3 +1737,349 @@
         assert_eq!(Card::from_id("shockwave"),      Some(Card::Shockwave(Grade::Base)));
         assert_eq!(Card::from_id("shockwave-plus"), Some(Card::Shockwave(Grade::Plus)));
     }
+
+    // --- Immolate ---
+
+    #[test]
+    fn immolate_deals_21_damage_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Base)]);
+        state.enemies[0].hp = Hp(50); state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(29));
+        assert_eq!(state.enemies[1].hp, Hp(29));
+    }
+
+    #[test]
+    fn immolate_plus_deals_28_damage_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Plus)]);
+        state.enemies[0].hp = Hp(50); state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(22));
+        assert_eq!(state.enemies[1].hp, Hp(22));
+    }
+
+    #[test]
+    fn immolate_adds_5_burn_to_discard() {
+        let state = combat_with_hand(vec![Card::Immolate(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let burn_count = state.player.discard_pile.iter().filter(|c| **c == Card::Burn).count();
+        assert_eq!(burn_count, 1);
+    }
+
+    #[test]
+    fn immolate_respects_strength() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Base)]);
+        state.enemies[0].hp = Hp(50);
+        state.player.statuses.insert(StatusEffect::Strength, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(26)); // 50 - (21 + 3)
+    }
+
+    #[test]
+    fn immolate_id_round_trips() {
+        assert_eq!(Card::from_id("immolate"),      Some(Card::Immolate(Grade::Base)));
+        assert_eq!(Card::from_id("immolate-plus"), Some(Card::Immolate(Grade::Plus)));
+    }
+
+    // --- Fiend Fire ---
+
+    #[test]
+    fn fiend_fire_exhausts_hand_and_deals_7_damage_per_card() {
+        let state = combat_with_hand(vec![
+            Card::FiendFire(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // 2 cards in hand when played → 2 × 7 = 14 damage
+        assert_eq!(state.enemies[0].hp, Hp(6));
+        assert!(state.player.hand.is_empty());
+        assert_eq!(state.player.exhaust_pile.len(), 3); // 2 strikes + fiend fire itself
+    }
+
+    #[test]
+    fn fiend_fire_plus_deals_10_damage_per_card() {
+        let state = combat_with_hand(vec![
+            Card::FiendFire(Grade::Plus),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // 2 × 10 = 20 damage
+        assert_eq!(state.enemies[0].hp, Hp(0));
+    }
+
+    #[test]
+    fn fiend_fire_with_empty_hand_deals_no_damage() {
+        let state = combat_with_hand(vec![Card::FiendFire(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // hand was empty (only Fiend Fire, which was removed before apply), no damage
+        assert_eq!(state.enemies[0].hp, Hp(20));
+        assert_eq!(state.player.exhaust_pile, vec![Card::FiendFire(Grade::Base)]);
+    }
+
+    #[test]
+    fn fiend_fire_exhausts() {
+        assert!(Card::FiendFire(Grade::Base).exhausts());
+        assert!(Card::FiendFire(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn fiend_fire_id_round_trips() {
+        assert_eq!(Card::from_id("fiend-fire"),      Some(Card::FiendFire(Grade::Base)));
+        assert_eq!(Card::from_id("fiend-fire-plus"), Some(Card::FiendFire(Grade::Plus)));
+    }
+
+    // --- Perfected Strike ---
+
+    #[test]
+    fn perfected_strike_counts_itself() {
+        // Only Perfected Strike in hand (no other Strikes) → 1 Strike card (itself)
+        // damage = 6 + 2*1 = 8
+        let state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+    }
+
+    #[test]
+    fn perfected_strike_counts_strikes_in_hand() {
+        // Perfected Strike + 2 Strikes in hand → 3 Strike cards
+        // damage = 6 + 2*3 = 12
+        let state = combat_with_hand(vec![
+            Card::PerfectedStrike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_counts_strikes_in_draw_and_discard_piles() {
+        // 1 Strike in draw pile, 1 Strike in discard pile, Perfected Strike itself → 3
+        // damage = 6 + 2*3 = 12
+        let mut state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Base)]);
+        state.player.draw_pile.push(Card::Strike(Grade::Base));
+        state.player.discard_pile.push(Card::Strike(Grade::Base));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_counts_twin_and_pommel_strike() {
+        // Twin Strike + Pommel Strike in hand + Perfected Strike itself → 3
+        // damage = 6 + 2*3 = 12
+        let state = combat_with_hand(vec![
+            Card::PerfectedStrike(Grade::Base),
+            Card::TwinStrike(Grade::Base),
+            Card::PommelStrike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+    }
+
+    #[test]
+    fn perfected_strike_plus_gives_3_damage_per_strike() {
+        // Only Perfected Strike+ itself → 1 Strike card
+        // damage = 6 + 3*1 = 9
+        let state = combat_with_hand(vec![Card::PerfectedStrike(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(11));
+    }
+
+    #[test]
+    fn perfected_strike_id_round_trips() {
+        assert_eq!(Card::from_id("perfected-strike"),      Some(Card::PerfectedStrike(Grade::Base)));
+        assert_eq!(Card::from_id("perfected-strike-plus"), Some(Card::PerfectedStrike(Grade::Plus)));
+    }
+
+    // --- Reaper ---
+
+    #[test]
+    fn reaper_deals_4_damage_to_all_enemies_and_heals() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(46));
+        assert_eq!(state.enemies[1].hp, Hp(46));
+        assert_eq!(state.player.hp, Hp(68)); // heals 4 + 4 = 8
+    }
+
+    #[test]
+    fn reaper_plus_deals_5_damage_per_enemy() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Plus)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+        assert_eq!(state.enemies[1].hp, Hp(45));
+        assert_eq!(state.player.hp, Hp(70)); // heals 5 + 5 = 10
+    }
+
+    #[test]
+    fn reaper_heal_is_capped_at_max_hp() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(79);
+        state.player.max_hp = Hp(80);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn reaper_blocked_damage_does_not_heal() {
+        let mut state = combat_with_hand(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].block.0 = 10; // 4 damage fully absorbed by block
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(60)); // no heal
+        assert!(!events.iter().any(|e| matches!(e, Event::Healed { .. }))); // no Healed event
+    }
+
+    #[test]
+    fn reaper_exhausts() {
+        assert!(Card::Reaper(Grade::Base).exhausts());
+        assert!(Card::Reaper(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn reaper_id_round_trips() {
+        assert_eq!(Card::from_id("reaper"),      Some(Card::Reaper(Grade::Base)));
+        assert_eq!(Card::from_id("reaper-plus"), Some(Card::Reaper(Grade::Plus)));
+    }
+
+    // --- Whirlwind ---
+
+    #[test]
+    fn whirlwind_deals_5_damage_per_hit_per_energy_spent() {
+        // 3 energy → X=3 → 3 hits × 5 damage = 15 total
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(35));
+        assert_eq!(state.player.energy, Energy(0));
+    }
+
+    #[test]
+    fn whirlwind_with_1_energy_deals_5_damage() {
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(1);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+    }
+
+    #[test]
+    fn whirlwind_with_0_energy_deals_no_damage() {
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(0);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(50));
+    }
+
+    #[test]
+    fn whirlwind_hits_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(1);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+        assert_eq!(state.enemies[1].hp, Hp(45));
+    }
+
+    #[test]
+    fn whirlwind_plus_deals_8_damage_per_hit() {
+        // 3 energy → X=3 → 3 hits × 8 = 24 total
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Plus)]);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(26));
+    }
+
+    #[test]
+    fn whirlwind_is_affordable_with_0_energy() {
+        assert!(Card::Whirlwind(Grade::Base).card_cost().is_affordable(Energy(0)));
+    }
+
+    #[test]
+    fn whirlwind_cost_displays_as_x() {
+        assert_eq!(Card::Whirlwind(Grade::Base).card_cost().display(), "X");
+    }
+
+    #[test]
+    fn whirlwind_id_round_trips() {
+        assert_eq!(Card::from_id("whirlwind"),      Some(Card::Whirlwind(Grade::Base)));
+        assert_eq!(Card::from_id("whirlwind-plus"), Some(Card::Whirlwind(Grade::Plus)));
+    }
+
+    // --- Feed ---
+
+    #[test]
+    fn feed_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
+    }
+
+    #[test]
+    fn feed_raises_max_hp_and_current_hp_by_3_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        state.enemies[0].hp = Hp(5);
+        let before_max = state.player.max_hp;
+        let before_hp = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp.0, before_max.0 + 3);
+        assert_eq!(state.player.hp.0, before_hp.0 + 3);
+    }
+
+    #[test]
+    fn feed_plus_raises_max_hp_and_current_hp_by_4_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Plus)]);
+        state.enemies[0].hp = Hp(5);
+        let before_max = state.player.max_hp;
+        let before_hp = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp.0, before_max.0 + 4);
+        assert_eq!(state.player.hp.0, before_hp.0 + 4);
+    }
+
+    #[test]
+    fn feed_does_not_raise_max_hp_if_enemy_survives() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let before = state.player.max_hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp, before);
+    }
+
+    #[test]
+    fn feed_emits_max_hp_increased_event_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        state.enemies[0].hp = Hp(5);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::MaxHpIncreased { amount: 3 }));
+    }
+
+    #[test]
+    fn feed_does_not_emit_max_hp_increased_if_no_kill() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(!events.iter().any(|e| matches!(e, Event::MaxHpIncreased { .. })));
+    }
+
+    #[test]
+    fn feed_exhausts() {
+        assert!(Card::Feed(Grade::Base).exhausts());
+        assert!(Card::Feed(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn feed_id_round_trips() {
+        assert_eq!(Card::from_id("feed"),      Some(Card::Feed(Grade::Base)));
+        assert_eq!(Card::from_id("feed-plus"), Some(Card::Feed(Grade::Plus)));
+    }

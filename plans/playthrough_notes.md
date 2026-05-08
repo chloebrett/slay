@@ -21,3 +21,4 @@ Played through the real game and took some notes.
 - spheric guardian!
 - snecko - confusion
 - centurion and mystic
+- explosive, thorns

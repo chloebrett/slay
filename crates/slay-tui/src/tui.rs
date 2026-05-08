@@ -417,7 +417,7 @@ fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
         ))]
     } else {
         state.player.hand.iter().enumerate().map(|(i, card)| {
-            let affordable = card.energy_cost() <= state.player.energy;
+            let affordable = card.card_cost().is_affordable(state.player.energy);
             let style = if affordable {
                 Style::default()
             } else {
@@ -429,7 +429,7 @@ fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
                 i + 1,
                 card_type_icon(card.card_type()),
                 card.name(),
-                card.energy_cost().0,
+                card.card_cost().display(),
                 desc,
             );
             ListItem::new(Line::styled(text, style))
@@ -512,7 +512,7 @@ fn render_card_reward(f: &mut Frame, area: Rect, cr: &CardRewardState) {
             i + 1,
             card_type_icon(card.card_type()),
             card.name(),
-            card.energy_cost().0,
+            card.card_cost().display(),
             card.description(),
         );
         ListItem::new(text)
@@ -549,7 +549,7 @@ fn render_shop(f: &mut Frame, area: Rect, shop: &ShopState) {
         } else {
             format!(
                 "[{}]  {} ({}) — {} — {}g",
-                i + 1, card.name(), card.energy_cost().0, card.description(), CARD_PRICE,
+                i + 1, card.name(), card.card_cost().display(), card.description(), CARD_PRICE,
             )
         };
         let style = if *purchased { Style::default().fg(Color::DarkGray) } else { Style::default() };

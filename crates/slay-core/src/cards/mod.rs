@@ -7,7 +7,13 @@ mod brutality;
 mod combust;
 mod evolve;
 mod fire_breathing;
+mod feed;
+mod fiend_fire;
 mod flex;
+mod perfected_strike;
+mod reaper;
+mod whirlwind;
+mod immolate;
 mod intimidate;
 mod shockwave;
 mod carnage;
@@ -105,7 +111,13 @@ pub enum Card {
     Combust(Grade),
     Evolve(Grade),
     FireBreathing(Grade),
+    Feed(Grade),
+    FiendFire(Grade),
     Flex(Grade),
+    PerfectedStrike(Grade),
+    Reaper(Grade),
+    Whirlwind(Grade),
+    Immolate(Grade),
     Intimidate(Grade),
     Shockwave(Grade),
     // Skill (exhausts on base)
@@ -165,6 +177,28 @@ pub struct CardDef {
     pub card_type: CardType,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CardCost {
+    Fixed(Energy),
+    X,
+}
+
+impl CardCost {
+    pub fn is_affordable(self, available: Energy) -> bool {
+        match self {
+            CardCost::Fixed(cost) => available >= cost,
+            CardCost::X => true,
+        }
+    }
+
+    pub fn display(self) -> String {
+        match self {
+            CardCost::Fixed(e) => e.0.to_string(),
+            CardCost::X => "X".to_string(),
+        }
+    }
+}
+
 impl Card {
     pub fn def(&self) -> CardDef {
         match self {
@@ -209,7 +243,13 @@ impl Card {
             Card::Combust(g)      => combust::def(*g),
             Card::Evolve(g)       => evolve::def(*g),
             Card::FireBreathing(g) => fire_breathing::def(*g),
-            Card::Flex(g)         => flex::def(*g),
+            Card::Feed(g)           => feed::def(*g),
+            Card::FiendFire(g)      => fiend_fire::def(*g),
+            Card::Flex(g)           => flex::def(*g),
+            Card::PerfectedStrike(g) => perfected_strike::def(*g),
+            Card::Reaper(g)          => reaper::def(*g),
+            Card::Whirlwind(g)       => whirlwind::def(*g),
+            Card::Immolate(g)     => immolate::def(*g),
             Card::Intimidate(g)   => intimidate::def(*g),
             Card::Shockwave(g)    => shockwave::def(*g),
             Card::Brutality(g)    => brutality::def(*g),
@@ -255,7 +295,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -273,8 +313,8 @@ impl Card {
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
-            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Flex(g)
-            | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::Reaper(g) | Card::Whirlwind(g)
+            | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -323,7 +363,13 @@ impl Card {
             Card::Combust(_)      => Card::Combust(g),
             Card::Evolve(_)       => Card::Evolve(g),
             Card::FireBreathing(_) => Card::FireBreathing(g),
-            Card::Flex(_)         => Card::Flex(g),
+            Card::Feed(_)           => Card::Feed(g),
+            Card::FiendFire(_)      => Card::FiendFire(g),
+            Card::Flex(_)           => Card::Flex(g),
+            Card::PerfectedStrike(_) => Card::PerfectedStrike(g),
+            Card::Reaper(_)          => Card::Reaper(g),
+            Card::Whirlwind(_)       => Card::Whirlwind(g),
+            Card::Immolate(_)     => Card::Immolate(g),
             Card::Intimidate(_)   => Card::Intimidate(g),
             Card::Shockwave(_)    => Card::Shockwave(g),
             Card::Brutality(_)    => Card::Brutality(g),
@@ -345,6 +391,13 @@ impl Card {
 
     pub fn name(&self) -> &'static str { self.def().name }
     pub fn energy_cost(&self) -> Energy { self.def().energy_cost }
+
+    pub fn card_cost(&self) -> CardCost {
+        match self {
+            Card::Whirlwind(_) => CardCost::X,
+            _ => CardCost::Fixed(self.energy_cost()),
+        }
+    }
 
     pub fn description(&self) -> String {
         match self.def().description {
@@ -409,7 +462,13 @@ impl Card {
             Card::Combust(g)      => combust::id(*g),
             Card::Evolve(g)       => evolve::id(*g),
             Card::FireBreathing(g) => fire_breathing::id(*g),
-            Card::Flex(g)         => flex::id(*g),
+            Card::Feed(g)           => feed::id(*g),
+            Card::FiendFire(g)      => fiend_fire::id(*g),
+            Card::Flex(g)           => flex::id(*g),
+            Card::PerfectedStrike(g) => perfected_strike::id(*g),
+            Card::Reaper(g)          => reaper::id(*g),
+            Card::Whirlwind(g)       => whirlwind::id(*g),
+            Card::Immolate(g)     => immolate::id(*g),
             Card::Intimidate(g)   => intimidate::id(*g),
             Card::Shockwave(g)    => shockwave::id(*g),
             Card::Brutality(g)    => brutality::id(*g),
@@ -473,7 +532,13 @@ impl Card {
             Card::Combust(Base),      Card::Combust(Plus),
             Card::Evolve(Base),       Card::Evolve(Plus),
             Card::FireBreathing(Base), Card::FireBreathing(Plus),
-            Card::Flex(Base),         Card::Flex(Plus),
+            Card::Feed(Base),            Card::Feed(Plus),
+            Card::FiendFire(Base),       Card::FiendFire(Plus),
+            Card::Flex(Base),            Card::Flex(Plus),
+            Card::PerfectedStrike(Base), Card::PerfectedStrike(Plus),
+            Card::Reaper(Base),          Card::Reaper(Plus),
+            Card::Whirlwind(Base),       Card::Whirlwind(Plus),
+            Card::Immolate(Base),     Card::Immolate(Plus),
             Card::Intimidate(Base),   Card::Intimidate(Plus),
             Card::Shockwave(Base),    Card::Shockwave(Plus),
             Card::Brutality(Base),    Card::Brutality(Plus),
@@ -502,7 +567,7 @@ impl Card {
     }
 }
 
-pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize, rng: &mut impl crate::rng::Rng) {
+pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut Vec<crate::combat::Event>, target: usize, rng: &mut impl crate::rng::Rng, x_value: i32) {
     match card {
         Card::Strike(g)       => strike::apply(state, events, *g, target),
         Card::Defend(g)       => defend::apply(state, events, *g, target, rng),
@@ -545,7 +610,13 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Combust(g)      => combust::apply(state, events, *g, target),
         Card::Evolve(g)       => evolve::apply(state, events, *g, target),
         Card::FireBreathing(g) => fire_breathing::apply(state, events, *g, target),
-        Card::Flex(g)         => flex::apply(state, events, *g, target),
+        Card::Feed(g)           => feed::apply(state, events, *g, target),
+        Card::FiendFire(g)      => fiend_fire::apply(state, events, *g, target, rng),
+        Card::Flex(g)           => flex::apply(state, events, *g, target),
+        Card::PerfectedStrike(g) => perfected_strike::apply(state, events, *g, target),
+        Card::Reaper(g)          => reaper::apply(state, events, *g, target),
+        Card::Whirlwind(g)       => whirlwind::apply(state, events, *g, x_value),
+        Card::Immolate(g)     => immolate::apply(state, events, *g, target),
         Card::Intimidate(g)   => intimidate::apply(state, events, *g, target),
         Card::Shockwave(g)    => shockwave::apply(state, events, *g, target),
         Card::Brutality(g)    => brutality::apply(state, events, *g, target),
@@ -573,7 +644,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
         Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
-        Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
+        Card::Feed(Base), Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::Reaper(Base), Card::Whirlwind(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 
