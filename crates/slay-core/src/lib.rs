@@ -8,7 +8,7 @@ pub mod run;
 pub(crate) mod status;
 mod types;
 
-pub use cards::{Card, CardCost, CardDef, CardType, Grade, reward_pool, starter_deck};
+pub use cards::{Card, CardCost, CardDef, CardType, Grade, OnExhaustHook, reward_pool, starter_deck};
 pub use potions::{Potion, MAX_POTIONS};
 pub use combat::{ChooseCardContext, CombatPhase, CombatState, Enemy, Event, Player, Target};
 pub use relics::{Relic, grant_relic};

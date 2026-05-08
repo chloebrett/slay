@@ -18,8 +18,8 @@ All STS1 Ironclad cards not yet implemented. Cards marked ⚠️ need new infras
 
 | Card | Cost | Description | Dependencies |
 |------|------|-------------|--------------|
-| **Second Wind** | 1 | Exhaust all non-Attack cards in your hand. Gain 5 Block for each card Exhausted. | Exhaust-by-type loop |
-| **Sentinel** | 1 | Gain 5 Block. If this card is Exhausted, gain 2 Energy. | On-exhaust energy gain (new hook) |
+| ~~**Second Wind**~~ | ~~1~~ | ~~Exhaust all non-Attack cards in your hand. Gain 5 Block for each card Exhausted.~~ | ~~Exhaust-by-type loop~~ |
+| ~~**Sentinel**~~ | ~~1~~ | ~~Gain 5 Block. If this card is Exhausted, gain 2 Energy.~~ | ~~On-exhaust energy gain (new hook)~~ |
 
 ---
 
