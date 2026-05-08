@@ -1,4 +1,4 @@
-use crate::cards::{Card, EndOfTurnHook};
+use crate::cards::{Card, CardCost, EndOfTurnHook};
 use crate::enemies::{self, Effect, EnemyKind, Intent, Move};
 use crate::potions::Potion;
 use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
@@ -250,7 +250,7 @@ fn apply_play_card(
             return Err(CommandError::InvalidCard);
         }
     }
-    if state.player.energy < card.energy_cost() {
+    if !card.card_cost().is_affordable(state.player.energy) {
         return Err(CommandError::NotEnoughEnergy);
     }
     if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
@@ -259,10 +259,14 @@ fn apply_play_card(
     let actual_target = resolve_target(&state.enemies, target_idx)?;
     let mut events = Vec::new();
     state.player.hand.remove(index);
-    state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
+    let x_value = state.player.energy.0;
+    state.player.energy = match card.card_cost() {
+        CardCost::Fixed(cost) => Energy(state.player.energy.0 - cost.0),
+        CardCost::X => Energy(0),
+    };
     events.push(Event::CardPlayed { card: card.clone() });
     let hp_before_card = state.enemies[actual_target].hp;
-    crate::cards::apply(&card, &mut state, &mut events, actual_target, rng);
+    crate::cards::apply(&card, &mut state, &mut events, actual_target, rng, x_value);
     if card.card_type() == CardType::Attack {
         let sharp_hide = get_stacks(&state.enemies[actual_target].statuses, StatusEffect::SharpHide);
         if sharp_hide > 0 {

@@ -193,7 +193,7 @@ fn render_card_reward(cr: &CardRewardState, w: &mut impl Write) {
             i + 1,
             card_type_icon(card.card_type()),
             card.name(),
-            card.energy_cost().0,
+            card.card_cost().display(),
             card.description(),
         );
     }
@@ -218,7 +218,7 @@ fn render_shop(shop: &ShopState, w: &mut impl Write) {
                 "  [{}] {} ({}) — {} — {}g",
                 i + 1,
                 card.name(),
-                card.energy_cost().0,
+                card.card_cost().display(),
                 card.description(),
                 CARD_PRICE,
             );
@@ -283,7 +283,7 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
     } else {
         let _ = writeln!(w, "🤚 Hand:");
         for (i, card) in state.player.hand.iter().enumerate() {
-            let affordable = card.energy_cost() <= state.player.energy;
+            let affordable = card.card_cost().is_affordable(state.player.energy);
             let prefix = if affordable { " " } else { "❌" };
             let desc = card.effective_description(&state.player.statuses, target_statuses);
             let _ = writeln!(
@@ -293,7 +293,7 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
                 i + 1,
                 card_type_icon(card.card_type()),
                 card.name(),
-                card.energy_cost().0,
+                card.card_cost().display(),
                 desc,
             );
         }

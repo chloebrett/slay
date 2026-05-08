@@ -1951,3 +1951,69 @@
         assert_eq!(Card::from_id("reaper"),      Some(Card::Reaper(Grade::Base)));
         assert_eq!(Card::from_id("reaper-plus"), Some(Card::Reaper(Grade::Plus)));
     }
+
+    // --- Whirlwind ---
+
+    #[test]
+    fn whirlwind_deals_5_damage_per_hit_per_energy_spent() {
+        // 3 energy → X=3 → 3 hits × 5 damage = 15 total
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(35));
+        assert_eq!(state.player.energy, Energy(0));
+    }
+
+    #[test]
+    fn whirlwind_with_1_energy_deals_5_damage() {
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(1);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+    }
+
+    #[test]
+    fn whirlwind_with_0_energy_deals_no_damage() {
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(0);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(50));
+    }
+
+    #[test]
+    fn whirlwind_hits_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Whirlwind(Grade::Base)]);
+        state.player.energy = Energy(1);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+        assert_eq!(state.enemies[1].hp, Hp(45));
+    }
+
+    #[test]
+    fn whirlwind_plus_deals_8_damage_per_hit() {
+        // 3 energy → X=3 → 3 hits × 8 = 24 total
+        let mut state = combat_with_hand(vec![Card::Whirlwind(Grade::Plus)]);
+        state.enemies[0].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(26));
+    }
+
+    #[test]
+    fn whirlwind_is_affordable_with_0_energy() {
+        assert!(Card::Whirlwind(Grade::Base).card_cost().is_affordable(Energy(0)));
+    }
+
+    #[test]
+    fn whirlwind_cost_displays_as_x() {
+        assert_eq!(Card::Whirlwind(Grade::Base).card_cost().display(), "X");
+    }
+
+    #[test]
+    fn whirlwind_id_round_trips() {
+        assert_eq!(Card::from_id("whirlwind"),      Some(Card::Whirlwind(Grade::Base)));
+        assert_eq!(Card::from_id("whirlwind-plus"), Some(Card::Whirlwind(Grade::Plus)));
+    }
