@@ -227,6 +227,16 @@ pub enum Target {
     Enemy,
 }
 
+fn resolve_target(enemies: &[Enemy], target_idx: usize) -> Result<usize, CommandError> {
+    if target_idx >= enemies.len() {
+        return Err(CommandError::InvalidCard);
+    }
+    if enemies[target_idx].hp > Hp(0) {
+        return Ok(target_idx);
+    }
+    enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)
+}
+
 fn apply_play_card(
     mut state: CombatState,
     index: usize,
@@ -255,14 +265,7 @@ fn apply_play_card(
     if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
         return Err(CommandError::Entangled);
     }
-    // Resolve target: use specified if alive, else first living; out-of-bounds is error
-    let actual_target = if target_idx >= state.enemies.len() {
-        return Err(CommandError::InvalidCard);
-    } else if state.enemies[target_idx].hp > Hp(0) {
-        target_idx
-    } else {
-        state.enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)?
-    };
+    let actual_target = resolve_target(&state.enemies, target_idx)?;
     let mut events = Vec::new();
     state.player.hand.remove(index);
     state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
