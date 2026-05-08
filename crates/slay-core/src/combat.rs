@@ -322,7 +322,17 @@ fn apply_play_card(
     let card_type = card.card_type();
     match card_type {
         CardType::Attack => { state.attacks_this_turn += 1; state.attacks_this_combat += 1; }
-        CardType::Skill  => { state.skills_this_turn  += 1; state.skills_this_combat  += 1; }
+        CardType::Skill  => {
+            state.skills_this_turn  += 1;
+            state.skills_this_combat += 1;
+            for enemy in &mut state.enemies {
+                let enrage = get_stacks(&enemy.statuses, StatusEffect::Enrage);
+                if enrage > 0 {
+                    *enemy.statuses.entry(StatusEffect::Strength).or_insert(0) += enrage;
+                    events.push(Event::StatusApplied { target: Target::Enemy, status: StatusEffect::Strength, stacks: enrage });
+                }
+            }
+        }
         CardType::Power | CardType::Curse | CardType::Status => {}
     }
     state.cards_played_this_turn += 1;
@@ -1890,6 +1900,44 @@ mod tests {
         state.enemies[0].hp = Hp(100); state.enemies[0].max_hp = Hp(100);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].hp, Hp(88)); // 4 * 3 = 12
+    }
+
+    // --- Enrage ---
+
+    fn combat_with_enrage(enrage_stacks: i32, hand: Vec<Card>) -> CombatState {
+        let mut state = combat_with_hand(hand);
+        state.enemies[0].statuses.insert(StatusEffect::Enrage, enrage_stacks);
+        state
+    }
+
+    #[test]
+    fn playing_skill_card_triggers_enrage_strength_gain() {
+        let mut state = combat_with_enrage(2, vec![Card::Defend(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 2);
+    }
+
+    #[test]
+    fn playing_attack_card_does_not_trigger_enrage() {
+        let mut state = combat_with_enrage(2, vec![Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 0);
+    }
+
+    #[test]
+    fn enrage_stacks_accumulate_across_multiple_skills() {
+        let mut state = combat_with_enrage(2, vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 4);
+    }
+
+    #[test]
+    fn enrage_does_not_trigger_for_power_card() {
+        let mut state = combat_with_enrage(2, vec![Card::Inflame(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 0);
     }
 
     #[test]
