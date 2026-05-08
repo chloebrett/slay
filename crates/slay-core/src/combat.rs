@@ -4,7 +4,7 @@ use crate::potions::Potion;
 use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_block, resolve_damage, tick_ritual, tick_statuses};
+use crate::status::{StatusEffect, StatusMap, drain_poison, resolve_block, resolve_damage, tick_ritual, tick_statuses, tick_strength_modifiers};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -360,6 +360,10 @@ pub(crate) fn apply_combat_command(
             for card in ethereal { exhaust_card(card, &mut state, &mut events, rng); }
             state.player.discard_pile.extend(normal);
             tick_statuses(&mut state.player.statuses);
+            let strength_delta = tick_strength_modifiers(&mut state.player.statuses);
+            if strength_delta != 0 {
+                apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, strength_delta, &mut events);
+            }
             if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
                 return Ok((state, events));
             }
@@ -472,6 +476,10 @@ pub(crate) fn apply_combat_command(
                     }
                 }
                 tick_statuses(&mut state.enemies[i].statuses);
+                let strength_delta = tick_strength_modifiers(&mut state.enemies[i].statuses);
+                if strength_delta != 0 {
+                    apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Strength, strength_delta, &mut events);
+                }
                 let last = state.enemies[i].move_;
                 state.enemies[i].last_move = Some(last);
             }
@@ -1220,6 +1228,43 @@ mod tests {
         state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.statuses.get(&StatusEffect::Strength), Some(&2));
+    }
+
+    // --- StrengthDown / Shackled ---
+
+    #[test]
+    fn strength_down_reduces_player_strength_at_end_of_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.player.statuses.insert(StatusEffect::Strength, 5);
+        state.player.statuses.insert(StatusEffect::StrengthDown, 2);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(3));
+    }
+
+    #[test]
+    fn strength_down_clears_after_player_end_of_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.player.statuses.insert(StatusEffect::StrengthDown, 2);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(!state.player.statuses.contains_key(&StatusEffect::StrengthDown));
+    }
+
+    #[test]
+    fn shackled_increases_enemy_strength_at_end_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Shackled, 2);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 2);
+    }
+
+    #[test]
+    fn shackled_clears_after_end_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Shackled, 2);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Shackled));
     }
 
     // --- Phase guards ---
