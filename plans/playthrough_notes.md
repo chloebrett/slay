@@ -17,3 +17,7 @@ Played through the real game and took some notes.
 - double tap - interesting card to implement
 - boss relics vs shop relics etc. same with cards and rarity.
 - slime boss - expansion/spawning mechanic. needs to spawn small slimes with HP equal to large slime at end of player's turn.
+- resetting HP at end of act.
+- spheric guardian!
+- snecko - confusion
+- centurion and mystic

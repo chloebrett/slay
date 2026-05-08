@@ -1528,3 +1528,90 @@
         assert_eq!(Card::from_id("combust"),      Some(Card::Combust(Grade::Base)));
         assert_eq!(Card::from_id("combust-plus"), Some(Card::Combust(Grade::Plus)));
     }
+
+    // --- Evolve ---
+
+    #[test]
+    fn evolve_base_sets_status_to_1() {
+        let state = combat_with_hand(vec![Card::Evolve(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Evolve).copied(), Some(1));
+    }
+
+    #[test]
+    fn evolve_plus_sets_status_to_2() {
+        let state = combat_with_hand(vec![Card::Evolve(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Evolve).copied(), Some(2));
+    }
+
+    #[test]
+    fn evolve_draws_extra_card_when_status_drawn_at_turn_start() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Evolve, 1);
+        // draw pile: 4 normal + 1 status (Wound drawn first via pop)
+        state.player.draw_pile = vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Wound,
+        ];
+        state.player.discard_pile = vec![Card::Strike(Grade::Base)]; // for Evolve to draw
+        let state = full_turn(state);
+        assert_eq!(state.player.hand.len(), 6); // 5 normal draw + 1 from Evolve
+    }
+
+    #[test]
+    fn evolve_id_round_trips() {
+        assert_eq!(Card::from_id("evolve"),      Some(Card::Evolve(Grade::Base)));
+        assert_eq!(Card::from_id("evolve-plus"), Some(Card::Evolve(Grade::Plus)));
+    }
+
+    // --- Fire Breathing ---
+
+    #[test]
+    fn fire_breathing_base_sets_status_to_6() {
+        let state = combat_with_hand(vec![Card::FireBreathing(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::FireBreathing).copied(), Some(6));
+    }
+
+    #[test]
+    fn fire_breathing_plus_sets_status_to_10() {
+        let state = combat_with_hand(vec![Card::FireBreathing(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::FireBreathing).copied(), Some(10));
+    }
+
+    #[test]
+    fn fire_breathing_deals_damage_when_status_drawn_at_turn_start() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::FireBreathing, 6);
+        state.player.draw_pile = vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Wound, // status card, triggers Fire Breathing
+        ];
+        let enemy_hp_before = state.enemies[0].hp;
+        let state = full_turn(state);
+        assert_eq!(state.enemies[0].hp.0, enemy_hp_before.0 - 6);
+    }
+
+    #[test]
+    fn fire_breathing_deals_damage_when_curse_drawn_at_turn_start() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::FireBreathing, 6);
+        state.player.draw_pile = vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Injury, // curse card, triggers Fire Breathing
+        ];
+        let enemy_hp_before = state.enemies[0].hp;
+        let state = full_turn(state);
+        assert_eq!(state.enemies[0].hp.0, enemy_hp_before.0 - 6);
+    }
+
+    #[test]
+    fn fire_breathing_id_round_trips() {
+        assert_eq!(Card::from_id("fire-breathing"),      Some(Card::FireBreathing(Grade::Base)));
+        assert_eq!(Card::from_id("fire-breathing-plus"), Some(Card::FireBreathing(Grade::Plus)));
+    }
