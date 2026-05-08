@@ -2,7 +2,7 @@ use crate::engine::{
     apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar, statuses_inline,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatState, Event, EventRoomState, GameState, MapState,
+    AnyRng, CardRewardState, CombatPhase, CombatState, Event, EventRoomState, GameState, MapState,
     RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
@@ -311,11 +311,19 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
         state.player.discard_pile.len(),
         state.player.exhaust_pile.len(),
     );
-    let _ = writeln!(
-        w,
-        "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
-        state.player.hand.len().max(1),
-    );
+    if matches!(state.phase, CombatPhase::ChooseCard(_)) {
+        let _ = writeln!(
+            w,
+            "Choose a card: [1-{}]",
+            state.player.hand.len().max(1),
+        );
+    } else {
+        let _ = writeln!(
+            w,
+            "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
+            state.player.hand.len().max(1),
+        );
+    }
 }
 
 fn player_from_state(state: &GameState) -> Option<&slay_core::Player> {

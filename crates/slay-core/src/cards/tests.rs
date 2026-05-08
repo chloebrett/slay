@@ -2120,3 +2120,156 @@
         assert_eq!(Card::from_id("power-through"),      Some(Card::PowerThrough(Grade::Base)));
         assert_eq!(Card::from_id("power-through-plus"), Some(Card::PowerThrough(Grade::Plus)));
     }
+
+    // --- Burning Pact ---
+
+    #[test]
+    fn burning_pact_enters_choose_card_phase() {
+        let state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn burning_pact_choose_hand_card_exhausts_it() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+        assert_eq!(state.player.hand.len(), 2); // drew 2
+    }
+
+    #[test]
+    fn burning_pact_choose_hand_card_draws_two() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn burning_pact_plus_draws_three() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Plus), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base), Card::IronWave(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+    }
+
+    #[test]
+    fn burning_pact_invalid_index_returns_error() {
+        let state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let result = apply_command(state, Command::ChooseHandCard(5), &mut rng());
+        assert!(matches!(result, Err(CommandError::InvalidCard)));
+    }
+
+    #[test]
+    fn burning_pact_id_round_trips() {
+        assert_eq!(Card::from_id("burning-pact"),      Some(Card::BurningPact(Grade::Base)));
+        assert_eq!(Card::from_id("burning-pact-plus"), Some(Card::BurningPact(Grade::Plus)));
+    }
+
+    // --- Warcry ---
+
+    #[test]
+    fn warcry_draws_one_card_and_enters_choose_card_phase() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1); // drew 1
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn warcry_plus_draws_two_cards() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn warcry_choose_hand_card_topdecks_it() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base), Card::Bash(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // hand now has Bash + Strike (drawn). Choose Bash (index 0) to topdeck.
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.draw_pile.last(), Some(&Card::Bash(Grade::Base)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn warcry_exhausts() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Warcry(Grade::Base)));
+    }
+
+    #[test]
+    fn warcry_id_round_trips() {
+        assert_eq!(Card::from_id("warcry"),      Some(Card::Warcry(Grade::Base)));
+        assert_eq!(Card::from_id("warcry-plus"), Some(Card::Warcry(Grade::Plus)));
+    }
+
+    // --- Armaments ---
+
+    #[test]
+    fn armaments_gains_five_block_and_enters_choose_card_phase() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(5));
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn armaments_choose_hand_card_upgrades_it() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn armaments_plus_upgrades_all_cards_in_hand() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Plus), Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert!(state.player.hand.contains(&Card::Defend(Grade::Plus)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn armaments_emits_card_upgraded_event() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::CardUpgraded { from: Card::Strike(Grade::Base), to: Card::Strike(Grade::Plus) }));
+    }
+
+    #[test]
+    fn armaments_plus_preserves_unupgradeable_cards() {
+        let state = combat_with_hand(vec![
+            Card::Armaments(Grade::Plus),
+            Card::Strike(Grade::Base),
+            Card::Wound,
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert!(state.player.hand.contains(&Card::Wound));
+        assert!(!state.player.hand.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn armaments_id_round_trips() {
+        assert_eq!(Card::from_id("armaments"),      Some(Card::Armaments(Grade::Base)));
+        assert_eq!(Card::from_id("armaments-plus"), Some(Card::Armaments(Grade::Plus)));
+    }

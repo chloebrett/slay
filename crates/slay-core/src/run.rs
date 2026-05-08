@@ -41,6 +41,7 @@ pub enum Command {
     BuyPotion,
     LeaveTreasure,
     ChooseEventOption(usize),
+    ChooseHandCard(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
