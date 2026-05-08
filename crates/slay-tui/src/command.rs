@@ -1,10 +1,16 @@
-use slay_core::{Card, Command, EnemyKind, GameState, Potion, Relic};
+use slay_core::{Card, CombatPhase, Command, EnemyKind, GameState, Potion, Relic};
 
 pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
     let s = input.trim().to_lowercase();
     match state {
         GameState::Map(_) => parse_map(&s, debug),
-        GameState::Combat { .. } => parse_combat(&s, debug),
+        GameState::Combat { state: cs, .. } => {
+            if matches!(cs.phase, CombatPhase::ChooseCard(_)) {
+                parse_choose_card(&s)
+            } else {
+                parse_combat(&s, debug)
+            }
+        }
         GameState::RestSite(_) => parse_rest(&s),
         GameState::TreasureRoom(_) => parse_treasure(&s),
         GameState::CardReward(_) => parse_card_reward(&s),
@@ -45,6 +51,15 @@ fn parse_map(s: &str, debug: bool) -> Option<Command> {
     }
     if s.is_empty() || s == "enter" {
         return Some(Command::ChooseNode(0));
+    }
+    None
+}
+
+fn parse_choose_card(s: &str) -> Option<Command> {
+    if let Ok(n) = s.trim().parse::<usize>() {
+        if n > 0 {
+            return Some(Command::ChooseHandCard(n - 1));
+        }
     }
     None
 }

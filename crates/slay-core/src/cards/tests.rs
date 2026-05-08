@@ -2083,3 +2083,369 @@
         assert_eq!(Card::from_id("feed"),      Some(Card::Feed(Grade::Base)));
         assert_eq!(Card::from_id("feed-plus"), Some(Card::Feed(Grade::Plus)));
     }
+
+    // --- Power Through ---
+
+    #[test]
+    fn power_through_adds_2_wounds_to_hand() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.iter().filter(|c| **c == Card::Wound).count(), 2);
+    }
+
+    #[test]
+    fn power_through_gains_15_block() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(15));
+    }
+
+    #[test]
+    fn power_through_plus_gains_20_block() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(20));
+    }
+
+    #[test]
+    fn power_through_emits_status_card_added_to_hand_events() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let count = events.iter().filter(|e| matches!(e, Event::StatusCardAddedToHand { card: Card::Wound })).count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn power_through_id_round_trips() {
+        assert_eq!(Card::from_id("power-through"),      Some(Card::PowerThrough(Grade::Base)));
+        assert_eq!(Card::from_id("power-through-plus"), Some(Card::PowerThrough(Grade::Plus)));
+    }
+
+    // --- Burning Pact ---
+
+    #[test]
+    fn burning_pact_enters_choose_card_phase() {
+        let state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn burning_pact_choose_hand_card_exhausts_it() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+        assert_eq!(state.player.hand.len(), 2); // drew 2
+    }
+
+    #[test]
+    fn burning_pact_choose_hand_card_draws_two() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn burning_pact_plus_draws_three() {
+        let mut state = combat_with_hand(vec![Card::BurningPact(Grade::Plus), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Bash(Grade::Base), Card::IronWave(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+    }
+
+    #[test]
+    fn burning_pact_invalid_index_returns_error() {
+        let state = combat_with_hand(vec![Card::BurningPact(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let result = apply_command(state, Command::ChooseHandCard(5), &mut rng());
+        assert!(matches!(result, Err(CommandError::InvalidCard)));
+    }
+
+    #[test]
+    fn burning_pact_id_round_trips() {
+        assert_eq!(Card::from_id("burning-pact"),      Some(Card::BurningPact(Grade::Base)));
+        assert_eq!(Card::from_id("burning-pact-plus"), Some(Card::BurningPact(Grade::Plus)));
+    }
+
+    // --- Warcry ---
+
+    #[test]
+    fn warcry_draws_one_card_and_enters_choose_card_phase() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1); // drew 1
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn warcry_plus_draws_two_cards() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn warcry_choose_hand_card_topdecks_it() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base), Card::Bash(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // hand now has Bash + Strike (drawn). Choose Bash (index 0) to topdeck.
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.draw_pile.last(), Some(&Card::Bash(Grade::Base)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn warcry_exhausts() {
+        let mut state = combat_with_hand(vec![Card::Warcry(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Warcry(Grade::Base)));
+    }
+
+    #[test]
+    fn warcry_id_round_trips() {
+        assert_eq!(Card::from_id("warcry"),      Some(Card::Warcry(Grade::Base)));
+        assert_eq!(Card::from_id("warcry-plus"), Some(Card::Warcry(Grade::Plus)));
+    }
+
+    // --- Armaments ---
+
+    #[test]
+    fn armaments_gains_five_block_and_enters_choose_card_phase() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(5));
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn armaments_choose_hand_card_upgrades_it() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn armaments_plus_upgrades_all_cards_in_hand() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Plus), Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert!(state.player.hand.contains(&Card::Defend(Grade::Plus)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn armaments_emits_card_upgraded_event() {
+        let state = combat_with_hand(vec![Card::Armaments(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (_, events) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::CardUpgraded { from: Card::Strike(Grade::Base), to: Card::Strike(Grade::Plus) }));
+    }
+
+    #[test]
+    fn armaments_plus_preserves_unupgradeable_cards() {
+        let state = combat_with_hand(vec![
+            Card::Armaments(Grade::Plus),
+            Card::Strike(Grade::Base),
+            Card::Wound,
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Plus)));
+        assert!(state.player.hand.contains(&Card::Wound));
+        assert!(!state.player.hand.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn armaments_id_round_trips() {
+        assert_eq!(Card::from_id("armaments"),      Some(Card::Armaments(Grade::Base)));
+        assert_eq!(Card::from_id("armaments-plus"), Some(Card::Armaments(Grade::Plus)));
+    }
+
+    // --- Ghostly Armor ---
+
+    #[test]
+    fn ghostly_armor_gains_13_block() {
+        let state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(13));
+    }
+
+    #[test]
+    fn ghostly_armor_plus_gains_16_block() {
+        let state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(16));
+    }
+
+    #[test]
+    fn ghostly_armor_is_ethereal() {
+        assert!(Card::GhostlyArmor(Grade::Base).is_ethereal());
+    }
+
+    #[test]
+    fn ghostly_armor_exhausts_at_end_of_turn_when_unplayed() {
+        let mut state = combat_with_hand(vec![Card::GhostlyArmor(Grade::Base)]);
+        state.player.draw_pile = vec![];
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::GhostlyArmor(Grade::Base)));
+        assert!(!state.player.discard_pile.contains(&Card::GhostlyArmor(Grade::Base)));
+    }
+
+    #[test]
+    fn ghostly_armor_id_round_trips() {
+        assert_eq!(Card::from_id("ghostly-armor"),      Some(Card::GhostlyArmor(Grade::Base)));
+        assert_eq!(Card::from_id("ghostly-armor-plus"), Some(Card::GhostlyArmor(Grade::Plus)));
+    }
+
+    // --- Second Wind ---
+
+    #[test]
+    fn second_wind_exhausts_non_attack_cards() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Wound,
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Defend(Grade::Base)));
+        assert!(state.player.exhaust_pile.contains(&Card::Wound));
+        assert!(!state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn second_wind_gains_5_block_per_exhausted_card() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::ShrugItOff(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(10)); // 2 non-attack cards × 5
+    }
+
+    #[test]
+    fn second_wind_leaves_attack_cards_in_hand() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Defend(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Base)));
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn second_wind_no_block_when_no_non_attacks() {
+        let state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    #[test]
+    fn second_wind_id_round_trips() {
+        assert_eq!(Card::from_id("second-wind"),      Some(Card::SecondWind(Grade::Base)));
+        assert_eq!(Card::from_id("second-wind-plus"), Some(Card::SecondWind(Grade::Plus)));
+    }
+
+    // --- All-Out Attack ---
+
+    #[test]
+    fn all_out_attack_deals_10_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::AllOutAttack(Grade::Base)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        state.enemies[1].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(10));
+        assert_eq!(state.enemies[1].hp, crate::types::Hp(10));
+    }
+
+    #[test]
+    fn all_out_attack_plus_deals_14_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::AllOutAttack(Grade::Plus)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        state.enemies[1].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(6));
+        assert_eq!(state.enemies[1].hp, crate::types::Hp(6));
+    }
+
+    #[test]
+    fn all_out_attack_discards_one_card_from_hand() {
+        let state = combat_with_hand(vec![
+            Card::AllOutAttack(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Defend(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Started with 2 cards after AllOutAttack removed; 1 should be discarded
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn all_out_attack_no_discard_when_hand_empty() {
+        let state = combat_with_hand(vec![Card::AllOutAttack(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 0);
+    }
+
+    #[test]
+    fn all_out_attack_id_round_trips() {
+        assert_eq!(Card::from_id("all-out-attack"),      Some(Card::AllOutAttack(Grade::Base)));
+        assert_eq!(Card::from_id("all-out-attack-plus"), Some(Card::AllOutAttack(Grade::Plus)));
+    }
+
+    // --- All for One ---
+
+    #[test]
+    fn all_for_one_deals_10_damage() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Base)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(10));
+    }
+
+    #[test]
+    fn all_for_one_retrieves_zero_cost_cards_from_discard() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Base)]);
+        state.player.discard_pile = vec![
+            Card::Wound,         // cost 0 (unplayable status, but cost is 0)
+            Card::Strike(Grade::Base), // cost 1
+            Card::SeeingRed(Grade::Base), // cost 1
+        ];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Wound));
+        assert!(!state.player.hand.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn all_for_one_plus_deals_14_damage() {
+        let mut state = combat_with_hand(vec![Card::AllForOne(Grade::Plus)]);
+        state.enemies[0].hp = crate::types::Hp(20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(6));
+    }
+
+    #[test]
+    fn all_for_one_id_round_trips() {
+        assert_eq!(Card::from_id("all-for-one"),      Some(Card::AllForOne(Grade::Base)));
+        assert_eq!(Card::from_id("all-for-one-plus"), Some(Card::AllForOne(Grade::Plus)));
+    }
