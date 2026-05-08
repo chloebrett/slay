@@ -1892,3 +1892,62 @@
         assert_eq!(Card::from_id("perfected-strike"),      Some(Card::PerfectedStrike(Grade::Base)));
         assert_eq!(Card::from_id("perfected-strike-plus"), Some(Card::PerfectedStrike(Grade::Plus)));
     }
+
+    // --- Reaper ---
+
+    #[test]
+    fn reaper_deals_4_damage_to_all_enemies_and_heals() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(46));
+        assert_eq!(state.enemies[1].hp, Hp(46));
+        assert_eq!(state.player.hp, Hp(68)); // heals 4 + 4 = 8
+    }
+
+    #[test]
+    fn reaper_plus_deals_5_damage_per_enemy() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Plus)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(45));
+        assert_eq!(state.enemies[1].hp, Hp(45));
+        assert_eq!(state.player.hp, Hp(70)); // heals 5 + 5 = 10
+    }
+
+    #[test]
+    fn reaper_heal_is_capped_at_max_hp() {
+        let mut state = combat_with_two_enemies(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(79);
+        state.player.max_hp = Hp(80);
+        state.enemies[0].hp = Hp(50);
+        state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn reaper_blocked_damage_does_not_heal() {
+        let mut state = combat_with_hand(vec![Card::Reaper(Grade::Base)]);
+        state.player.hp = Hp(60);
+        state.enemies[0].block.0 = 10; // 4 damage fully absorbed by block
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(60)); // no heal
+        assert!(!events.iter().any(|e| matches!(e, Event::Healed { .. }))); // no Healed event
+    }
+
+    #[test]
+    fn reaper_exhausts() {
+        assert!(Card::Reaper(Grade::Base).exhausts());
+        assert!(Card::Reaper(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn reaper_id_round_trips() {
+        assert_eq!(Card::from_id("reaper"),      Some(Card::Reaper(Grade::Base)));
+        assert_eq!(Card::from_id("reaper-plus"), Some(Card::Reaper(Grade::Plus)));
+    }
