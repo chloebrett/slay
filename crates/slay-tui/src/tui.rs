@@ -19,6 +19,7 @@ use std::collections::VecDeque;
 const LOG_CAPACITY: usize = 200;
 
 const WIPE_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
+const FLASH_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
 
 const PILE_KEYS: &[(&str, PileView, &str)] = &[
     ("z", PileView::Draw,    "view draw pile"),
@@ -36,6 +37,8 @@ pub struct TuiState {
     pub show_help: bool,
     pub show_relics: bool,
     pub wipe_start: Option<std::time::Instant>,
+    pub player_flash: Option<std::time::Instant>,
+    pub enemy_flashes: Vec<Option<std::time::Instant>>,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -49,6 +52,10 @@ pub enum PileView {
 
 impl TuiState {
     pub fn new(game: GameState, debug: bool) -> Self {
+        let enemy_flashes = match &game {
+            GameState::Combat { state: cs, .. } => vec![None; cs.enemies.len()],
+            _ => vec![],
+        };
         let mut s = Self {
             game,
             input_buf: String::new(),
@@ -58,6 +65,8 @@ impl TuiState {
             show_help: false,
             show_relics: false,
             wipe_start: None,
+            player_flash: None,
+            enemy_flashes,
             debug,
             should_quit: false,
         };
@@ -111,6 +120,9 @@ impl TuiState {
 
         match apply_and_drain(self.game.clone(), command, rng) {
             Ok((new_state, events)) => {
+                let player_hp_before = combat_player_hp(&self.game);
+                let enemy_hps_before = combat_enemy_hps(&self.game);
+
                 if matches!(&self.game, GameState::Map(_)) && !matches!(&new_state, GameState::Map(_)) {
                     self.wipe_start = Some(std::time::Instant::now());
                 }
@@ -118,6 +130,30 @@ impl TuiState {
                     self.push_log(banner);
                 }
                 self.game = new_state;
+
+                // Re-initialise flash slots when enemy count changes (new combat, etc.)
+                let enemy_count = match &self.game {
+                    GameState::Combat { state: cs, .. } => cs.enemies.len(),
+                    _ => 0,
+                };
+                if self.enemy_flashes.len() != enemy_count {
+                    self.enemy_flashes = vec![None; enemy_count];
+                }
+
+                // Set flashes for any HP that decreased
+                if let (Some(before), Some(after)) = (player_hp_before, combat_player_hp(&self.game)) {
+                    if after < before {
+                        self.player_flash = Some(std::time::Instant::now());
+                    }
+                }
+                for (i, (&before, after)) in enemy_hps_before.iter().zip(combat_enemy_hps(&self.game)).enumerate() {
+                    if after < before {
+                        if let Some(slot) = self.enemy_flashes.get_mut(i) {
+                            *slot = Some(std::time::Instant::now());
+                        }
+                    }
+                }
+
                 for ev in &events {
                     let msg = describe_event(ev);
                     self.push_log(msg);
@@ -132,6 +168,24 @@ impl TuiState {
             }
         }
     }
+}
+
+fn combat_player_hp(state: &GameState) -> Option<i32> {
+    match state {
+        GameState::Combat { state: cs, .. } => Some(cs.player.hp.0),
+        _ => None,
+    }
+}
+
+fn combat_enemy_hps(state: &GameState) -> Vec<i32> {
+    match state {
+        GameState::Combat { state: cs, .. } => cs.enemies.iter().map(|e| e.hp.0).collect(),
+        _ => vec![],
+    }
+}
+
+fn is_flash_active(flash: Option<std::time::Instant>) -> bool {
+    flash.map(|t| t.elapsed() < FLASH_DURATION).unwrap_or(false)
 }
 
 fn hp_color(hp: i32, max_hp: i32) -> Color {
@@ -196,7 +250,7 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
         ])
         .split(f.area());
 
-    render_top_bar(f, chunks[0], &tui.game);
+    render_top_bar(f, chunks[0], tui);
     render_main(f, chunks[1], tui);
     render_status_line(f, chunks[2], tui);
     render_input(f, chunks[3], tui);
@@ -216,7 +270,9 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
     }
 }
 
-fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
+fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
+    let state = &tui.game;
+    let player_flash_active = is_flash_active(tui.player_flash);
     let player = match state {
         GameState::Map(m) => Some(&m.player),
         GameState::Combat { state, .. } => Some(&state.player),
@@ -242,10 +298,15 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
                 "   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
                 p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
             );
+            let hp_fg = if player_flash_active {
+                Color::LightRed
+            } else {
+                hp_color(p.hp.0, p.max_hp.0)
+            };
             use ratatui::text::Span;
             let stats_line = Line::from(vec![
                 Span::raw("🧙  "),
-                Span::styled(hp_str, Style::default().fg(hp_color(p.hp.0, p.max_hp.0))),
+                Span::styled(hp_str, Style::default().fg(hp_fg)),
                 Span::raw(rest),
             ]);
             let bar = relics_bar(&p.relics);
@@ -264,7 +325,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
 fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
     match &tui.game {
         GameState::Map(map) => render_map(f, area, map),
-        GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log),
+        GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log, &tui.enemy_flashes),
         GameState::RestSite(rs) => render_rest(f, area, rs),
         GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
@@ -352,7 +413,7 @@ fn render_treasure(f: &mut Frame, area: Rect, tr: &TreasureRoomState) {
     f.render_widget(para, area);
 }
 
-fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<String>) {
+fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<String>, enemy_flashes: &[Option<std::time::Instant>]) {
     let [left, right] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
@@ -367,13 +428,13 @@ fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<
         ])
         .areas(left);
 
-    render_enemies(f, enemies_area, state);
+    render_enemies(f, enemies_area, state, enemy_flashes);
     render_hand(f, hand_area, state);
     render_piles(f, piles_area, state);
     render_log(f, right, log);
 }
 
-fn render_enemies(f: &mut Frame, area: Rect, state: &CombatState) {
+fn render_enemies(f: &mut Frame, area: Rect, state: &CombatState, enemy_flashes: &[Option<std::time::Instant>]) {
     let multi = state.enemies.len() > 1;
     let items: Vec<ListItem> = state.enemies.iter().enumerate().map(|(i, e)| {
         let prefix = if multi { format!("[{}] ", i + 1) } else { String::new() };
@@ -384,7 +445,13 @@ fn render_enemies(f: &mut Frame, area: Rect, state: &CombatState) {
             "{}{} {}  HP {}/{} {}  🛡 {}  | {}{}",
             prefix, enemy_icon(e), e.name(), e.hp.0, e.max_hp.0, bar, e.block.0, intent, statuses
         );
-        ListItem::new(line)
+        let flash_active = is_flash_active(enemy_flashes.get(i).copied().flatten());
+        let style = if flash_active {
+            Style::default().fg(Color::LightRed)
+        } else {
+            Style::default().fg(hp_color(e.hp.0, e.max_hp.0))
+        };
+        ListItem::new(Line::styled(line, style))
     }).collect();
 
     let block = Block::default().borders(Borders::ALL).title(" Enemies ");
@@ -858,6 +925,14 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
 
             if tui.wipe_start.map(|t| t.elapsed() >= WIPE_DURATION).unwrap_or(false) {
                 tui.wipe_start = None;
+            }
+            if tui.player_flash.map(|t| t.elapsed() >= FLASH_DURATION).unwrap_or(false) {
+                tui.player_flash = None;
+            }
+            for flash in &mut tui.enemy_flashes {
+                if flash.map(|t| t.elapsed() >= FLASH_DURATION).unwrap_or(false) {
+                    *flash = None;
+                }
             }
 
             if !event::poll(Duration::from_millis(100))? {
@@ -1449,6 +1524,74 @@ mod tests {
     fn help_lines_game_over_is_empty() {
         let tui = TuiState::new(GameState::GameOver { victory: false }, false);
         assert!(help_lines(&tui.game).is_empty());
+    }
+
+    // ─── damage flash ─────────────────────────────────────────────
+
+    #[test]
+    fn player_flash_defaults_to_none() {
+        let tui = make_combat_tui();
+        assert!(tui.player_flash.is_none());
+    }
+
+    #[test]
+    fn enemy_flashes_empty_outside_combat() {
+        let tui = make_map_tui();
+        assert!(tui.enemy_flashes.is_empty());
+    }
+
+    #[test]
+    fn enemy_flashes_initialized_for_each_enemy() {
+        let tui = make_combat_tui();
+        assert_eq!(tui.enemy_flashes.len(), 1);
+        assert!(tui.enemy_flashes[0].is_none());
+    }
+
+    #[test]
+    fn playing_damaging_card_sets_enemy_flash() {
+        let mut state = new_simple_run();
+        let mut r = rng();
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::AddCard(Card::Strike(Grade::Base)), &mut r).unwrap().0;
+        let mut tui = TuiState::new(state, false);
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(
+            tui.enemy_flashes.get(0).copied().flatten().is_some(),
+            "enemy flash should be set after Strike deals damage"
+        );
+    }
+
+    #[test]
+    fn taking_damage_sets_player_flash() {
+        let mut state = new_simple_run();
+        let mut r = rng();
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
+        if let GameState::Combat { state: ref mut cs, .. } = state {
+            cs.player.block = slay_core::Block(0);
+        }
+        let mut tui = TuiState::new(state, false);
+        tui.input_buf = "end".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.player_flash.is_some(), "player flash should be set after enemy attacks");
+    }
+
+    #[test]
+    fn enemy_flashes_reset_on_new_combat_entry() {
+        let mut tui = make_combat_tui();
+        tui.enemy_flashes = vec![Some(std::time::Instant::now())];
+        // Leave combat by letting the enemy die isn't easy; instead synthesise a new combat state
+        let mut r = rng();
+        let mut state = new_simple_run();
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse, EnemyKind::RedLouse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
+        tui.game = state;
+        // Trigger any command that goes through handle_enter so flashes get re-initialised
+        tui.input_buf = "end".to_string();
+        tui.handle_enter(&mut r);
+        assert_eq!(tui.enemy_flashes.len(), 2, "flash slots should match new enemy count");
     }
 
     // ─── wipe overlay ─────────────────────────────────────────────
