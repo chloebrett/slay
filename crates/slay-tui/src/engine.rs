@@ -162,6 +162,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::BlueSlaver      => "⛓️",
         EnemyKind::RedSlaver       => "⛓️",
         EnemyKind::TheGuardian     => "🗿",
+        EnemyKind::GremlinNob      => "👺",
     }
 }
 
