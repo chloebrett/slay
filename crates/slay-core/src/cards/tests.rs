@@ -2449,3 +2449,142 @@
         assert_eq!(Card::from_id("all-for-one"),      Some(Card::AllForOne(Grade::Base)));
         assert_eq!(Card::from_id("all-for-one-plus"), Some(Card::AllForOne(Grade::Plus)));
     }
+
+    // --- Sentinel ---
+
+    #[test]
+    fn sentinel_gains_5_block_when_played() {
+        let state = combat_with_hand(vec![Card::Sentinel(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(5));
+    }
+
+    #[test]
+    fn sentinel_plus_gains_8_block_when_played() {
+        let state = combat_with_hand(vec![Card::Sentinel(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(8));
+    }
+
+    #[test]
+    fn sentinel_does_not_exhaust_when_played() {
+        let state = combat_with_hand(vec![Card::Sentinel(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.is_empty());
+        assert!(state.player.discard_pile.contains(&Card::Sentinel(Grade::Base)));
+    }
+
+    #[test]
+    fn sentinel_grants_2_energy_when_exhausted_by_true_grit() {
+        let mut state = combat_with_hand(vec![
+            Card::TrueGrit(Grade::Base),
+            Card::Sentinel(Grade::Base),
+        ]);
+        state.player.energy = Energy(3);
+        let energy_before = state.player.energy;
+        // TrueGrit exhausts a random card; NoOpRng picks index 0 after shuffle = first card
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Sentinel (index 0 after TrueGrit removed) exhausted → +2 energy
+        assert!(state.player.exhaust_pile.contains(&Card::Sentinel(Grade::Base)));
+        assert_eq!(state.player.energy.0, energy_before.0 - 1 + 2); // spent 1 for TrueGrit, gained 2
+    }
+
+    #[test]
+    fn sentinel_plus_grants_3_energy_when_exhausted() {
+        let mut state = combat_with_hand(vec![
+            Card::Sentinel(Grade::Plus),
+        ]);
+        state.player.energy = Energy(3);
+        // Exhaust Sentinel directly via Second Wind (non-attack cards get exhausted)
+        let state2 = {
+            let mut s = combat_with_hand(vec![
+                Card::SecondWind(Grade::Base),
+                Card::Sentinel(Grade::Plus),
+            ]);
+            s.player.energy = Energy(3);
+            let (s, _) = apply_command(s, Command::PlayCard(0, 0), &mut rng()).unwrap();
+            s
+        };
+        assert!(state2.player.exhaust_pile.contains(&Card::Sentinel(Grade::Plus)));
+        assert_eq!(state2.player.energy.0, 2 + 3); // 3 - 1 for SecondWind + 3 for Sentinel exhaust
+    }
+
+    #[test]
+    fn sentinel_emits_energy_gained_event_when_exhausted() {
+        let mut state = combat_with_hand(vec![
+            Card::SecondWind(Grade::Base),
+            Card::Sentinel(Grade::Base),
+        ]);
+        state.player.energy = Energy(3);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.iter().any(|e| matches!(e, Event::EnergyGained { amount: 2 })));
+    }
+
+    #[test]
+    fn sentinel_id_round_trips() {
+        assert_eq!(Card::from_id("sentinel"),      Some(Card::Sentinel(Grade::Base)));
+        assert_eq!(Card::from_id("sentinel-plus"), Some(Card::Sentinel(Grade::Plus)));
+    }
+
+    // --- Searing Blow ---
+
+    #[test]
+    fn searing_blow_base_deals_12_damage() {
+        let state = combat_with_hand(vec![Card::SearingBlow(0)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(8)); // 20 - 12
+    }
+
+    #[test]
+    fn searing_blow_upgraded_once_deals_16_damage() {
+        let state = combat_with_hand(vec![Card::SearingBlow(1)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(4)); // 20 - 16
+    }
+
+    #[test]
+    fn searing_blow_upgraded_twice_deals_21_damage() {
+        let mut state = combat_with_hand(vec![Card::SearingBlow(2)]);
+        state.enemies[0].hp = crate::types::Hp(30);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(9)); // 30 - 21
+    }
+
+    #[test]
+    fn searing_blow_upgraded_three_times_deals_27_damage() {
+        let mut state = combat_with_hand(vec![Card::SearingBlow(3)]);
+        state.enemies[0].hp = crate::types::Hp(40);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(13)); // 40 - 27
+    }
+
+    #[test]
+    fn searing_blow_upgrade_always_returns_some() {
+        assert_eq!(Card::SearingBlow(0).upgrade(), Some(Card::SearingBlow(1)));
+        assert_eq!(Card::SearingBlow(1).upgrade(), Some(Card::SearingBlow(2)));
+        assert_eq!(Card::SearingBlow(5).upgrade(), Some(Card::SearingBlow(6)));
+    }
+
+    #[test]
+    fn searing_blow_base_name_is_searing_blow() {
+        assert_eq!(Card::SearingBlow(0).name(), "Searing Blow");
+    }
+
+    #[test]
+    fn searing_blow_upgraded_name_is_searing_blow_plus() {
+        assert_eq!(Card::SearingBlow(1).name(), "Searing Blow+");
+        assert_eq!(Card::SearingBlow(3).name(), "Searing Blow+");
+    }
+
+    #[test]
+    fn searing_blow_description_shows_correct_damage() {
+        assert!(Card::SearingBlow(0).description().contains("12"));
+        assert!(Card::SearingBlow(1).description().contains("16"));
+        assert!(Card::SearingBlow(2).description().contains("21"));
+        assert!(Card::SearingBlow(3).description().contains("27"));
+    }
+
+    #[test]
+    fn searing_blow_id_round_trips() {
+        assert_eq!(Card::from_id("searing-blow"), Some(Card::SearingBlow(0)));
+    }

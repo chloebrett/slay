@@ -67,7 +67,9 @@ mod heavy_blade;
 mod sword_boomerang;
 mod twin_strike;
 mod uppercut;
+mod searing_blow;
 mod second_wind;
+mod sentinel;
 mod warcry;
 mod wild_strike;
 
@@ -128,7 +130,9 @@ pub enum Card {
     Warcry(Grade),
     Armaments(Grade),
     GhostlyArmor(Grade),
+    SearingBlow(u32),
     SecondWind(Grade),
+    Sentinel(Grade),
     AllOutAttack(Grade),
     AllForOne(Grade),
     Reaper(Grade),
@@ -161,6 +165,11 @@ impl<T: Copy> GradeValues<T> {
     pub fn get(self, grade: Grade) -> T {
         match grade { Grade::Base => self.base, Grade::Plus => self.plus }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OnExhaustHook {
+    GainEnergy(i32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -268,7 +277,9 @@ impl Card {
             Card::Warcry(g)          => warcry::def(*g),
             Card::Armaments(g)       => armaments::def(*g),
             Card::GhostlyArmor(g)   => ghostly_armor::def(*g),
+            Card::SearingBlow(n)     => searing_blow::def(*n),
             Card::SecondWind(g)      => second_wind::def(*g),
+            Card::Sentinel(g)        => sentinel::def(*g),
             Card::AllOutAttack(g)    => all_out_attack::def(*g),
             Card::AllForOne(g)       => all_for_one::def(*g),
             Card::Reaper(g)          => reaper::def(*g),
@@ -318,6 +329,13 @@ impl Card {
         }
     }
 
+    pub fn on_exhaust_hook(&self) -> Option<OnExhaustHook> {
+        match self {
+            Card::Sentinel(g) => Some(OnExhaustHook::GainEnergy(GradeValues { base: 2, plus: 3 }.get(*g))),
+            _ => None,
+        }
+    }
+
     pub fn exhausts(&self) -> bool {
         matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_))
     }
@@ -337,8 +355,9 @@ impl Card {
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
-            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
+            Card::SearingBlow(_) |
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -397,6 +416,7 @@ impl Card {
             Card::Armaments(_)       => Card::Armaments(g),
             Card::GhostlyArmor(_)   => Card::GhostlyArmor(g),
             Card::SecondWind(_)      => Card::SecondWind(g),
+            Card::Sentinel(_)        => Card::Sentinel(g),
             Card::AllOutAttack(_)    => Card::AllOutAttack(g),
             Card::AllForOne(_)       => Card::AllForOne(g),
             Card::Reaper(_)          => Card::Reaper(g),
@@ -406,6 +426,7 @@ impl Card {
             Card::Shockwave(_)    => Card::Shockwave(g),
             Card::Brutality(_)    => Card::Brutality(g),
             Card::LimitBreak(_)   => Card::LimitBreak(g),
+            Card::SearingBlow(_) => unreachable!(),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
@@ -413,6 +434,9 @@ impl Card {
     }
 
     pub fn upgrade(&self) -> Option<Card> {
+        if let Card::SearingBlow(n) = self {
+            return Some(Card::SearingBlow(n + 1));
+        }
         match self.grade()? {
             Grade::Base => Some(self.with_grade(Grade::Plus)),
             Grade::Plus => None,
@@ -503,7 +527,9 @@ impl Card {
             Card::Warcry(g)          => warcry::id(*g),
             Card::Armaments(g)       => armaments::id(*g),
             Card::GhostlyArmor(g)   => ghostly_armor::id(*g),
+            Card::SearingBlow(_)     => searing_blow::id(),
             Card::SecondWind(g)      => second_wind::id(*g),
+            Card::Sentinel(g)        => sentinel::id(*g),
             Card::AllOutAttack(g)    => all_out_attack::id(*g),
             Card::AllForOne(g)       => all_for_one::id(*g),
             Card::Reaper(g)          => reaper::id(*g),
@@ -581,7 +607,9 @@ impl Card {
             Card::Warcry(Base),          Card::Warcry(Plus),
             Card::Armaments(Base),       Card::Armaments(Plus),
             Card::GhostlyArmor(Base),   Card::GhostlyArmor(Plus),
+            Card::SearingBlow(0),
             Card::SecondWind(Base),      Card::SecondWind(Plus),
+            Card::Sentinel(Base),        Card::Sentinel(Plus),
             Card::AllOutAttack(Base),    Card::AllOutAttack(Plus),
             Card::AllForOne(Base),       Card::AllForOne(Plus),
             Card::Reaper(Base),          Card::Reaper(Plus),
@@ -667,7 +695,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Warcry(g)          => warcry::apply(state, events, *g, rng),
         Card::Armaments(g)       => armaments::apply(state, events, *g, rng),
         Card::GhostlyArmor(g)   => ghostly_armor::apply(state, events, *g, rng),
+        Card::SearingBlow(n)     => searing_blow::apply(state, events, *n, target),
         Card::SecondWind(g)      => second_wind::apply(state, events, *g, rng),
+        Card::Sentinel(g)        => sentinel::apply(state, events, *g, rng),
         Card::AllOutAttack(g)    => all_out_attack::apply(state, events, *g, rng),
         Card::AllForOne(g)       => all_for_one::apply(state, events, *g, target),
         Card::Reaper(g)          => reaper::apply(state, events, *g, target),
@@ -700,7 +730,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
         Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
-        Card::Feed(Base), Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::PowerThrough(Base), Card::BurningPact(Base), Card::Warcry(Base), Card::Armaments(Base), Card::GhostlyArmor(Base), Card::SecondWind(Base), Card::AllOutAttack(Base), Card::AllForOne(Base), Card::Reaper(Base), Card::Whirlwind(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
+        Card::Feed(Base), Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::PowerThrough(Base), Card::BurningPact(Base), Card::Warcry(Base), Card::Armaments(Base), Card::GhostlyArmor(Base), Card::SearingBlow(0), Card::SecondWind(Base), Card::Sentinel(Base), Card::AllOutAttack(Base), Card::AllForOne(Base), Card::Reaper(Base), Card::Whirlwind(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 

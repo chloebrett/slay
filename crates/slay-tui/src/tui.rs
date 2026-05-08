@@ -1,6 +1,6 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relic_emoji,
-    relics_bar, statuses_inline,
+    apply_and_drain, card_type_icon, connector_rows, describe_event, describe_intent, enemy_icon,
+    map_node_icon, map_node_name, relic_emoji, relics_bar, statuses_inline,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -341,29 +341,50 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
         .constraints([Constraint::Min(0), Constraint::Length(3)])
         .areas(area);
 
-    let items: Vec<ListItem> = map.graph.rows.iter().enumerate().rev()
-        .map(|(i, row)| {
-            let nodes: String = row.iter()
-                .map(|node| { let (icon, name) = node_label(node); format!("{icon} {name}") })
-                .collect::<Vec<_>>()
-                .join("   ");
-            let marker = match i.cmp(&map.floor) {
-                std::cmp::Ordering::Less    => "✓",
-                std::cmp::Ordering::Equal   => "▶",
-                std::cmp::Ordering::Greater => " ",
+    let max_cols = map.graph.rows.iter().map(|r| r.len()).max().unwrap_or(1).max(2);
+    let max_floor = map.graph.rows.len().saturating_sub(1);
+    let mut lines: Vec<Line> = Vec::new();
+
+    for floor in (0..=max_floor).rev() {
+        let row = &map.graph.rows[floor];
+        let past = floor < map.floor;
+        let current = floor == map.floor;
+
+        // Node row: one span per column + padding spans between
+        use ratatui::text::Span;
+        let mut spans: Vec<Span> = Vec::new();
+        for col in 0..max_cols {
+            let icon = row.get(col).map_or("  ", |n| map_node_icon(n));
+            let style = if past {
+                Style::default().fg(Color::DarkGray)
+            } else if current && map.available_cols.contains(&col) {
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
             };
-            let text = format!(" {marker}  {}.  {nodes}", i + 1);
-            let style = match i.cmp(&map.floor) {
-                std::cmp::Ordering::Equal   => Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow),
-                std::cmp::Ordering::Less    => Style::default().fg(Color::DarkGray),
-                std::cmp::Ordering::Greater => Style::default(),
+            spans.push(Span::styled(icon.to_string(), style));
+            if col < max_cols - 1 {
+                // 4-space column padding (matches STRIDE=6: 2-wide emoji + 4 spaces)
+                spans.push(Span::raw("    "));
+            }
+        }
+        lines.push(Line::from(spans));
+
+        // Connector rows between this floor and the one below
+        if floor > 0 {
+            let conn_style = if floor <= map.floor {
+                Style::default().fg(Color::DarkGray)
+            } else {
+                Style::default().fg(Color::DarkGray)
             };
-            ListItem::new(Line::styled(text, style))
-        })
-        .collect();
+            let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols);
+            lines.push(Line::styled(r0, conn_style));
+            lines.push(Line::styled(r1, conn_style));
+        }
+    }
+
     let block = Block::default().borders(Borders::ALL).title(" 🗺️  Map ");
-    let list = List::new(items).block(block);
-    f.render_widget(list, map_area);
+    f.render_widget(Paragraph::new(lines).block(block), map_area);
 
     let choices = map_choices_line(map);
     let choices_block = Block::default().borders(Borders::ALL).title(" Choose ");
@@ -372,29 +393,17 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
 fn map_choices_line(map: &MapState) -> String {
     if map.available_cols.len() == 1 {
-        let node = &map.graph.rows[map.floor][map.available_cols[0]];
-        let (icon, name) = node_label(node);
-        format!("[Enter] {icon} {name}")
+        let col = map.available_cols[0];
+        let node = &map.graph.rows[map.floor][col];
+        format!("[Enter] {} {}", map_node_icon(node), map_node_name(node))
     } else {
         map.available_cols.iter()
             .map(|&col| {
                 let node = &map.graph.rows[map.floor][col];
-                let (icon, name) = node_label(node);
-                format!("[{}] {icon} {name}", col + 1)
+                format!("[{}] {} {}", col + 1, map_node_icon(node), map_node_name(node))
             })
             .collect::<Vec<_>>()
             .join("   ")
-    }
-}
-
-fn node_label(node: &MapNode) -> (&'static str, &'static str) {
-    match node {
-        MapNode::Combat(_) => ("⚔️", "Combat"),
-        MapNode::RestSite  => ("🔥", "Rest Site"),
-        MapNode::Boss(_)   => ("💀", "Boss"),
-        MapNode::Merchant  => ("🛒", "Shop"),
-        MapNode::Treasure  => ("📦", "Treasure"),
-        MapNode::Event     => ("❓", "Event"),
     }
 }
 
@@ -1177,18 +1186,19 @@ mod tests {
     }
 
     #[test]
-    fn map_screen_shows_node_names() {
+    fn map_screen_shows_node_icons() {
         let tui = make_main_run_map_tui();
         let out = render_to_string(&tui, 100, 30);
-        assert!(out.contains("Combat"), "expected 'Combat' in:\n{out}");
-        assert!(out.contains("Boss"), "expected 'Boss' in:\n{out}");
+        assert!(out.contains("⚔️"), "expected ⚔️ icon in:\n{out}");
+        assert!(out.contains("💀"), "expected 💀 boss icon in:\n{out}");
     }
 
     #[test]
-    fn map_screen_shows_current_floor_marker() {
+    fn map_screen_choices_panel_shows_node_name() {
         let tui = make_map_tui();
         let out = render_to_string(&tui, 100, 30);
-        assert!(out.contains("▶"), "expected '▶' marker in:\n{out}");
+        assert!(out.contains("Choose"), "expected 'Choose' panel in:\n{out}");
+        assert!(out.contains("[Enter]") || out.contains("[1]"), "expected choices in:\n{out}");
     }
 
     #[test]
@@ -1200,7 +1210,7 @@ mod tests {
     }
 
     #[test]
-    fn map_grid_shows_both_nodes_on_two_column_floor() {
+    fn map_grid_shows_both_node_icons_on_two_column_floor() {
         let graph = slay_core::MapGraph {
             rows: vec![vec![MapNode::Combat(vec![]), MapNode::RestSite]],
             edges: vec![vec![vec![], vec![]]],
@@ -1222,9 +1232,10 @@ mod tests {
         });
         let tui = TuiState::new(state, false);
         let out = render_to_string(&tui, 120, 30);
-        let marker_line = out.lines().find(|l| l.contains('▶')).expect("expected ▶ marker line");
-        assert!(marker_line.contains("Combat"), "expected 'Combat' on ▶ line: {marker_line}");
-        assert!(marker_line.contains("Rest Site"), "expected 'Rest Site' on ▶ line: {marker_line}");
+        assert!(out.contains("⚔️"), "expected ⚔️ combat icon in:\n{out}");
+        assert!(out.contains("🔥"), "expected 🔥 rest site icon in:\n{out}");
+        let choices = out.lines().find(|l| l.contains("Combat")).expect("expected 'Combat' in choices panel");
+        assert!(choices.contains("Rest Site"), "expected both choices shown in:\n{choices}");
     }
 
     #[test]
