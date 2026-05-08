@@ -1737,3 +1737,46 @@
         assert_eq!(Card::from_id("shockwave"),      Some(Card::Shockwave(Grade::Base)));
         assert_eq!(Card::from_id("shockwave-plus"), Some(Card::Shockwave(Grade::Plus)));
     }
+
+    // --- Immolate ---
+
+    #[test]
+    fn immolate_deals_21_damage_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Base)]);
+        state.enemies[0].hp = Hp(50); state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(29));
+        assert_eq!(state.enemies[1].hp, Hp(29));
+    }
+
+    #[test]
+    fn immolate_plus_deals_28_damage_to_all_enemies() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Plus)]);
+        state.enemies[0].hp = Hp(50); state.enemies[1].hp = Hp(50);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(22));
+        assert_eq!(state.enemies[1].hp, Hp(22));
+    }
+
+    #[test]
+    fn immolate_adds_5_burn_to_discard() {
+        let state = combat_with_hand(vec![Card::Immolate(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let burn_count = state.player.discard_pile.iter().filter(|c| **c == Card::Burn).count();
+        assert_eq!(burn_count, 5);
+    }
+
+    #[test]
+    fn immolate_respects_strength() {
+        let mut state = combat_with_two_enemies(vec![Card::Immolate(Grade::Base)]);
+        state.enemies[0].hp = Hp(50);
+        state.player.statuses.insert(StatusEffect::Strength, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(26)); // 50 - (21 + 3)
+    }
+
+    #[test]
+    fn immolate_id_round_trips() {
+        assert_eq!(Card::from_id("immolate"),      Some(Card::Immolate(Grade::Base)));
+        assert_eq!(Card::from_id("immolate-plus"), Some(Card::Immolate(Grade::Plus)));
+    }

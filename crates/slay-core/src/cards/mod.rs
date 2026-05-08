@@ -8,6 +8,7 @@ mod combust;
 mod evolve;
 mod fire_breathing;
 mod flex;
+mod immolate;
 mod intimidate;
 mod shockwave;
 mod carnage;
@@ -106,6 +107,7 @@ pub enum Card {
     Evolve(Grade),
     FireBreathing(Grade),
     Flex(Grade),
+    Immolate(Grade),
     Intimidate(Grade),
     Shockwave(Grade),
     // Skill (exhausts on base)
@@ -210,6 +212,7 @@ impl Card {
             Card::Evolve(g)       => evolve::def(*g),
             Card::FireBreathing(g) => fire_breathing::def(*g),
             Card::Flex(g)         => flex::def(*g),
+            Card::Immolate(g)     => immolate::def(*g),
             Card::Intimidate(g)   => intimidate::def(*g),
             Card::Shockwave(g)    => shockwave::def(*g),
             Card::Brutality(g)    => brutality::def(*g),
@@ -274,7 +277,7 @@ impl Card {
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Flex(g)
-            | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
+            | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -324,6 +327,7 @@ impl Card {
             Card::Evolve(_)       => Card::Evolve(g),
             Card::FireBreathing(_) => Card::FireBreathing(g),
             Card::Flex(_)         => Card::Flex(g),
+            Card::Immolate(_)     => Card::Immolate(g),
             Card::Intimidate(_)   => Card::Intimidate(g),
             Card::Shockwave(_)    => Card::Shockwave(g),
             Card::Brutality(_)    => Card::Brutality(g),
@@ -410,6 +414,7 @@ impl Card {
             Card::Evolve(g)       => evolve::id(*g),
             Card::FireBreathing(g) => fire_breathing::id(*g),
             Card::Flex(g)         => flex::id(*g),
+            Card::Immolate(g)     => immolate::id(*g),
             Card::Intimidate(g)   => intimidate::id(*g),
             Card::Shockwave(g)    => shockwave::id(*g),
             Card::Brutality(g)    => brutality::id(*g),
@@ -474,6 +479,7 @@ impl Card {
             Card::Evolve(Base),       Card::Evolve(Plus),
             Card::FireBreathing(Base), Card::FireBreathing(Plus),
             Card::Flex(Base),         Card::Flex(Plus),
+            Card::Immolate(Base),     Card::Immolate(Plus),
             Card::Intimidate(Base),   Card::Intimidate(Plus),
             Card::Shockwave(Base),    Card::Shockwave(Plus),
             Card::Brutality(Base),    Card::Brutality(Plus),
@@ -546,6 +552,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Evolve(g)       => evolve::apply(state, events, *g, target),
         Card::FireBreathing(g) => fire_breathing::apply(state, events, *g, target),
         Card::Flex(g)         => flex::apply(state, events, *g, target),
+        Card::Immolate(g)     => immolate::apply(state, events, *g, target),
         Card::Intimidate(g)   => intimidate::apply(state, events, *g, target),
         Card::Shockwave(g)    => shockwave::apply(state, events, *g, target),
         Card::Brutality(g)    => brutality::apply(state, events, *g, target),
@@ -573,7 +580,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
         Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
-        Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
+        Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 
