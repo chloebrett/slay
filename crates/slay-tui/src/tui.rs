@@ -1,6 +1,6 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar,
-    statuses_inline,
+    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relic_emoji,
+    relics_bar, statuses_inline,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -24,6 +24,7 @@ pub struct TuiState {
     pub event_log: VecDeque<String>,
     pub last_error: Option<String>,
     pub show_pile: Option<PileView>,
+    pub show_relics: bool,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -43,6 +44,7 @@ impl TuiState {
             event_log: VecDeque::new(),
             last_error: None,
             show_pile: None,
+            show_relics: false,
             debug,
             should_quit: false,
         };
@@ -69,18 +71,26 @@ impl TuiState {
         let input = std::mem::take(&mut self.input_buf);
         let trimmed = input.trim();
 
+        // Global relic overlay toggle
+        if trimmed == "relics" {
+            self.show_relics = !self.show_relics;
+            self.show_pile = None;
+            return;
+        }
+
         // Pile view shortcuts in combat
         if matches!(self.game, GameState::Combat { .. }) {
             match trimmed {
-                "z" => { self.show_pile = Some(PileView::Draw);    return; }
-                "x" => { self.show_pile = Some(PileView::Discard); return; }
-                "c" => { self.show_pile = Some(PileView::Exhaust); return; }
+                "z" => { self.show_pile = Some(PileView::Draw);    self.show_relics = false; return; }
+                "x" => { self.show_pile = Some(PileView::Discard); self.show_relics = false; return; }
+                "c" => { self.show_pile = Some(PileView::Exhaust); self.show_relics = false; return; }
                 _ => {}
             }
         }
 
-        // Dismiss pile overlay on any other key event
+        // Dismiss pile/relic overlays on any other command
         self.show_pile = None;
+        self.show_relics = false;
 
         let Some(command) = crate::command::parse(trimmed, &self.game, self.debug) else {
             self.last_error = Some("Unknown command.".to_string());
@@ -137,9 +147,12 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
     render_status_line(f, chunks[2], tui);
     render_input(f, chunks[3], tui);
 
-    // Pile overlay (drawn last, on top)
+    // Overlays (drawn last, on top)
     if let Some(view) = tui.show_pile {
         render_pile_overlay(f, f.area(), &tui.game, view);
+    }
+    if tui.show_relics {
+        render_relic_overlay(f, f.area(), player_relics(&tui.game));
     }
 }
 
@@ -614,6 +627,32 @@ fn render_pile_overlay(f: &mut Frame, area: Rect, state: &GameState, view: PileV
 
     // Centered popup — 60% width, 60% height
     let w = (area.width * 6) / 10;
+    let h = (area.height * 6) / 10;
+    let x = area.x + (area.width - w) / 2;
+    let y = area.y + (area.height - h) / 2;
+    let popup = Rect { x, y, width: w, height: h };
+
+    f.render_widget(ratatui::widgets::Clear, popup);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(title)
+        .style(Style::default().bg(Color::Black));
+    let para = Paragraph::new(lines).block(block).wrap(Wrap { trim: false });
+    f.render_widget(para, popup);
+}
+
+fn render_relic_overlay(f: &mut Frame, area: Rect, relics: &[Relic]) {
+    let title = format!(" 🎒 Relics ({}) ", relics.len());
+    let lines: Vec<Line> = if relics.is_empty() {
+        vec![Line::styled("(no relics)", Style::default().fg(Color::DarkGray))]
+    } else {
+        relics.iter().map(|r| {
+            Line::raw(format!(" {} {}  —  {}", relic_emoji(r), r.name(), r.description()))
+        }).collect()
+    };
+
+    // Centered popup — 70% width, 60% height
+    let w = (area.width * 7) / 10;
     let h = (area.height * 6) / 10;
     let x = area.x + (area.width - w) / 2;
     let y = area.y + (area.height - h) / 2;
