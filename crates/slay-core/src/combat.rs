@@ -208,6 +208,7 @@ pub enum Event {
     CardExhausted { card: Card },
     CardUpgraded { from: Card, to: Card },
     StatusCardAddedToDiscard { card: Card },
+    StatusCardAddedToHand { card: Card },
     PotionUsed { potion: Potion },
     PotionAwarded { potion: Potion },
     PotionDiscarded { potion: Potion },

@@ -72,6 +72,7 @@ pub fn describe_event(event: &Event) -> String {
         Event::CardExhausted { card } => format!("🔥 {} was exhausted.", card.name()),
         Event::CardUpgraded { from, to } => format!("⬆️  {} upgraded to {}.", from.name(), to.name()),
         Event::StatusCardAddedToDiscard { card } => format!("🃏 {} added to your discard.", card.name()),
+        Event::StatusCardAddedToHand { card } => format!("🃏 {} added to your hand.", card.name()),
         Event::PotionUsed { potion } => format!("🧪 You use {}.", potion.name()),
         Event::PotionAwarded { potion } => format!("🧪 {} added to your belt.", potion.name()),
         Event::PotionDiscarded { potion } => format!("🧪 {} discarded.", potion.name()),
