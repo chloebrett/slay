@@ -110,6 +110,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Rupture           => ("💔", "Rupture"),
         StatusEffect::Berserk           => ("😡", "Berserk"),
         StatusEffect::Brutality         => ("🩸", "Brutality"),
+        StatusEffect::Combust           => ("🔥", "Combust"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
     }
 }

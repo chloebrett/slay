@@ -24,6 +24,7 @@ pub enum StatusEffect {
     Rupture,
     Berserk,
     Brutality,
+    Combust,
     StonePlating,
 }
 
