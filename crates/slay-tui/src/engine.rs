@@ -118,6 +118,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::StrengthDown      => ("📉", "Strength Down"),
         StatusEffect::Shackled          => ("⛓️", "Shackled"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
+        StatusEffect::Enrage            => ("😤", "Enrage"),
     }
 }
 
