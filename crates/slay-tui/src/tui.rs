@@ -18,6 +18,12 @@ use std::collections::VecDeque;
 
 const LOG_CAPACITY: usize = 200;
 
+const PILE_KEYS: &[(&str, PileView, &str)] = &[
+    ("z", PileView::Draw,    "view draw pile"),
+    ("x", PileView::Discard, "view discard pile"),
+    ("c", PileView::Exhaust, "view exhaust pile"),
+];
+
 #[derive(Debug)]
 pub struct TuiState {
     pub game: GameState,
@@ -25,6 +31,7 @@ pub struct TuiState {
     pub event_log: VecDeque<String>,
     pub last_error: Option<String>,
     pub show_pile: Option<PileView>,
+    pub show_help: bool,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -44,6 +51,7 @@ impl TuiState {
             event_log: VecDeque::new(),
             last_error: None,
             show_pile: None,
+            show_help: false,
             debug,
             should_quit: false,
         };
@@ -72,11 +80,9 @@ impl TuiState {
 
         // Pile view shortcuts in combat
         if matches!(self.game, GameState::Combat { .. }) {
-            match trimmed {
-                "z" => { self.show_pile = Some(PileView::Draw);    return; }
-                "x" => { self.show_pile = Some(PileView::Discard); return; }
-                "c" => { self.show_pile = Some(PileView::Exhaust); return; }
-                _ => {}
+            if let Some((_, view, _)) = PILE_KEYS.iter().find(|(k, _, _)| *k == trimmed) {
+                self.show_pile = Some(*view);
+                return;
             }
         }
 
@@ -141,6 +147,11 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
     // Pile overlay (drawn last, on top)
     if let Some(view) = tui.show_pile {
         render_pile_overlay(f, f.area(), &tui.game, view);
+    }
+
+    // Help overlay (drawn last, on top of everything)
+    if tui.show_help {
+        render_help_overlay(f, f.area(), &tui.game);
     }
 }
 
@@ -591,6 +602,50 @@ fn render_status_line(f: &mut Frame, area: Rect, tui: &TuiState) {
     f.render_widget(para, area);
 }
 
+fn help_lines(state: &GameState) -> Vec<String> {
+    match state {
+        GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::PlayerTurn => {
+            let mut lines = vec![
+                "play N          play card N from your hand".to_string(),
+                "play N T        play card N targeting enemy T".to_string(),
+                "end             end your turn".to_string(),
+                "use N           use potion N (targets first enemy)".to_string(),
+                "use N T         use potion N on enemy T".to_string(),
+            ];
+            for (key, _, desc) in PILE_KEYS {
+                lines.push(format!("{key:<16}{desc}"));
+            }
+            lines
+        }
+        GameState::Combat { .. } => vec![],
+        GameState::Map(_) => vec![
+            "N               choose node N".to_string(),
+        ],
+        GameState::RestSite(_) => vec![
+            "rest            heal 30% of max HP".to_string(),
+            "upgrade N       upgrade card N in your deck".to_string(),
+        ],
+        GameState::TreasureRoom(_) => vec![
+            "take            take the relic".to_string(),
+            "skip            leave without taking".to_string(),
+        ],
+        GameState::CardReward(_) => vec![
+            "N               add card N to your deck".to_string(),
+            "skip            skip the reward".to_string(),
+        ],
+        GameState::Shop(_) => vec![
+            "N               buy card N".to_string(),
+            "r               buy the relic".to_string(),
+            "p               buy the potion".to_string(),
+            "leave           leave the shop".to_string(),
+        ],
+        GameState::EventRoom(_) => vec![
+            "N               choose option N".to_string(),
+        ],
+        GameState::GameOver { .. } => vec![],
+    }
+}
+
 fn command_hint(state: &GameState) -> String {
     match state {
         GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::PlayerTurn => {
@@ -646,6 +701,27 @@ fn render_pile_overlay(f: &mut Frame, area: Rect, state: &GameState, view: PileV
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
+        .style(Style::default().bg(Color::Black));
+    let para = Paragraph::new(lines).block(block).wrap(Wrap { trim: false });
+    f.render_widget(para, popup);
+}
+
+fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
+    let lines: Vec<Line> = help_lines(state)
+        .into_iter()
+        .map(Line::raw)
+        .collect();
+
+    let w = (area.width * 7) / 10;
+    let h = (area.height * 7) / 10;
+    let x = area.x + (area.width - w) / 2;
+    let y = area.y + (area.height - h) / 2;
+    let popup = Rect { x, y, width: w, height: h };
+
+    f.render_widget(ratatui::widgets::Clear, popup);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" Help — esc to close ")
         .style(Style::default().bg(Color::Black));
     let para = Paragraph::new(lines).block(block).wrap(Wrap { trim: false });
     f.render_widget(para, popup);
@@ -707,9 +783,20 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
                 continue;
             }
 
+            // Dismiss help overlay on esc/enter/?; swallow all other keys
+            if tui.show_help {
+                match key.code {
+                    KeyCode::Esc | KeyCode::Enter => tui.show_help = false,
+                    KeyCode::Char('?') => tui.show_help = false,
+                    _ => {}
+                }
+                continue;
+            }
+
             match key.code {
                 KeyCode::Esc => break,
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
+                KeyCode::Char('?') => tui.show_help = true,
                 KeyCode::Char(c) => tui.input_buf.push(c),
                 KeyCode::Backspace => { tui.input_buf.pop(); }
                 KeyCode::Enter => tui.handle_enter(rng),
@@ -1101,6 +1188,81 @@ mod tests {
         let before = tui.event_log.len();
         tui.push_log(String::new());
         assert_eq!(tui.event_log.len(), before);
+    }
+
+    // ─── show_help ─────────────────────────────────────────────────
+
+    #[test]
+    fn show_help_defaults_to_false() {
+        let tui = make_map_tui();
+        assert!(!tui.show_help);
+    }
+
+    // ─── PILE_KEYS ─────────────────────────────────────────────────
+
+    #[test]
+    fn pile_keys_table_matches_handle_enter_behaviour() {
+        let mut tui = make_combat_tui();
+        let mut r = rng();
+        for (key, view, _desc) in PILE_KEYS {
+            tui.input_buf = key.to_string();
+            tui.handle_enter(&mut r);
+            assert_eq!(tui.show_pile, Some(*view), "key '{key}' should open {view:?}");
+        }
+    }
+
+    #[test]
+    fn help_lines_combat_pile_entries_match_pile_keys() {
+        let tui = make_combat_tui();
+        let lines = help_lines(&tui.game);
+        for (key, _view, desc) in PILE_KEYS {
+            let expected = format!("{key}");
+            assert!(
+                lines.iter().any(|l| l.starts_with(&expected) && l.contains(desc)),
+                "help_lines should contain entry for key '{key}' with desc '{desc}'"
+            );
+        }
+    }
+
+    // ─── help_lines ────────────────────────────────────────────────
+
+    #[test]
+    fn help_lines_combat_contains_play_and_end_entries() {
+        let tui = make_combat_tui();
+        let lines = help_lines(&tui.game);
+        assert!(lines.iter().any(|l| l.contains("play")), "should have play entry");
+        assert!(lines.iter().any(|l| l.contains("end")), "should have end entry");
+    }
+
+    #[test]
+    fn help_lines_map_is_non_empty() {
+        let tui = make_map_tui();
+        assert!(!help_lines(&tui.game).is_empty());
+    }
+
+    #[test]
+    fn help_lines_game_over_is_empty() {
+        let tui = TuiState::new(GameState::GameOver { victory: false }, false);
+        assert!(help_lines(&tui.game).is_empty());
+    }
+
+    // ─── help overlay render ───────────────────────────────────────
+
+    #[test]
+    fn help_overlay_visible_when_show_help_true() {
+        let mut tui = make_combat_tui();
+        tui.show_help = true;
+        let frame = render_to_string(&tui, 100, 30);
+        assert!(frame.contains("Help"), "overlay should show Help title");
+        assert!(frame.contains("play"), "overlay should list play command");
+        assert!(frame.contains("end"), "overlay should list end command");
+    }
+
+    #[test]
+    fn help_overlay_hidden_when_show_help_false() {
+        let tui = make_combat_tui();
+        let frame = render_to_string(&tui, 100, 30);
+        assert!(!frame.contains("Help"), "overlay should not appear by default");
     }
 
     // ─── command_hint ──────────────────────────────────────────────
