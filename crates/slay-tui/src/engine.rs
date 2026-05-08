@@ -1,6 +1,6 @@
 use slay_core::{
     AnyRng, Card, CardType, CombatPhase, Command, CommandError, Enemy, EnemyKind, Event, GameState,
-    Intent, Relic, StatusEffect, StatusMap, Target,
+    Intent, MapNode, Relic, StatusEffect, StatusMap, Target,
 };
 
 /// Applies one player command, then auto-drains EnemyTurn and StartOfPlayerTurn phases.
@@ -160,6 +160,66 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
     }
 }
 
+pub fn map_node_icon(node: &MapNode) -> &'static str {
+    match node {
+        MapNode::Combat(_) => "⚔️",
+        MapNode::RestSite  => "🔥",
+        MapNode::Boss(_)   => "💀",
+        MapNode::Merchant  => "🛒",
+        MapNode::Treasure  => "📦",
+        MapNode::Event     => "❓",
+    }
+}
+
+pub fn map_node_name(node: &MapNode) -> &'static str {
+    match node {
+        MapNode::Combat(_) => "Combat",
+        MapNode::RestSite  => "Rest Site",
+        MapNode::Boss(_)   => "Boss",
+        MapNode::Merchant  => "Shop",
+        MapNode::Treasure  => "Treasure",
+        MapNode::Event     => "Event",
+    }
+}
+
+/// Builds two connector rows visualising edges FROM a floor to the floor above.
+/// `floor_edges[col]` = destination columns on the upper floor.
+/// `num_cols` is the total column count for alignment.
+/// Uses STRIDE=4: each column slot is 4 chars wide, icon center at col*4+1.
+pub fn connector_rows(floor_edges: &[Vec<usize>], num_cols: usize) -> (String, String) {
+    const STRIDE: usize = 6;
+    let width = num_cols * STRIDE;
+    let mut r0: Vec<char> = vec![' '; width];
+    let mut r1: Vec<char> = vec![' '; width];
+
+    for (src, dsts) in floor_edges.iter().enumerate() {
+        for &dst in dsts {
+            let sc = src * STRIDE + 1;
+            let dc = dst * STRIDE + 1;
+            match src.cmp(&dst) {
+                std::cmp::Ordering::Equal => {
+                    r0[sc] = '│';
+                    r1[sc] = '│';
+                }
+                std::cmp::Ordering::Less => {
+                    // bottom-left → top-right: ╱ centred between the two columns
+                    let mid = (sc + dc) / 2;
+                    r1[mid - 1] = '╱';
+                    r0[mid + 1] = '╱';
+                }
+                std::cmp::Ordering::Greater => {
+                    // bottom-right → top-left: ╲ centred between the two columns
+                    let mid = (sc + dc) / 2;
+                    r1[mid + 1] = '╲';
+                    r0[mid - 1] = '╲';
+                }
+            }
+        }
+    }
+
+    (r0.iter().collect(), r1.iter().collect())
+}
+
 pub fn relic_emoji(relic: &Relic) -> &'static str {
     match relic {
         Relic::Strawberry       => "🍓",
@@ -254,6 +314,72 @@ mod tests {
         // PlayCard on empty hand (Simple run has no cards) → InvalidCard
         let result = apply_and_drain(state, Command::PlayCard(0, 0), &mut r);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn connector_rows_straight_both_columns() {
+        // both cols go straight up
+        let edges = vec![vec![0usize], vec![1usize]];
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('│'), "row0 should contain │: {r0:?}");
+        assert!(r1.contains('│'), "row1 should contain │: {r1:?}");
+        assert!(!r0.contains('╲') && !r0.contains('╱'), "no diagonals in straight: {r0:?}");
+    }
+
+    #[test]
+    fn connector_rows_left_to_right_diagonal() {
+        // src=0 → dst=1: connects bottom-left to top-right, so ╱ chars
+        let edges = vec![vec![1usize], vec![]];
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('╱'), "row0 should have ╱: {r0:?}");
+        assert!(r1.contains('╱'), "row1 should have ╱: {r1:?}");
+        // ╱ in top row (r0) is right of ╱ in bottom row (r1): moves right going up
+        let p0 = r0.chars().position(|c| c == '╱').unwrap();
+        let p1 = r1.chars().position(|c| c == '╱').unwrap();
+        assert!(p0 > p1, "╱ in r0 (top) should be right of ╱ in r1 (bottom): r0 pos {p0}, r1 pos {p1}");
+    }
+
+    #[test]
+    fn connector_rows_right_to_left_diagonal() {
+        // src=1 → dst=0: connects bottom-right to top-left, so ╲ chars
+        let edges = vec![vec![], vec![0usize]];
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('╲'), "row0 should have ╲: {r0:?}");
+        assert!(r1.contains('╲'), "row1 should have ╲: {r1:?}");
+        // ╲ in top row (r0) is left of ╲ in bottom row (r1): moves left going up
+        let p0 = r0.chars().position(|c| c == '╲').unwrap();
+        let p1 = r1.chars().position(|c| c == '╲').unwrap();
+        assert!(p0 < p1, "╲ in r0 (top) should be left of ╲ in r1 (bottom): r0 pos {p0}, r1 pos {p1}");
+    }
+
+    #[test]
+    fn connector_rows_crossing_produces_x_shape() {
+        let edges = vec![vec![1usize], vec![0usize]]; // 0→1 and 1→0
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('╲') && r0.contains('╱'), "row0 should have both diagonals: {r0:?}");
+        assert!(r1.contains('╲') && r1.contains('╱'), "row1 should have both diagonals: {r1:?}");
+    }
+
+    #[test]
+    fn connector_rows_convergence_both_to_col0() {
+        // col 0 → col 0 (straight) and col 1 → col 0 (right-to-left ╲)
+        let edges = vec![vec![0usize], vec![0usize]];
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('│'), "row0 straight: {r0:?}");
+        assert!(r1.contains('│'), "row1 straight: {r1:?}");
+        assert!(r0.contains('╲'), "row0 right-to-left diagonal: {r0:?}");
+        assert!(r1.contains('╲'), "row1 right-to-left diagonal: {r1:?}");
+    }
+
+    #[test]
+    fn connector_rows_divergence_col0_to_both() {
+        // col 0 → col 0 (straight) and col 0 → col 1 (left-to-right ╱)
+        let edges = vec![vec![0usize, 1usize]];
+        let (r0, r1) = connector_rows(&edges, 2);
+        assert!(r0.contains('│'), "row0 straight: {r0:?}");
+        assert!(r0.contains('╱'), "row0 rightward diagonal: {r0:?}");
+        assert!(r1.contains('│'), "row1 straight: {r1:?}");
+        assert!(r1.contains('╱'), "row1 rightward diagonal: {r1:?}");
     }
 
     #[test]
