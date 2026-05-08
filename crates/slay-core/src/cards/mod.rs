@@ -10,6 +10,7 @@ mod fire_breathing;
 mod fiend_fire;
 mod flex;
 mod perfected_strike;
+mod reaper;
 mod immolate;
 mod intimidate;
 mod shockwave;
@@ -111,6 +112,7 @@ pub enum Card {
     FiendFire(Grade),
     Flex(Grade),
     PerfectedStrike(Grade),
+    Reaper(Grade),
     Immolate(Grade),
     Intimidate(Grade),
     Shockwave(Grade),
@@ -218,6 +220,7 @@ impl Card {
             Card::FiendFire(g)      => fiend_fire::def(*g),
             Card::Flex(g)           => flex::def(*g),
             Card::PerfectedStrike(g) => perfected_strike::def(*g),
+            Card::Reaper(g)          => reaper::def(*g),
             Card::Immolate(g)     => immolate::def(*g),
             Card::Intimidate(g)   => intimidate::def(*g),
             Card::Shockwave(g)    => shockwave::def(*g),
@@ -264,7 +267,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -282,7 +285,7 @@ impl Card {
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
-            | Card::Evolve(g) | Card::FireBreathing(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g)
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::Reaper(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
@@ -335,6 +338,7 @@ impl Card {
             Card::FiendFire(_)      => Card::FiendFire(g),
             Card::Flex(_)           => Card::Flex(g),
             Card::PerfectedStrike(_) => Card::PerfectedStrike(g),
+            Card::Reaper(_)          => Card::Reaper(g),
             Card::Immolate(_)     => Card::Immolate(g),
             Card::Intimidate(_)   => Card::Intimidate(g),
             Card::Shockwave(_)    => Card::Shockwave(g),
@@ -424,6 +428,7 @@ impl Card {
             Card::FiendFire(g)      => fiend_fire::id(*g),
             Card::Flex(g)           => flex::id(*g),
             Card::PerfectedStrike(g) => perfected_strike::id(*g),
+            Card::Reaper(g)          => reaper::id(*g),
             Card::Immolate(g)     => immolate::id(*g),
             Card::Intimidate(g)   => intimidate::id(*g),
             Card::Shockwave(g)    => shockwave::id(*g),
@@ -491,6 +496,7 @@ impl Card {
             Card::FiendFire(Base),       Card::FiendFire(Plus),
             Card::Flex(Base),            Card::Flex(Plus),
             Card::PerfectedStrike(Base), Card::PerfectedStrike(Plus),
+            Card::Reaper(Base),          Card::Reaper(Plus),
             Card::Immolate(Base),     Card::Immolate(Plus),
             Card::Intimidate(Base),   Card::Intimidate(Plus),
             Card::Shockwave(Base),    Card::Shockwave(Plus),
@@ -566,6 +572,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::FiendFire(g)      => fiend_fire::apply(state, events, *g, target, rng),
         Card::Flex(g)           => flex::apply(state, events, *g, target),
         Card::PerfectedStrike(g) => perfected_strike::apply(state, events, *g, target),
+        Card::Reaper(g)          => reaper::apply(state, events, *g, target),
         Card::Immolate(g)     => immolate::apply(state, events, *g, target),
         Card::Intimidate(g)   => intimidate::apply(state, events, *g, target),
         Card::Shockwave(g)    => shockwave::apply(state, events, *g, target),
@@ -594,7 +601,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
         Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
-        Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
+        Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::Reaper(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 
