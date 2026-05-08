@@ -15,7 +15,7 @@ All STS1 Ironclad cards not yet implemented. Cards marked ⚠️ need new infras
 | **All for One** | 1 | Deal 10 damage. Put all cost-0 cards from your discard pile into your hand. | Filter discard by energy cost |
 | ~~**Reaper**~~ | ~~2~~ | ~~Deal 4 damage to ALL enemies. Heal HP equal to unblocked damage. Exhaust.~~ | ~~AoE with per-hit heal~~ |
 | ~~**Fiend Fire**~~ | ~~2~~ | ~~Exhaust your hand. Deal 7 damage for each card Exhausted. Exhaust.~~ | ~~Exhaust-hand loop~~ |
-| **Whirlwind** ⚠️ | X | Deal 5 damage to ALL enemies X times. | X-cost mechanic (spend all energy) |
+| ~~**Whirlwind**~~ | ~~X~~ | ~~Deal 5 damage to ALL enemies X times.~~ | ~~X-cost mechanic (spend all energy)~~ |
 | **Searing Blow** ⚠️ | 2 | Deal 12 damage. Can be Upgraded any number of times. | Grade enum only has Base/Plus |
 
 ---
