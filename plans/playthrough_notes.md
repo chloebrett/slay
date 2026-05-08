@@ -1,0 +1,19 @@
+Played through the real game and took some notes.
+
+- neow
+- stateful selection of pathing.
+- pathing rules based off Act 1 wiki - e.g. always have a treasure at X floor.
+- display relics (maybe as emojis) and then a button to press to see the full list.
+- show what a relic does before you select it.
+- spike slime, acid slime - in pairs
+- fungi beast - spore cloud - on death applies 2 vulnerable
+- fungi beast in pairs.
+- slaver - rake - adds a vulnerable
+- artifacts, intangibles
+- implement sentries
+- "what is going on" event where you can receive/store a card. would need some kind of permanent storage.
+- gremlin nob! (with Enrage)
+- lagavulin! with the move that makes you lose a strength and dexterity!
+- double tap - interesting card to implement
+- boss relics vs shop relics etc. same with cards and rarity.
+- slime boss - expansion/spawning mechanic. needs to spawn small slimes with HP equal to large slime at end of player's turn.

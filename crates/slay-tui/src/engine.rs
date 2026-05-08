@@ -3,8 +3,8 @@ use slay_core::{
     Intent, StatusEffect, StatusMap, Target,
 };
 
-/// Applies one player command, then auto-drains all EnemyTurn ticks.
-/// Returns the final state plus all events (command events + every enemy-turn tick) combined.
+/// Applies one player command, then auto-drains EnemyTurn and StartOfPlayerTurn phases.
+/// Returns the final state plus all events combined.
 pub fn apply_and_drain(
     mut state: GameState,
     command: Command,
@@ -13,14 +13,12 @@ pub fn apply_and_drain(
     let (new_state, mut all_events) = slay_core::apply_command(state, command, rng)?;
     state = new_state;
     loop {
-        let is_enemy_turn = matches!(
-            &state,
-            GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::EnemyTurn
-        );
-        if !is_enemy_turn {
-            break;
-        }
-        let (ns, evts) = slay_core::apply_command(state, Command::EndEnemyTurn, rng)?;
+        let cmd = match &state {
+            GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::EnemyTurn => Command::EndEnemyTurn,
+            GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::StartOfPlayerTurn => Command::StartPlayerTurn,
+            _ => break,
+        };
+        let (ns, evts) = slay_core::apply_command(state, cmd, rng)?;
         state = ns;
         all_events.extend(evts);
     }
@@ -103,6 +101,25 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::ModeShiftProgress => ("⚡", "Mode Shift"),
         StatusEffect::ModeShiftCount    => ("🔄", "Mode Shifts"),
         StatusEffect::GuardianMode      => ("🛡️", "Guardian Mode"),
+        StatusEffect::DemonForm         => ("😈", "Demon Form"),
+        StatusEffect::CrimsonMantle     => ("🔴", "Crimson Mantle"),
+        StatusEffect::Pyre              => ("🔥", "Pyre"),
+        StatusEffect::Barricade         => ("🏰", "Barricade"),
+        StatusEffect::Aggression        => ("⚔️", "Aggression"),
+        StatusEffect::DrumOfBattle      => ("🥁", "Drum of Battle"),
+        StatusEffect::Inferno           => ("🌋", "Inferno"),
+        StatusEffect::FeelNoPain        => ("🩹", "Feel No Pain"),
+        StatusEffect::DarkEmbrace       => ("🌑", "Dark Embrace"),
+        StatusEffect::Juggernaut        => ("🏋️", "Juggernaut"),
+        StatusEffect::Unmovable         => ("🪨", "Unmovable"),
+        StatusEffect::Rupture           => ("💔", "Rupture"),
+        StatusEffect::Juggling          => ("🤹", "Juggling"),
+        StatusEffect::Vicious           => ("🐺", "Vicious"),
+        StatusEffect::Hellraiser        => ("😤", "Hellraiser"),
+        StatusEffect::Stampede          => ("🐎", "Stampede"),
+        StatusEffect::Cruelty           => ("🩸", "Cruelty"),
+        StatusEffect::Tank              => ("🛡️", "Tank"),
+        StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
     }
 }
 

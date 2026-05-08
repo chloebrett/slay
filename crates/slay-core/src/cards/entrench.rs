@@ -1,12 +1,11 @@
 use super::{CardDef, CardDescription, CardType, Grade};
-use crate::combat::{CombatState, Event};
-use crate::types::{Block, Energy};
+use crate::combat::{CombatState, Event, gain_player_block};
+use crate::rng::Rng;
+use crate::types::Energy;
 
-pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, _grade: Grade) {
-    let new_block = state.player.block.0 * 2;
-    let gained = new_block - state.player.block.0;
-    state.player.block = Block(new_block);
-    events.push(Event::PlayerBlocked { amount: gained });
+pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, _grade: Grade, rng: &mut impl Rng) {
+    let gained = state.player.block.0;
+    gain_player_block(state, events, gained, rng);
 }
 
 pub(super) fn def(grade: Grade) -> CardDef {

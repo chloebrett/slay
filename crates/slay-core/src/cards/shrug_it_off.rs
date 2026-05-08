@@ -1,12 +1,11 @@
 use super::{CardDef, CardDescription, CardType, Grade};
-use crate::combat::{CombatState, Event, draw_cards};
+use crate::combat::{CombatState, Event, draw_cards, gain_player_block};
 use crate::rng::Rng;
-use crate::types::{Block, Energy};
+use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, rng: &mut impl Rng) {
     let block = match grade { Grade::Base => 8, Grade::Plus => 11 };
-    state.player.block = Block(state.player.block.0 + block);
-    events.push(Event::PlayerBlocked { amount: block });
+    gain_player_block(state, events, block, rng);
     draw_cards(&mut state.player, 1, rng);
     events.push(Event::CardsDrawn { count: 1 });
 }

@@ -52,6 +52,7 @@ impl Enemy {
 pub enum CombatPhase {
     PlayerTurn,
     EnemyTurn,
+    StartOfPlayerTurn,
     Victory,
     Defeat,
 }
@@ -276,8 +277,7 @@ pub(crate) fn apply_combat_command(
                 }
             }
             if card.exhausts() {
-                events.push(Event::CardExhausted { card: card.clone() });
-                state.player.exhaust_pile.push(card.clone());
+                exhaust_card(card.clone(), &mut state, &mut events, rng);
             } else if card.card_type() != crate::cards::CardType::Power {
                 state.player.discard_pile.push(card.clone());
             }
@@ -319,7 +319,7 @@ pub(crate) fn apply_combat_command(
                 .filter_map(|c| c.end_of_turn_hook(hand_size))
                 .collect();
             let (ethereal, normal): (Vec<_>, Vec<_>) = state.player.hand.drain(..).partition(|c| c.is_ethereal());
-            state.player.exhaust_pile.extend(ethereal);
+            for card in ethereal { exhaust_card(card, &mut state, &mut events, rng); }
             state.player.discard_pile.extend(normal);
             tick_statuses(&mut state.player.statuses);
             if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
@@ -418,31 +418,40 @@ pub(crate) fn apply_combat_command(
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
             } else {
+                state.phase = CombatPhase::StartOfPlayerTurn;
+            }
+        }
+        Command::StartPlayerTurn => {
+            if state.phase != CombatPhase::StartOfPlayerTurn {
+                return Err(CommandError::InvalidPhase);
+            }
+            let barricade = state.player.statuses.contains_key(&StatusEffect::Barricade);
+            if !barricade {
                 if state.player.block > Block(0) {
                     events.push(Event::PlayerBlockExpired { amount: state.player.block.0 });
                 }
                 state.player.block = Block(0);
-                state.player.energy = state.player.max_energy;
-                state.turn += 1;
-                for enemy in state.enemies.iter_mut() {
-                    if enemy.hp > Hp(0) {
-                        enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, rng);
-                        events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
-                    }
-                }
-                let extra = state.extra_draws_next_turn as usize;
-                state.attacks_this_turn = 0;
-                state.skills_this_turn = 0;
-                state.cards_played_this_turn = 0;
-                state.extra_draws_next_turn = 0;
-                draw_cards(&mut state.player, 5, rng);
-                if extra > 0 {
-                    draw_cards(&mut state.player, extra, rng);
-                    events.push(Event::CardsDrawn { count: extra });
-                }
-                state.phase = CombatPhase::PlayerTurn;
-                events.push(Event::TurnStarted { turn: state.turn });
             }
+            state.player.energy = state.player.max_energy;
+            state.turn += 1;
+            for enemy in state.enemies.iter_mut() {
+                if enemy.hp > Hp(0) {
+                    enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, rng);
+                    events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
+                }
+            }
+            let extra = state.extra_draws_next_turn as usize;
+            state.attacks_this_turn = 0;
+            state.skills_this_turn = 0;
+            state.cards_played_this_turn = 0;
+            state.extra_draws_next_turn = 0;
+            draw_cards(&mut state.player, 5, rng);
+            if extra > 0 {
+                draw_cards(&mut state.player, extra, rng);
+                events.push(Event::CardsDrawn { count: extra });
+            }
+            state.phase = CombatPhase::PlayerTurn;
+            events.push(Event::TurnStarted { turn: state.turn });
         }
     }
 
@@ -458,6 +467,51 @@ pub(crate) fn apply_status(
 ) {
     *statuses.entry(effect).or_insert(0) += stacks;
     events.push(Event::StatusApplied { target, status: effect, stacks });
+}
+
+/// Exhausts a card: pushes to exhaust_pile, emits CardExhausted, fires on-exhaust power hooks.
+pub(crate) fn exhaust_card(card: crate::cards::Card, state: &mut CombatState, events: &mut Vec<Event>, rng: &mut impl Rng) {
+    events.push(Event::CardExhausted { card: card.clone() });
+    state.player.exhaust_pile.push(card);
+    let feel_no_pain = state.player.statuses.get(&StatusEffect::FeelNoPain).copied().unwrap_or(0);
+    if feel_no_pain > 0 {
+        gain_player_block(state, events, feel_no_pain, rng);
+    }
+    let dark_embrace = state.player.statuses.get(&StatusEffect::DarkEmbrace).copied().unwrap_or(0);
+    if dark_embrace > 0 {
+        draw_cards(&mut state.player, 1, rng);
+        events.push(Event::CardsDrawn { count: 1 });
+    }
+}
+
+/// Gains block for the player: adds amount, emits PlayerBlocked, fires on-block-gain power hooks.
+pub(crate) fn gain_player_block(state: &mut CombatState, events: &mut Vec<Event>, amount: i32, rng: &mut impl Rng) {
+    if amount <= 0 { return; }
+    state.player.block.0 += amount;
+    events.push(Event::PlayerBlocked { amount });
+    let juggernaut = state.player.statuses.get(&StatusEffect::Juggernaut).copied().unwrap_or(0);
+    if juggernaut > 0 {
+        let mut living: Vec<usize> = (0..state.enemies.len())
+            .filter(|&i| state.enemies[i].hp.0 > 0)
+            .collect();
+        if !living.is_empty() {
+            rng.shuffle(&mut living);
+            let t = living[0];
+            let e = &mut state.enemies[t];
+            let dmg = deal_damage(juggernaut, &mut e.hp, &mut e.block);
+            events.push(Event::PlayerAttacked { raw: juggernaut, damage: dmg });
+        }
+    }
+}
+
+/// Loses HP from a card effect: subtracts HP, emits PlayerSelfDamaged, fires on-player-turn-hp-loss hooks.
+pub(crate) fn damage_player_from_card(state: &mut CombatState, events: &mut Vec<Event>, amount: i32) {
+    state.player.hp.0 = (state.player.hp.0 - amount).max(0);
+    events.push(Event::PlayerSelfDamaged { amount });
+    let rupture = state.player.statuses.get(&StatusEffect::Rupture).copied().unwrap_or(0);
+    if rupture > 0 {
+        apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, rupture, events);
+    }
 }
 
 pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
@@ -668,6 +722,11 @@ mod tests {
             return Ok((state, events));
         }
         let (state, more) = apply_command(state, Command::EndEnemyTurn, rng)?;
+        events.extend(more);
+        if state.phase != CombatPhase::StartOfPlayerTurn {
+            return Ok((state, events));
+        }
+        let (state, more) = apply_command(state, Command::StartPlayerTurn, rng)?;
         events.extend(more);
         Ok((state, events))
     }
@@ -914,6 +973,8 @@ mod tests {
         let state = combat_with_hand(Vec::new());
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::StartOfPlayerTurn);
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::PlayerTurn);
     }
 

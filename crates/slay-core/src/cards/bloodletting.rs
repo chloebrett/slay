@@ -1,10 +1,10 @@
 use super::{CardDef, CardDescription, CardType, Grade};
-use crate::combat::{CombatState, Event, damage_player};
+use crate::combat::{CombatState, Event, damage_player_from_card};
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade) {
     let energy_gain = match grade { Grade::Base => 2, Grade::Plus => 3 };
-    damage_player(state, events, 3);
+    damage_player_from_card(state, events, 3);
     state.player.energy = Energy(state.player.energy.0 + energy_gain);
     events.push(Event::EnergyGained { amount: energy_gain });
 }

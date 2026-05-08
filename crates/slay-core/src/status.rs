@@ -14,6 +14,26 @@ pub enum StatusEffect {
     ModeShiftProgress,
     ModeShiftCount,
     GuardianMode,
+    // Power card states
+    DemonForm,
+    CrimsonMantle,
+    Pyre,
+    Barricade,
+    Aggression,
+    DrumOfBattle,
+    Inferno,
+    FeelNoPain,
+    DarkEmbrace,
+    Juggernaut,
+    Unmovable,
+    Rupture,
+    Juggling,
+    Vicious,
+    Hellraiser,
+    Stampede,
+    Cruelty,
+    Tank,
+    StonePlating,
 }
 
 impl StatusEffect {

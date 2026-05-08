@@ -21,6 +21,7 @@ pub enum Command {
     PlayCard(usize, usize), // card index, target enemy index
     EndTurn,
     EndEnemyTurn,
+    StartPlayerTurn,
     ChooseNode(usize),
     Rest,
     ChooseCardReward(usize),
@@ -2267,6 +2268,7 @@ mod tests {
         for _ in 0..turns_to_advance {
             let (s, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
             let (s, _) = apply_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
+            let (s, _) = apply_command(s, Command::StartPlayerTurn, &mut rng()).unwrap();
             state = s;
         }
         state
@@ -2388,7 +2390,8 @@ mod tests {
 
         // Turn 1: Cultist plays Incantation → gains Ritual(3), no Strength yet
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
-        let (mut state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (mut state, _) = apply_combat_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         let hp_after_turn_1 = state.player.hp.0;
         assert_eq!(hp_after_turn_1, state.player.max_hp.0);
 
@@ -2396,6 +2399,7 @@ mod tests {
         state.player.hand.clear();
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_combat_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_combat_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         assert_eq!(state.player.hp.0, hp_after_turn_1 - 9);
     }
 
@@ -2409,6 +2413,7 @@ mod tests {
         for _ in 0..3 {
             let (s, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
             let (s, _) = apply_combat_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
+            let (s, _) = apply_combat_command(s, Command::StartPlayerTurn, &mut rng()).unwrap();
             state = s;
         }
         // After 3 turns: Ritual ticked on turns 2 and 3 → Strength = 3 + 3 = 6
@@ -2810,6 +2815,7 @@ mod tests {
         // End turn (2 attacks, no fan fire)
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         // Play 1 attack on turn 2 — attacks_this_turn should be 1 (reset), no fan fire
         let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
@@ -2864,6 +2870,7 @@ mod tests {
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         // Should have drawn 5 normal + 3 pocketwatch = 8 cards
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hand.len(), 8);
@@ -2906,6 +2913,7 @@ mod tests {
         }
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
         // Should draw exactly 5 cards (no bonus)
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hand.len(), 5);
