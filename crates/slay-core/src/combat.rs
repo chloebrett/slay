@@ -445,6 +445,11 @@ pub(crate) fn apply_combat_command(
             state.skills_this_turn = 0;
             state.cards_played_this_turn = 0;
             state.extra_draws_next_turn = 0;
+            // Start-of-turn power effects
+            let demon_form = state.player.statuses.get(&StatusEffect::DemonForm).copied().unwrap_or(0);
+            if demon_form > 0 {
+                apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, demon_form, &mut events);
+            }
             draw_cards(&mut state.player, 5, rng);
             if extra > 0 {
                 draw_cards(&mut state.player, extra, rng);

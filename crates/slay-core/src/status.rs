@@ -16,23 +16,12 @@ pub enum StatusEffect {
     GuardianMode,
     // Power card states
     DemonForm,
-    CrimsonMantle,
-    Pyre,
     Barricade,
-    Aggression,
-    DrumOfBattle,
-    Inferno,
     FeelNoPain,
     DarkEmbrace,
     Juggernaut,
     Unmovable,
     Rupture,
-    Juggling,
-    Vicious,
-    Hellraiser,
-    Stampede,
-    Cruelty,
-    Tank,
     StonePlating,
 }
 

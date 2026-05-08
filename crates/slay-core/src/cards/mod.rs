@@ -1,8 +1,11 @@
 mod anger;
 mod bash;
 mod ascenders_bane;
+mod barricade;
 mod carnage;
 mod clash;
+mod dark_embrace;
+mod demon_form;
 mod burn;
 mod clumsy;
 mod curse_of_the_bell;
@@ -23,13 +26,16 @@ mod deadly_poison;
 mod defend;
 mod disarm;
 mod entrench;
+mod feel_no_pain;
 mod hemokinesis;
 mod impervious;
 mod inflame;
 mod iron_wave;
+mod juggernaut;
 mod pommel_strike;
 mod pummel;
 mod reckless_charge;
+mod rupture;
 mod seeing_red;
 mod shrug_it_off;
 mod spot_weakness;
@@ -78,6 +84,13 @@ pub enum Card {
     WildStrike(Grade),
     HeavyBlade(Grade),
     SwordBoomerang(Grade),
+    // Power cards
+    Barricade(Grade),
+    DemonForm(Grade),
+    FeelNoPain(Grade),
+    DarkEmbrace(Grade),
+    Juggernaut(Grade),
+    Rupture(Grade),
     Dazed,
     Injury,
     Clumsy,
@@ -159,6 +172,12 @@ impl Card {
             Card::WildStrike(g)   => wild_strike::def(*g),
             Card::HeavyBlade(g)   => heavy_blade::def(*g),
             Card::SwordBoomerang(g) => sword_boomerang::def(*g),
+            Card::Barricade(g)    => barricade::def(*g),
+            Card::DemonForm(g)    => demon_form::def(*g),
+            Card::FeelNoPain(g)   => feel_no_pain::def(*g),
+            Card::DarkEmbrace(g)  => dark_embrace::def(*g),
+            Card::Juggernaut(g)   => juggernaut::def(*g),
+            Card::Rupture(g)      => rupture::def(*g),
             Card::Dazed           => dazed::def(),
             Card::Injury          => injury::def(),
             Card::Clumsy          => clumsy::def(),
@@ -209,7 +228,10 @@ impl Card {
             Card::RecklessCharge(g) | Card::Entrench(g) | Card::Bloodletting(g) |
             Card::Hemokinesis(g) | Card::BodySlam(g) | Card::Anger(g) |
             Card::Carnage(g) | Card::Clash(g) | Card::WildStrike(g) |
-            Card::HeavyBlade(g) | Card::SwordBoomerang(g) => Some(*g),
+            Card::HeavyBlade(g) | Card::SwordBoomerang(g) |
+            Card::Barricade(g) | Card::DemonForm(g) |
+            Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
+            Card::Juggernaut(g) | Card::Rupture(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -248,6 +270,12 @@ impl Card {
             Card::WildStrike(_)   => Card::WildStrike(g),
             Card::HeavyBlade(_)   => Card::HeavyBlade(g),
             Card::SwordBoomerang(_) => Card::SwordBoomerang(g),
+            Card::Barricade(_)    => Card::Barricade(g),
+            Card::DemonForm(_)    => Card::DemonForm(g),
+            Card::FeelNoPain(_)   => Card::FeelNoPain(g),
+            Card::DarkEmbrace(_)  => Card::DarkEmbrace(g),
+            Card::Juggernaut(_)   => Card::Juggernaut(g),
+            Card::Rupture(_)      => Card::Rupture(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
@@ -319,6 +347,12 @@ impl Card {
             Card::WildStrike(g)   => wild_strike::id(*g),
             Card::HeavyBlade(g)   => heavy_blade::id(*g),
             Card::SwordBoomerang(g) => sword_boomerang::id(*g),
+            Card::Barricade(g)    => barricade::id(*g),
+            Card::DemonForm(g)    => demon_form::id(*g),
+            Card::FeelNoPain(g)   => feel_no_pain::id(*g),
+            Card::DarkEmbrace(g)  => dark_embrace::id(*g),
+            Card::Juggernaut(g)   => juggernaut::id(*g),
+            Card::Rupture(g)      => rupture::id(*g),
             Card::Dazed           => dazed::id(),
             Card::Injury          => injury::id(),
             Card::Clumsy          => clumsy::id(),
@@ -368,6 +402,12 @@ impl Card {
             Card::WildStrike(Base),   Card::WildStrike(Plus),
             Card::HeavyBlade(Base),   Card::HeavyBlade(Plus),
             Card::SwordBoomerang(Base), Card::SwordBoomerang(Plus),
+            Card::Barricade(Base),    Card::Barricade(Plus),
+            Card::DemonForm(Base),    Card::DemonForm(Plus),
+            Card::FeelNoPain(Base),   Card::FeelNoPain(Plus),
+            Card::DarkEmbrace(Base),  Card::DarkEmbrace(Plus),
+            Card::Juggernaut(Base),   Card::Juggernaut(Plus),
+            Card::Rupture(Base),      Card::Rupture(Plus),
             Card::Dazed,
             Card::Injury,
             Card::Clumsy,
@@ -425,6 +465,12 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::WildStrike(g)   => wild_strike::apply(state, events, *g, target, rng),
         Card::HeavyBlade(g)   => heavy_blade::apply(state, events, *g, target),
         Card::SwordBoomerang(g) => sword_boomerang::apply(state, events, *g, rng),
+        Card::Barricade(g)    => barricade::apply(state, events, *g, target),
+        Card::DemonForm(g)    => demon_form::apply(state, events, *g, target),
+        Card::FeelNoPain(g)   => feel_no_pain::apply(state, events, *g, target),
+        Card::DarkEmbrace(g)  => dark_embrace::apply(state, events, *g, target),
+        Card::Juggernaut(g)   => juggernaut::apply(state, events, *g, target),
+        Card::Rupture(g)      => rupture::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
         Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable
@@ -443,6 +489,9 @@ pub fn reward_pool() -> Vec<Card> {
         Card::BodySlam(Base), Card::Anger(Base), Card::Entrench(Base),
         Card::Carnage(Base), Card::Clash(Base), Card::WildStrike(Base),
         Card::HeavyBlade(Base), Card::SwordBoomerang(Base),
+        Card::Barricade(Base), Card::DemonForm(Base),
+        Card::FeelNoPain(Base), Card::DarkEmbrace(Base),
+        Card::Juggernaut(Base), Card::Rupture(Base),
     ]
 }
 

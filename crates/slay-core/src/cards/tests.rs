@@ -1169,3 +1169,145 @@
     fn ascenders_bane_id_is_ascenders_bane_string() {
         assert_eq!(Card::AscendersBane.id(), "ascenders_bane");
     }
+
+    fn full_turn(state: crate::combat::CombatState) -> crate::combat::CombatState {
+        let (s, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (s, _) = apply_command(s, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (s, _) = apply_command(s, Command::StartPlayerTurn, &mut rng()).unwrap();
+        s
+    }
+
+    // --- Barricade ---
+
+    #[test]
+    fn barricade_sets_barricade_status() {
+        let state = combat_with_hand(vec![Card::Barricade(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.statuses.contains_key(&StatusEffect::Barricade));
+    }
+
+    #[test]
+    fn barricade_preserves_block_across_turn() {
+        use crate::enemies::Move;
+        let mut state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Barricade, 1);
+        state.enemies[0].move_ = Move::LouseBlock; // enemy defends, no damage to player
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(5));
+        let state = full_turn(state);
+        assert_eq!(state.player.block, Block(5));
+    }
+
+    #[test]
+    fn without_barricade_block_clears_each_turn() {
+        let mut state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let state = full_turn(state);
+        assert_eq!(state.player.block, Block(0));
+    }
+
+    // --- Feel No Pain ---
+
+    #[test]
+    fn feel_no_pain_sets_status_with_3_stacks() {
+        let state = combat_with_hand(vec![Card::FeelNoPain(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::FeelNoPain).copied(), Some(3));
+    }
+
+    #[test]
+    fn feel_no_pain_grants_block_when_card_exhausted() {
+        let mut state = combat_with_hand(vec![Card::TrueGrit(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::FeelNoPain, 3);
+        state.player.draw_pile = vec![];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(3 + 7)); // juggernaut 0 + true grit block + feel no pain
+    }
+
+    // --- Dark Embrace ---
+
+    #[test]
+    fn dark_embrace_sets_status() {
+        let state = combat_with_hand(vec![Card::DarkEmbrace(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.statuses.contains_key(&StatusEffect::DarkEmbrace));
+    }
+
+    #[test]
+    fn dark_embrace_draws_card_when_card_exhausted() {
+        let mut state = combat_with_hand(vec![Card::SeeingRed(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::DarkEmbrace, 1);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let hand_before = state.player.hand.len();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // SeeingRed exhausts itself; DarkEmbrace draws 1 card; also gains energy
+        assert_eq!(state.player.hand.len(), hand_before); // removed SeeingRed, drew 1 via DarkEmbrace
+    }
+
+    // --- Juggernaut ---
+
+    #[test]
+    fn juggernaut_sets_status_with_5_damage() {
+        let state = combat_with_hand(vec![Card::Juggernaut(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Juggernaut).copied(), Some(5));
+    }
+
+    #[test]
+    fn juggernaut_damages_enemy_when_block_gained() {
+        let mut state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Juggernaut, 5);
+        let enemy_hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp.0, enemy_hp_before.0 - 5);
+    }
+
+    #[test]
+    fn juggernaut_plus_deals_7_damage() {
+        let state = combat_with_hand(vec![Card::Juggernaut(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Juggernaut).copied(), Some(7));
+    }
+
+    // --- Rupture ---
+
+    #[test]
+    fn rupture_sets_status_with_1_stack() {
+        let state = combat_with_hand(vec![Card::Rupture(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Rupture).copied(), Some(1));
+    }
+
+    #[test]
+    fn rupture_grants_strength_when_losing_hp_on_turn() {
+        let mut state = combat_with_hand(vec![Card::Bloodletting(Grade::Base)]);
+        state.player.statuses.insert(StatusEffect::Rupture, 1);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(1));
+    }
+
+    #[test]
+    fn rupture_plus_grants_2_strength_per_hp_loss() {
+        let state = combat_with_hand(vec![Card::Rupture(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::Rupture).copied(), Some(2));
+    }
+
+    // --- Demon Form ---
+
+    #[test]
+    fn demon_form_sets_status_with_2_stacks() {
+        let state = combat_with_hand(vec![Card::DemonForm(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.statuses.get(&StatusEffect::DemonForm).copied(), Some(2));
+    }
+
+    #[test]
+    fn demon_form_grants_strength_at_start_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::DemonForm, 2);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        let state = full_turn(state);
+        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied(), Some(2));
+    }
+
