@@ -203,6 +203,7 @@ pub enum Event {
     CardsDrawn { count: usize },
     GoldEarned { amount: i32 },
     Healed { amount: i32 },
+    MaxHpIncreased { amount: i32 },
     CardAdded { card: Card },
     CardExhausted { card: Card },
     CardUpgraded { from: Card, to: Card },

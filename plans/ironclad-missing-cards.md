@@ -11,7 +11,7 @@ All STS1 Ironclad cards not yet implemented. Cards marked ⚠️ need new infras
 | **All-Out Attack** | 1 | Deal 10 damage to ALL enemies. Discard 1 card at random. | Random discard from hand |
 | ~~**Immolate**~~ | ~~2~~ | ~~Deal 21 damage to ALL enemies. Add a Burn into your discard pile.~~ | ~~Burn card already exists~~ |
 | ~~**Perfected Strike**~~ | ~~2~~ | ~~Deal 6 damage. Deals 2 additional damage for ALL your cards containing "Strike".~~ | ~~Scan all piles for "Strike" in name~~ |
-| **Feed** | 2 | Deal 10 damage. If Fatal, raise your Max HP by 3. Exhaust. | Kill-check + max HP raise |
+| ~~**Feed**~~ | ~~2~~ | ~~Deal 10 damage. If Fatal, raise your Max HP by 3. Exhaust.~~ | ~~Kill-check + max HP raise~~ |
 | **All for One** | 1 | Deal 10 damage. Put all cost-0 cards from your discard pile into your hand. | Filter discard by energy cost |
 | ~~**Reaper**~~ | ~~2~~ | ~~Deal 4 damage to ALL enemies. Heal HP equal to unblocked damage. Exhaust.~~ | ~~AoE with per-hit heal~~ |
 | ~~**Fiend Fire**~~ | ~~2~~ | ~~Exhaust your hand. Deal 7 damage for each card Exhausted. Exhaust.~~ | ~~Exhaust-hand loop~~ |

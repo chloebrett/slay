@@ -64,6 +64,7 @@ pub fn describe_event(event: &Event) -> String {
         }
         Event::GoldEarned { amount } => format!("🪙 You earn {amount} gold."),
         Event::Healed { amount } => format!("❤️‍🩹 You heal for {amount} HP."),
+        Event::MaxHpIncreased { amount } => format!("❤️  Your Max HP increases by {amount}."),
         Event::PlayerSelfDamaged { amount } => format!("🩸 You lose {amount} HP."),
         Event::EnergyGained { amount } => format!("⚡ You gain {amount} energy."),
         Event::CardsDrawn { count } => format!("🃏 You draw {count} card{}.", if *count == 1 { "" } else { "s" }),

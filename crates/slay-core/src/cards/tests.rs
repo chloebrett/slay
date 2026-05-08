@@ -2017,3 +2017,69 @@
         assert_eq!(Card::from_id("whirlwind"),      Some(Card::Whirlwind(Grade::Base)));
         assert_eq!(Card::from_id("whirlwind-plus"), Some(Card::Whirlwind(Grade::Plus)));
     }
+
+    // --- Feed ---
+
+    #[test]
+    fn feed_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
+    }
+
+    #[test]
+    fn feed_raises_max_hp_and_current_hp_by_3_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        state.enemies[0].hp = Hp(5);
+        let before_max = state.player.max_hp;
+        let before_hp = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp.0, before_max.0 + 3);
+        assert_eq!(state.player.hp.0, before_hp.0 + 3);
+    }
+
+    #[test]
+    fn feed_plus_raises_max_hp_and_current_hp_by_4_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Plus)]);
+        state.enemies[0].hp = Hp(5);
+        let before_max = state.player.max_hp;
+        let before_hp = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp.0, before_max.0 + 4);
+        assert_eq!(state.player.hp.0, before_hp.0 + 4);
+    }
+
+    #[test]
+    fn feed_does_not_raise_max_hp_if_enemy_survives() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let before = state.player.max_hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp, before);
+    }
+
+    #[test]
+    fn feed_emits_max_hp_increased_event_on_kill() {
+        let mut state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        state.enemies[0].hp = Hp(5);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::MaxHpIncreased { amount: 3 }));
+    }
+
+    #[test]
+    fn feed_does_not_emit_max_hp_increased_if_no_kill() {
+        let state = combat_with_hand(vec![Card::Feed(Grade::Base)]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(!events.iter().any(|e| matches!(e, Event::MaxHpIncreased { .. })));
+    }
+
+    #[test]
+    fn feed_exhausts() {
+        assert!(Card::Feed(Grade::Base).exhausts());
+        assert!(Card::Feed(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn feed_id_round_trips() {
+        assert_eq!(Card::from_id("feed"),      Some(Card::Feed(Grade::Base)));
+        assert_eq!(Card::from_id("feed-plus"), Some(Card::Feed(Grade::Plus)));
+    }
