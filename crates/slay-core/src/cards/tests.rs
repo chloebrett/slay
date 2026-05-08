@@ -2083,3 +2083,40 @@
         assert_eq!(Card::from_id("feed"),      Some(Card::Feed(Grade::Base)));
         assert_eq!(Card::from_id("feed-plus"), Some(Card::Feed(Grade::Plus)));
     }
+
+    // --- Power Through ---
+
+    #[test]
+    fn power_through_adds_2_wounds_to_hand() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.iter().filter(|c| **c == Card::Wound).count(), 2);
+    }
+
+    #[test]
+    fn power_through_gains_15_block() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(15));
+    }
+
+    #[test]
+    fn power_through_plus_gains_20_block() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(20));
+    }
+
+    #[test]
+    fn power_through_emits_status_card_added_to_hand_events() {
+        let state = combat_with_hand(vec![Card::PowerThrough(Grade::Base)]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let count = events.iter().filter(|e| matches!(e, Event::StatusCardAddedToHand { card: Card::Wound })).count();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn power_through_id_round_trips() {
+        assert_eq!(Card::from_id("power-through"),      Some(Card::PowerThrough(Grade::Base)));
+        assert_eq!(Card::from_id("power-through-plus"), Some(Card::PowerThrough(Grade::Plus)));
+    }
