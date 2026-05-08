@@ -1,5 +1,6 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, statuses_inline,
+    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar,
+    statuses_inline,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -10,7 +11,7 @@ use ratatui::{
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatState, EventKind, EventRoomState, GameState, MapNode, MapState,
-    RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
 
@@ -105,15 +106,29 @@ impl TuiState {
     }
 }
 
+fn player_relics(state: &GameState) -> &[Relic] {
+    match state {
+        GameState::Map(m)            => &m.player.relics,
+        GameState::Combat { state, .. } => &state.player.relics,
+        GameState::RestSite(rs)      => &rs.player.relics,
+        GameState::TreasureRoom(tr)  => &tr.player.relics,
+        GameState::CardReward(cr)    => &cr.player.relics,
+        GameState::Shop(shop)        => &shop.player.relics,
+        GameState::EventRoom(er)     => &er.player.relics,
+        GameState::GameOver { .. }   => &[],
+    }
+}
+
 /// Render one frame. Pure function over `TuiState`; safe to call from tests with `TestBackend`.
 pub fn render_frame(f: &mut Frame, tui: &TuiState) {
+    let top_bar_height: u16 = if player_relics(&tui.game).is_empty() { 1 } else { 2 };
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // top bar
-            Constraint::Min(0),    // main area
-            Constraint::Length(1), // status line
-            Constraint::Length(3), // input box
+            Constraint::Length(top_bar_height), // top bar (+ relic row when present)
+            Constraint::Min(0),                 // main area
+            Constraint::Length(1),              // status line
+            Constraint::Length(3),              // input box
         ])
         .split(f.area());
 
@@ -139,7 +154,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
         GameState::EventRoom(er) => Some(&er.player),
         GameState::GameOver { .. } => None,
     };
-    let line = match player {
+    let lines: Vec<Line> = match player {
         Some(p) => {
             let potions: Vec<String> = p.potions.iter().enumerate()
                 .map(|(i, pot)| format!("[{}]{}", i + 1, pot.name()))
@@ -149,15 +164,21 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
             } else {
                 format!("   🧪 {}", potions.join(" "))
             };
-            format!(
+            let stats = format!(
                 "🧙  HP {}/{} {}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
                 p.hp.0, p.max_hp.0, hp_bar(p.hp.0, p.max_hp.0, 20),
                 p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
-            )
+            );
+            let bar = relics_bar(&p.relics);
+            if bar.is_empty() {
+                vec![Line::raw(stats)]
+            } else {
+                vec![Line::raw(stats), Line::raw(bar)]
+            }
         }
-        None => String::new(),
+        None => vec![Line::raw("")],
     };
-    let para = Paragraph::new(line).style(Style::default().fg(Color::White));
+    let para = Paragraph::new(lines).style(Style::default().fg(Color::White));
     f.render_widget(para, area);
 }
 
@@ -901,6 +922,52 @@ mod tests {
         tui.input_buf = "play 1".to_string();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("> play 1"), "expected '> play 1' in:\n{out}");
+    }
+
+    #[test]
+    fn top_bar_shows_relic_emoji_when_player_has_relics() {
+        use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
+        let mut r = rng();
+        let graph = slay_core::generate_map(&mut r);
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0,
+                relics: vec![Relic::Anchor, Relic::BurningBlood],
+                potions: vec![],
+            },
+            floor: 0, graph, available_cols: vec![0], next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let out = render_to_string(&TuiState::new(state, false), 120, 30);
+        assert!(out.contains("⚓"), "expected Anchor emoji in:\n{out}");
+        assert!(out.contains("🔥"), "expected BurningBlood emoji in:\n{out}");
+    }
+
+    #[test]
+    fn top_bar_omits_relic_row_when_no_relics() {
+        use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
+        let mut r = rng();
+        let graph = slay_core::generate_map(&mut r);
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            },
+            floor: 0, graph, available_cols: vec![0], next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        // Height 6 = 1 top bar + 1 main + 1 status + 3 input.
+        // Row index 1 (second row, 0-indexed) is the first row of main area — should not be relic bar.
+        let out = render_to_string(&TuiState::new(state, false), 120, 6);
+        let second_row = out.lines().nth(1).unwrap_or("");
+        assert!(!second_row.contains("⚓"), "relic bar should not appear when no relics: {second_row}");
     }
 
     #[test]

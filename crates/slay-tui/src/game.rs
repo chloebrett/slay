@@ -1,5 +1,5 @@
 use crate::engine::{
-    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, statuses_inline,
+    apply_and_drain, card_type_icon, describe_event, describe_intent, enemy_icon, relics_bar, statuses_inline,
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatState, Event, EventRoomState, GameState, MapState,
@@ -97,6 +97,10 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         map.player.max_hp.0,
         map.player.deck.len(),
     );
+    let bar = relics_bar(&map.player.relics);
+    if !bar.is_empty() {
+        let _ = writeln!(w, "{bar}");
+    }
     let _ = writeln!(w);
     for (i, row) in map.graph.rows.iter().enumerate().rev() {
         let marker = match i.cmp(&floor) {
@@ -138,6 +142,10 @@ fn map_node_label(node: &slay_core::MapNode) -> (&'static str, &'static str) {
 fn render_treasure(tr: &TreasureRoomState, w: &mut impl Write) {
     let _ = writeln!(w, "📦 Treasure Room");
     let _ = writeln!(w, "❤️  {}/{}", tr.player.hp.0, tr.player.max_hp.0);
+    let bar = relics_bar(&tr.player.relics);
+    if !bar.is_empty() {
+        let _ = writeln!(w, "{bar}");
+    }
     let _ = writeln!(w);
     let _ = writeln!(w, "You found a chest containing:");
     let _ = writeln!(w, "  ✨ {}", tr.relic.name());
@@ -150,6 +158,10 @@ fn render_rest(rs: &RestSiteState, w: &mut impl Write) {
     let healed_to = (rs.player.hp.0 + heal).min(rs.player.max_hp.0);
     let _ = writeln!(w, "🔥 Rest Site");
     let _ = writeln!(w, "❤️  {}/{}", rs.player.hp.0, rs.player.max_hp.0);
+    let bar = relics_bar(&rs.player.relics);
+    if !bar.is_empty() {
+        let _ = writeln!(w, "{bar}");
+    }
     let _ = writeln!(w, "[rest] ❤️‍🩹 Heal for {heal} HP  (to {healed_to})");
     let _ = writeln!(w);
     let upgradeable: Vec<_> = rs.player.deck.iter().enumerate()
@@ -237,6 +249,10 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
         state.turn,
         player_status_str,
     );
+    let bar = relics_bar(&state.player.relics);
+    if !bar.is_empty() {
+        let _ = writeln!(w, "{bar}");
+    }
     let multi = state.enemies.len() > 1;
     for (i, enemy) in state.enemies.iter().enumerate() {
         let status_str = statuses_inline(&enemy.statuses);

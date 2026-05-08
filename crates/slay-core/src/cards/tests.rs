@@ -1611,6 +1611,20 @@
     }
 
     #[test]
+    fn fire_breathing_deals_12_damage_when_two_triggers_drawn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::FireBreathing, 6);
+        state.player.draw_pile = vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Injury, // curse (drawn second via pop)
+            Card::Wound,  // status (drawn first via pop)
+        ];
+        let enemy_hp_before = state.enemies[0].hp;
+        let state = full_turn(state);
+        assert_eq!(state.enemies[0].hp.0, enemy_hp_before.0 - 12); // 6 * 2 triggers
+    }
+
+    #[test]
     fn fire_breathing_id_round_trips() {
         assert_eq!(Card::from_id("fire-breathing"),      Some(Card::FireBreathing(Grade::Base)));
         assert_eq!(Card::from_id("fire-breathing-plus"), Some(Card::FireBreathing(Grade::Plus)));
