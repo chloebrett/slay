@@ -1,7 +1,7 @@
     use super::*;
     use crate::combat::{combat_with_hand, combat_with_deck, combat_with_two_enemies, apply_combat_command, CombatPhase, Event, Target};
     use crate::run::{Command, CommandError};
-    use crate::status::StatusEffect;
+    use crate::status::{StatusEffect, get_stacks};
     use crate::types::{Block, Energy, Hp};
     use crate::rng::NoOpRng;
 
@@ -1086,7 +1086,7 @@
         use crate::combat::{combat_with_hand, apply_combat_command};
         let state = combat_with_hand(vec![Card::Doubt]);
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Weak).copied().unwrap_or(0), 1);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Weak), 1);
     }
 
     // --- Shame ---
@@ -1111,7 +1111,7 @@
         use crate::combat::{combat_with_hand, apply_combat_command};
         let state = combat_with_hand(vec![Card::Shame]);
         let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Frail).copied().unwrap_or(0), 1);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Frail), 1);
     }
 
     // --- Parasite ---
@@ -1360,7 +1360,7 @@
     fn limit_break_is_noop_with_no_strength() {
         let state = combat_with_hand(vec![Card::LimitBreak(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 0);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Strength), 0);
     }
 
     #[test]
@@ -1665,7 +1665,7 @@
         let state = combat_with_hand(vec![Card::Flex(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
-        assert_eq!(state.player.statuses.get(&StatusEffect::Strength).copied().unwrap_or(0), 0);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Strength), 0);
     }
 
     #[test]
