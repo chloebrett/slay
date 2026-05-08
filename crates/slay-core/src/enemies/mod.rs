@@ -68,6 +68,10 @@ pub enum Move {
     GuardianWhirlwind,
     GuardianRollAttack,
     GuardianTwinSlam,
+    // Gremlin Nob
+    NobBellow,
+    SkullBash,
+    BullRush,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +119,9 @@ impl Move {
             Move::GuardianWhirlwind   => MoveDef { name: "Whirlwind",    effects: vec![Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5), Effect::DealDamage(5)] },
             Move::GuardianRollAttack  => MoveDef { name: "Roll Attack",  effects: vec![Effect::DealDamage(9)] },
             Move::GuardianTwinSlam    => MoveDef { name: "Twin Slam",    effects: vec![Effect::DealDamage(8), Effect::DealDamage(8), Effect::ClearSelfStatus(StatusEffect::SharpHide), Effect::ClearSelfStatus(StatusEffect::GuardianMode)] },
+            Move::NobBellow  => MoveDef { name: "Bellow",     effects: vec![Effect::GainStatus(StatusEffect::Enrage, 2)] },
+            Move::SkullBash  => MoveDef { name: "Skull Bash", effects: vec![Effect::DealDamage(6), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
+            Move::BullRush   => MoveDef { name: "Bull Rush",  effects: vec![Effect::DealDamage(14)] },
         }
     }
 
@@ -129,11 +136,12 @@ impl Move {
         let buffs_self = effects.iter().any(|e| matches!(e, Effect::GainStatus(_, _)));
         let debuffs_player = effects.iter().any(|e| matches!(e, Effect::ApplyStatus(_, _)));
         match (damage, block, buffs_self, debuffs_player) {
-            (d, b, _, _)         if d > 0 && b > 0 => Intent::AttackDefend(d, b),
-            (d, _, _, _)         if d > 0           => Intent::Attack(d),
-            (_, b, false, false) if b > 0           => Intent::Defend(b),
-            (0, 0, false, true)                     => Intent::Debuff,
-            _                                       => Intent::Buff,
+            (d, b, _, _)         if d > 0 && b > 0           => Intent::AttackDefend(d, b),
+            (d, _, _, true)      if d > 0                     => Intent::AttackDebuff(d),
+            (d, _, _, _)         if d > 0                     => Intent::Attack(d),
+            (_, b, false, false) if b > 0                     => Intent::Defend(b),
+            (0, 0, false, true)                               => Intent::Debuff,
+            _                                                 => Intent::Buff,
         }
     }
 }
@@ -141,6 +149,7 @@ impl Move {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Intent {
     Attack(i32),
+    AttackDebuff(i32),
     Defend(i32),
     AttackDefend(i32, i32),
     Buff,
@@ -508,8 +517,8 @@ mod tests {
     }
 
     #[test]
-    fn rake_is_attack_7() {
-        assert_eq!(Move::Rake.intent(), Intent::Attack(7));
+    fn rake_is_attack_debuff_7() {
+        assert_eq!(Move::Rake.intent(), Intent::AttackDebuff(7));
     }
 
     // --- Red Slaver ---
@@ -544,8 +553,8 @@ mod tests {
     }
 
     #[test]
-    fn scrape_is_attack_8() {
-        assert_eq!(Move::Scrape.intent(), Intent::Attack(8));
+    fn scrape_is_attack_debuff_8() {
+        assert_eq!(Move::Scrape.intent(), Intent::AttackDebuff(8));
     }
 
     #[test]
@@ -628,5 +637,37 @@ mod tests {
     #[test]
     fn guardian_twin_slam_leads_to_whirlwind() {
         assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianTwinSlam), &mut rng()), Move::GuardianWhirlwind);
+    }
+
+    // --- Gremlin Nob moves ---
+
+    #[test]
+    fn nob_bellow_intent_is_buff() {
+        assert_eq!(Move::NobBellow.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn skull_bash_intent_is_attack_debuff_6() {
+        assert_eq!(Move::SkullBash.intent(), Intent::AttackDebuff(6));
+    }
+
+    #[test]
+    fn bull_rush_intent_is_attack_14() {
+        assert_eq!(Move::BullRush.intent(), Intent::Attack(14));
+    }
+
+    #[test]
+    fn nob_bellow_name_is_bellow() {
+        assert_eq!(Move::NobBellow.def().name, "Bellow");
+    }
+
+    #[test]
+    fn skull_bash_name_is_skull_bash() {
+        assert_eq!(Move::SkullBash.def().name, "Skull Bash");
+    }
+
+    #[test]
+    fn bull_rush_name_is_bull_rush() {
+        assert_eq!(Move::BullRush.def().name, "Bull Rush");
     }
 }

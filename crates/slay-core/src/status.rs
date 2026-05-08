@@ -31,11 +31,14 @@ pub enum StatusEffect {
     Shackled,
     StonePlating,
     Enrage,
+    Metallicize,
+    Stunned,
+    Sleep,
 }
 
 impl StatusEffect {
     fn ticks_at_end_of_turn(self) -> bool {
-        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle | StatusEffect::Frail)
+        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle | StatusEffect::Frail | StatusEffect::Stunned | StatusEffect::Sleep)
     }
 }
 
@@ -244,5 +247,40 @@ mod tests {
         let mut statuses = map_with(StatusEffect::Enrage, 2);
         tick_statuses(&mut statuses);
         assert_eq!(get_stacks(&statuses, StatusEffect::Enrage), 2);
+    }
+
+    #[test]
+    fn stunned_ticks_at_end_of_turn() {
+        let mut statuses = map_with(StatusEffect::Stunned, 2);
+        tick_statuses(&mut statuses);
+        assert_eq!(get_stacks(&statuses, StatusEffect::Stunned), 1);
+    }
+
+    #[test]
+    fn stunned_expires_when_stacks_reach_zero() {
+        let mut statuses = map_with(StatusEffect::Stunned, 1);
+        tick_statuses(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::Stunned));
+    }
+
+    #[test]
+    fn sleep_ticks_at_end_of_turn() {
+        let mut statuses = map_with(StatusEffect::Sleep, 3);
+        tick_statuses(&mut statuses);
+        assert_eq!(get_stacks(&statuses, StatusEffect::Sleep), 2);
+    }
+
+    #[test]
+    fn sleep_expires_when_stacks_reach_zero() {
+        let mut statuses = map_with(StatusEffect::Sleep, 1);
+        tick_statuses(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::Sleep));
+    }
+
+    #[test]
+    fn metallicize_does_not_tick_at_end_of_turn() {
+        let mut statuses = map_with(StatusEffect::Metallicize, 8);
+        tick_statuses(&mut statuses);
+        assert_eq!(get_stacks(&statuses, StatusEffect::Metallicize), 8);
     }
 }

@@ -287,6 +287,9 @@ fn apply_play_card(
     }
     if state.enemies[actual_target].hp > Hp(0) {
         let hp_lost = (hp_before_card.0 - state.enemies[actual_target].hp.0).max(0);
+        if hp_lost > 0 {
+            state.enemies[actual_target].statuses.remove(&StatusEffect::Sleep);
+        }
         if let Some(reaction) = enemies::on_player_attack_damage(
             &state.enemies[actual_target].kind,
             &state.enemies[actual_target].statuses,
@@ -483,32 +486,36 @@ pub(crate) fn apply_combat_command(
                 if state.enemies[i].hp <= Hp(0) { continue; }
                 state.enemies[i].block = Block(0);
                 tick_ritual(&mut state.enemies[i].statuses);
-                let current_move = state.enemies[i].move_;
-                let enemy_statuses = state.enemies[i].statuses.clone();
-                for effect in current_move.def().effects {
-                    match effect {
-                        Effect::DealDamage(n) => {
-                            let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
-                            let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
-                            events.push(Event::EnemyAttacked { raw: effective, damage });
-                        }
-                        Effect::GainBlock(n) => {
-                            state.enemies[i].block.0 += n;
-                            events.push(Event::EnemyDefended { amount: n });
-                        }
-                        Effect::GainStatus(status, stacks) => {
-                            *state.enemies[i].statuses.entry(status).or_insert(0) += stacks;
-                            events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
-                        }
-                        Effect::ApplyStatus(status, stacks) => {
-                            apply_status(&mut state.player.statuses, Target::Player, status, stacks, &mut events);
-                        }
-                        Effect::AddToDiscard(card) => {
-                            state.player.discard_pile.push(card.clone());
-                            events.push(Event::StatusCardAddedToDiscard { card });
-                        }
-                        Effect::ClearSelfStatus(status) => {
-                            state.enemies[i].statuses.remove(&status);
+                let is_incapacitated = get_stacks(&state.enemies[i].statuses, StatusEffect::Stunned) > 0
+                    || get_stacks(&state.enemies[i].statuses, StatusEffect::Sleep) > 0;
+                if !is_incapacitated {
+                    let current_move = state.enemies[i].move_;
+                    let enemy_statuses = state.enemies[i].statuses.clone();
+                    for effect in current_move.def().effects {
+                        match effect {
+                            Effect::DealDamage(n) => {
+                                let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
+                                let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
+                                events.push(Event::EnemyAttacked { raw: effective, damage });
+                            }
+                            Effect::GainBlock(n) => {
+                                state.enemies[i].block.0 += n;
+                                events.push(Event::EnemyDefended { amount: n });
+                            }
+                            Effect::GainStatus(status, stacks) => {
+                                *state.enemies[i].statuses.entry(status).or_insert(0) += stacks;
+                                events.push(Event::StatusApplied { target: Target::Enemy, status, stacks });
+                            }
+                            Effect::ApplyStatus(status, stacks) => {
+                                apply_status(&mut state.player.statuses, Target::Player, status, stacks, &mut events);
+                            }
+                            Effect::AddToDiscard(card) => {
+                                state.player.discard_pile.push(card.clone());
+                                events.push(Event::StatusCardAddedToDiscard { card });
+                            }
+                            Effect::ClearSelfStatus(status) => {
+                                state.enemies[i].statuses.remove(&status);
+                            }
                         }
                     }
                 }
@@ -516,6 +523,11 @@ pub(crate) fn apply_combat_command(
                 let strength_delta = tick_strength_modifiers(&mut state.enemies[i].statuses);
                 if strength_delta != 0 {
                     apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Strength, strength_delta, &mut events);
+                }
+                let metallicize = get_stacks(&state.enemies[i].statuses, StatusEffect::Metallicize);
+                if metallicize > 0 {
+                    state.enemies[i].block.0 += metallicize;
+                    events.push(Event::EnemyDefended { amount: metallicize });
                 }
                 let last = state.enemies[i].move_;
                 state.enemies[i].last_move = Some(last);
@@ -1260,6 +1272,95 @@ mod tests {
         state.enemies[0].statuses.insert(StatusEffect::Shackled, 2);
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Shackled));
+    }
+
+    // --- Stunned ---
+
+    #[test]
+    fn stunned_enemy_skips_its_move() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].move_ = Move::RedLouseBite; // 6 damage
+        state.enemies[0].statuses.insert(StatusEffect::Stunned, 1);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn stunned_ticks_down_at_end_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Stunned, 2);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Stunned), 1);
+    }
+
+    #[test]
+    fn stunned_expires_and_enemy_attacks_next_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].move_ = Move::RedLouseBite;
+        state.enemies[0].statuses.insert(StatusEffect::Stunned, 1);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Stunned));
+    }
+
+    // --- Sleep ---
+
+    #[test]
+    fn sleeping_enemy_does_nothing() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].move_ = Move::RedLouseBite;
+        state.enemies[0].statuses.insert(StatusEffect::Sleep, 3);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn sleep_ticks_down_at_end_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Sleep, 3);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Sleep), 2);
+    }
+
+    #[test]
+    fn sleep_cancelled_by_unblocked_damage() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::Sleep, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(!state.enemies[0].statuses.contains_key(&StatusEffect::Sleep));
+    }
+
+    #[test]
+    fn sleep_not_cancelled_when_damage_fully_blocked() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.enemies[0].block = Block(100);
+        state.enemies[0].statuses.insert(StatusEffect::Sleep, 3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Sleep), 3);
+    }
+
+    // --- Metallicize ---
+
+    #[test]
+    fn metallicize_gains_block_at_end_of_enemy_turn() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Metallicize, 8);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].block, Block(8));
+    }
+
+    #[test]
+    fn metallicize_stacks_do_not_decrease_over_time() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        state.enemies[0].statuses.insert(StatusEffect::Metallicize, 8);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Metallicize), 8);
     }
 
     // --- Phase guards ---

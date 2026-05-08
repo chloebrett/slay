@@ -82,6 +82,7 @@ pub fn describe_event(event: &Event) -> String {
 pub fn describe_intent(intent: &Intent) -> String {
     match intent {
         Intent::Attack(n) => format!("⚔️  Attack {n}"),
+        Intent::AttackDebuff(n) => format!("⚔️💀 Attack {n} + Debuff"),
         Intent::Defend(n) => format!("🛡️  Defend {n}"),
         Intent::AttackDefend(d, b) => format!("⚔️🛡️  Attack {d} + Defend {b}"),
         Intent::Buff => "✨ Buff".into(),
@@ -119,6 +120,9 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Shackled          => ("⛓️", "Shackled"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
         StatusEffect::Enrage            => ("😤", "Enrage"),
+        StatusEffect::Metallicize       => ("🔩", "Metallicize"),
+        StatusEffect::Stunned           => ("💫", "Stunned"),
+        StatusEffect::Sleep             => ("💤", "Sleep"),
     }
 }
 
