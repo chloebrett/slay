@@ -3,7 +3,7 @@ use crate::rng::Rng;
 use super::RelicDef;
 
 pub(super) fn id() -> &'static str { "gremlin-horn" }
-pub(super) fn def() -> RelicDef { RelicDef { name: "Gremlin Horn" } }
+pub(super) fn def() -> RelicDef { RelicDef { name: "Gremlin Horn", description: "Whenever an enemy dies, gain 1 energy and draw 1 card." } }
 
 pub(super) fn on_enemy_died(state: &mut CombatState, events: &mut Vec<Event>, rng: &mut impl Rng) {
     state.player.energy.0 += 1;
