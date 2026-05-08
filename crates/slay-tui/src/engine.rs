@@ -1,6 +1,6 @@
 use slay_core::{
     AnyRng, Card, CardType, CombatPhase, Command, CommandError, Enemy, EnemyKind, Event, GameState,
-    Intent, StatusEffect, StatusMap, Target,
+    Intent, Relic, StatusEffect, StatusMap, Target,
 };
 
 /// Applies one player command, then auto-drains EnemyTurn and StartOfPlayerTurn phases.
@@ -156,6 +156,55 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
     }
 }
 
+pub fn relic_emoji(relic: &Relic) -> &'static str {
+    match relic {
+        Relic::Strawberry       => "🍓",
+        Relic::Pear             => "🍐",
+        Relic::Mango            => "🥭",
+        Relic::OldCoin          => "🪙",
+        Relic::Whetstone        => "🪨",
+        Relic::WarPaint         => "🎨",
+        Relic::BurningBlood     => "🔥",
+        Relic::BlackBlood       => "🖤",
+        Relic::Anchor           => "⚓",
+        Relic::Vajra            => "🔱",
+        Relic::Lantern          => "🏮",
+        Relic::BloodVial        => "🩸",
+        Relic::BagOfMarbles     => "🎱",
+        Relic::RedMask          => "😶",
+        Relic::FestivePopper    => "🎉",
+        Relic::Pantograph       => "📐",
+        Relic::BagOfPreparation => "🎒",
+        Relic::MercuryHourglass => "⏳",
+        Relic::CaptainsWheel    => "⚙️",
+        Relic::Chandelier       => "💡",
+        Relic::Candelabra       => "🕯️",
+        Relic::HornCleat        => "🪝",
+        Relic::HappyFlower      => "🌸",
+        Relic::Pendulum         => "🕰️",
+        Relic::StoneCalendar    => "📅",
+        Relic::Orichalcum       => "🟠",
+        Relic::CloakClasp       => "🪆",
+        Relic::RegalPillow      => "🛏️",
+        Relic::Nunchaku         => "🥋",
+        Relic::OrnamentalFan    => "🪭",
+        Relic::Kunai            => "🗡️",
+        Relic::Shuriken         => "⭐",
+        Relic::Kusarigama       => "⛓️",
+        Relic::LetterOpener     => "✉️",
+        Relic::TuningFork       => "🎵",
+        Relic::GremlinHorn      => "📯",
+        Relic::Pocketwatch      => "⌚",
+    }
+}
+
+pub fn relics_bar(relics: &[Relic]) -> String {
+    if relics.is_empty() {
+        return String::new();
+    }
+    relics.iter().map(relic_emoji).collect::<Vec<_>>().join(" ")
+}
+
 pub fn pile_names(pile: &[Card]) -> Vec<String> {
     pile.iter().map(|c| c.name().to_string()).collect()
 }
@@ -163,7 +212,7 @@ pub fn pile_names(pile: &[Card]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slay_core::{AnyRng, Command, EnemyKind, GameState, NoOpRng, new_simple_run};
+    use slay_core::{AnyRng, Command, EnemyKind, GameState, NoOpRng, Relic, new_simple_run};
 
     fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
 
@@ -201,5 +250,23 @@ mod tests {
         // PlayCard on empty hand (Simple run has no cards) → InvalidCard
         let result = apply_and_drain(state, Command::PlayCard(0, 0), &mut r);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn relics_bar_is_empty_for_no_relics() {
+        assert_eq!(relics_bar(&[]), "");
+    }
+
+    #[test]
+    fn relics_bar_shows_emoji_for_single_relic() {
+        assert!(relics_bar(&[Relic::Anchor]).contains("⚓"));
+    }
+
+    #[test]
+    fn relics_bar_joins_multiple_relics_with_spaces() {
+        let bar = relics_bar(&[Relic::Anchor, Relic::BurningBlood]);
+        assert!(bar.contains("⚓"));
+        assert!(bar.contains("🔥"));
+        assert!(bar.contains(' '));
     }
 }
