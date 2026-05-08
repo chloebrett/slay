@@ -1763,7 +1763,7 @@
         let state = combat_with_hand(vec![Card::Immolate(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let burn_count = state.player.discard_pile.iter().filter(|c| **c == Card::Burn).count();
-        assert_eq!(burn_count, 5);
+        assert_eq!(burn_count, 1);
     }
 
     #[test]

@@ -11,10 +11,8 @@ pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _ta
         let damage = deal_damage(raw, &mut enemy.hp, &mut enemy.block);
         events.push(Event::PlayerAttacked { raw, damage });
     }
-    for _ in 0..5 {
-        state.player.discard_pile.push(Card::Burn);
-        events.push(Event::StatusCardAddedToDiscard { card: Card::Burn });
-    }
+    state.player.discard_pile.push(Card::Burn);
+    events.push(Event::StatusCardAddedToDiscard { card: Card::Burn });
 }
 
 pub(super) fn def(grade: Grade) -> CardDef {
@@ -24,7 +22,7 @@ pub(super) fn def(grade: Grade) -> CardDef {
     };
     CardDef {
         name,
-        description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies. Add 5 Burn into your discard pile.", base },
+        description: CardDescription::WithDamage { template: "Deal {damage} damage to ALL enemies. Add a Burn into your discard pile.", base },
         energy_cost: Energy(2),
         card_type: CardType::Attack,
     }
