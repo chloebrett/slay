@@ -1673,3 +1673,67 @@
         assert_eq!(Card::from_id("flex"),      Some(Card::Flex(Grade::Base)));
         assert_eq!(Card::from_id("flex-plus"), Some(Card::Flex(Grade::Plus)));
     }
+
+    // --- Intimidate ---
+
+    #[test]
+    fn intimidate_applies_1_weak_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Intimidate(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak).copied(), Some(1));
+        assert_eq!(state.enemies[1].statuses.get(&StatusEffect::Weak).copied(), Some(1));
+    }
+
+    #[test]
+    fn intimidate_plus_applies_2_weak_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Intimidate(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak).copied(), Some(2));
+        assert_eq!(state.enemies[1].statuses.get(&StatusEffect::Weak).copied(), Some(2));
+    }
+
+    #[test]
+    fn intimidate_exhausts() {
+        let state = combat_with_hand(vec![Card::Intimidate(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Intimidate(Grade::Base)));
+    }
+
+    #[test]
+    fn intimidate_id_round_trips() {
+        assert_eq!(Card::from_id("intimidate"),      Some(Card::Intimidate(Grade::Base)));
+        assert_eq!(Card::from_id("intimidate-plus"), Some(Card::Intimidate(Grade::Plus)));
+    }
+
+    // --- Shockwave ---
+
+    #[test]
+    fn shockwave_applies_3_weak_and_3_vulnerable_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Shockwave(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak).copied(), Some(3));
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable).copied(), Some(3));
+        assert_eq!(state.enemies[1].statuses.get(&StatusEffect::Weak).copied(), Some(3));
+        assert_eq!(state.enemies[1].statuses.get(&StatusEffect::Vulnerable).copied(), Some(3));
+    }
+
+    #[test]
+    fn shockwave_plus_applies_5_weak_and_5_vulnerable_to_all_enemies() {
+        let state = combat_with_two_enemies(vec![Card::Shockwave(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Weak).copied(), Some(5));
+        assert_eq!(state.enemies[0].statuses.get(&StatusEffect::Vulnerable).copied(), Some(5));
+    }
+
+    #[test]
+    fn shockwave_exhausts() {
+        let state = combat_with_hand(vec![Card::Shockwave(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Shockwave(Grade::Base)));
+    }
+
+    #[test]
+    fn shockwave_id_round_trips() {
+        assert_eq!(Card::from_id("shockwave"),      Some(Card::Shockwave(Grade::Base)));
+        assert_eq!(Card::from_id("shockwave-plus"), Some(Card::Shockwave(Grade::Plus)));
+    }
