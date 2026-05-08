@@ -1,10 +1,10 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, gain_player_block};
 use crate::rng::Rng;
 use crate::types::Energy;
 
 pub(super) fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _target: usize, rng: &mut impl Rng) {
-    let block_amount = match grade { Grade::Base => 30, Grade::Plus => 40 };
+    let block_amount = GradeValues { base: 30, plus: 40 }.get(grade);
     let actual = crate::status::resolve_block(block_amount, &state.player.statuses);
     gain_player_block(state, events, actual, rng);
 }

@@ -1,10 +1,10 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, Target, apply_status};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _target: usize) {
-    let strength = match grade { Grade::Base => 1, Grade::Plus => 2 };
+    let strength = GradeValues { base: 1, plus: 2 }.get(grade);
     apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Rupture, strength, events);
 }
 

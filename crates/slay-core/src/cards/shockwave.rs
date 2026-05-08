@@ -1,10 +1,10 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, apply_status, Target};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, _target: usize) {
-    let stacks = match grade { Grade::Base => 3, Grade::Plus => 5 };
+    let stacks = GradeValues { base: 3, plus: 5 }.get(grade);
     for i in 0..state.enemies.len() {
         apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Weak, stacks, events);
         apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Vulnerable, stacks, events);

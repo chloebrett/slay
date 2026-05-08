@@ -155,16 +155,7 @@ pub(crate) fn draw_with_triggers(state: &mut CombatState, n: usize, events: &mut
     if fire_breathing > 0 {
         let triggers = (status_drawn + curse_drawn) as i32;
         if triggers > 0 {
-            for i in 0..state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { continue; }
-                let dmg = resolve_damage(fire_breathing * triggers, &StatusMap::new(), &state.enemies[i].statuses);
-                let e = &mut state.enemies[i];
-                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-                if state.enemies[i].hp <= Hp(0) {
-                    events.push(Event::EnemyDied);
-                }
-            }
+            damage_all_enemies(&mut state.enemies, events, fire_breathing * triggers);
         }
     }
 
@@ -227,6 +218,16 @@ pub enum Target {
     Enemy,
 }
 
+fn resolve_target(enemies: &[Enemy], target_idx: usize) -> Result<usize, CommandError> {
+    if target_idx >= enemies.len() {
+        return Err(CommandError::InvalidCard);
+    }
+    if enemies[target_idx].hp > Hp(0) {
+        return Ok(target_idx);
+    }
+    enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)
+}
+
 fn apply_play_card(
     mut state: CombatState,
     index: usize,
@@ -255,14 +256,7 @@ fn apply_play_card(
     if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
         return Err(CommandError::Entangled);
     }
-    // Resolve target: use specified if alive, else first living; out-of-bounds is error
-    let actual_target = if target_idx >= state.enemies.len() {
-        return Err(CommandError::InvalidCard);
-    } else if state.enemies[target_idx].hp > Hp(0) {
-        target_idx
-    } else {
-        state.enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)?
-    };
+    let actual_target = resolve_target(&state.enemies, target_idx)?;
     let mut events = Vec::new();
     state.player.hand.remove(index);
     state.player.energy = Energy(state.player.energy.0 - card.energy_cost().0);
@@ -376,16 +370,7 @@ pub(crate) fn apply_combat_command(
                     state.phase = CombatPhase::Defeat;
                     return Ok((state, events));
                 }
-                for i in 0..state.enemies.len() {
-                    if state.enemies[i].hp <= Hp(0) { continue; }
-                    let dmg = resolve_damage(combust, &StatusMap::new(), &state.enemies[i].statuses);
-                    let e = &mut state.enemies[i];
-                    let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-                    events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-                    if state.enemies[i].hp <= Hp(0) {
-                        events.push(Event::EnemyDied);
-                    }
-                }
+                damage_all_enemies(&mut state.enemies, &mut events, combust);
                 if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
                     state.phase = CombatPhase::Victory;
                     return Ok((state, events));
@@ -611,6 +596,19 @@ pub(crate) fn deal_damage(amount: i32, hp: &mut Hp, block: &mut Block) -> i32 {
 pub(crate) fn damage_player(state: &mut CombatState, events: &mut Vec<Event>, amount: i32) {
     state.player.hp.0 = (state.player.hp.0 - amount).max(0);
     events.push(Event::PlayerSelfDamaged { amount });
+}
+
+pub(crate) fn damage_all_enemies(enemies: &mut Vec<Enemy>, events: &mut Vec<Event>, base_damage: i32) {
+    for i in 0..enemies.len() {
+        if enemies[i].hp <= Hp(0) { continue; }
+        let dmg = resolve_damage(base_damage, &StatusMap::new(), &enemies[i].statuses);
+        let e = &mut enemies[i];
+        let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+        events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
+        if enemies[i].hp <= Hp(0) {
+            events.push(Event::EnemyDied);
+        }
+    }
 }
 
 fn apply_end_of_turn_card_hooks(hooks: &[EndOfTurnHook], state: &mut CombatState, events: &mut Vec<Event>) -> bool {

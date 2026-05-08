@@ -1,11 +1,11 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, deal_damage};
 use crate::rng::Rng;
 use crate::status::resolve_damage;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, rng: &mut impl Rng) {
-    let hits = match grade { Grade::Base => 3, Grade::Plus => 4 };
+    let hits = GradeValues { base: 3, plus: 4 }.get(grade);
     for _ in 0..hits {
         let mut living: Vec<usize> = (0..state.enemies.len())
             .filter(|&i| state.enemies[i].hp.0 > 0)

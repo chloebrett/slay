@@ -1,10 +1,10 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, exhaust_card, gain_player_block};
 use crate::rng::Rng;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, rng: &mut impl Rng) {
-    let block = match grade { Grade::Base => 7, Grade::Plus => 9 };
+    let block = GradeValues { base: 7, plus: 9 }.get(grade);
     gain_player_block(state, events, block, rng);
     if !state.player.hand.is_empty() {
         let mut indices: Vec<usize> = (0..state.player.hand.len()).collect();
