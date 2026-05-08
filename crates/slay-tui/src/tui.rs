@@ -39,6 +39,7 @@ pub struct TuiState {
     pub wipe_start: Option<std::time::Instant>,
     pub player_flash: Option<std::time::Instant>,
     pub enemy_flashes: Vec<Option<std::time::Instant>>,
+    pub hand_scroll: usize,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -67,6 +68,7 @@ impl TuiState {
             wipe_start: None,
             player_flash: None,
             enemy_flashes,
+            hand_scroll: 0,
             debug,
             should_quit: false,
         };
@@ -154,6 +156,7 @@ impl TuiState {
                     }
                 }
 
+                self.hand_scroll = 0;
                 for ev in &events {
                     let msg = describe_event(ev);
                     self.push_log(msg);
@@ -325,7 +328,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
 fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
     match &tui.game {
         GameState::Map(map) => render_map(f, area, map),
-        GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log, &tui.enemy_flashes),
+        GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log, &tui.enemy_flashes, tui.hand_scroll),
         GameState::RestSite(rs) => render_rest(f, area, rs),
         GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
@@ -422,7 +425,7 @@ fn render_treasure(f: &mut Frame, area: Rect, tr: &TreasureRoomState) {
     f.render_widget(para, area);
 }
 
-fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<String>, enemy_flashes: &[Option<std::time::Instant>]) {
+fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<String>, enemy_flashes: &[Option<std::time::Instant>], hand_scroll: usize) {
     let [left, right] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
@@ -438,7 +441,7 @@ fn render_combat(f: &mut Frame, area: Rect, state: &CombatState, log: &VecDeque<
         .areas(left);
 
     render_enemies(f, enemies_area, state, enemy_flashes);
-    render_hand(f, hand_area, state);
+    render_hand(f, hand_area, state, hand_scroll);
     render_piles(f, piles_area, state);
     render_log(f, right, log);
 }
@@ -482,37 +485,80 @@ fn hp_bar(current: i32, max: i32, width: usize) -> String {
     format!("[{}{}]", "█".repeat(filled), "░".repeat(empty))
 }
 
-fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
+fn render_hand(f: &mut Frame, area: Rect, state: &CombatState, hand_scroll: usize) {
     let dummy = StatusMap::new();
     let target_statuses = state.enemies.first().map_or(&dummy, |e| &e.statuses);
     let choose_mode = matches!(state.phase, CombatPhase::ChooseCard(_));
 
-    let items: Vec<ListItem> = if state.player.hand.is_empty() {
-        vec![ListItem::new(Line::styled(
-            "(empty)",
-            Style::default().fg(Color::DarkGray),
-        ))]
+    if state.player.hand.is_empty() {
+        let title = if choose_mode { " 🎴 Choose a card " } else { " 🤚 Hand " };
+        let block = Block::default().borders(Borders::ALL).title(title);
+        let list = List::new(vec![ListItem::new(Line::styled("(empty)", Style::default().fg(Color::DarkGray)))]).block(block);
+        f.render_widget(list, area);
+        return;
+    }
+
+    // Build all card items (1-indexed labels stay tied to original position)
+    let all_items: Vec<ListItem> = state.player.hand.iter().enumerate().map(|(i, card)| {
+        let style = if choose_mode {
+            Style::default().fg(Color::Yellow)
+        } else if card.card_cost().is_affordable(state.player.energy) {
+            Style::default()
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        let desc = card.effective_description(&state.player.statuses, target_statuses);
+        let text = format!(
+            "[{}] {}{} ({}) — {}",
+            i + 1,
+            card_type_icon(card.card_type()),
+            card.name(),
+            card.card_cost().display(),
+            desc,
+        );
+        ListItem::new(Line::styled(text, style))
+    }).collect();
+
+    let total = all_items.len();
+    let inner_h = area.height.saturating_sub(2) as usize; // minus borders
+    let scroll = hand_scroll.min(total.saturating_sub(1));
+
+    let mut items: Vec<ListItem> = Vec::new();
+
+    if total <= inner_h {
+        // Everything fits — no hints needed
+        items = all_items;
     } else {
-        state.player.hand.iter().enumerate().map(|(i, card)| {
-            let style = if choose_mode {
-                Style::default().fg(Color::Yellow)
-            } else if card.card_cost().is_affordable(state.player.energy) {
-                Style::default()
-            } else {
-                Style::default().fg(Color::DarkGray)
-            };
-            let desc = card.effective_description(&state.player.statuses, target_statuses);
-            let text = format!(
-                "[{}] {}{} ({}) — {}",
-                i + 1,
-                card_type_icon(card.card_type()),
-                card.name(),
-                card.card_cost().display(),
-                desc,
-            );
-            ListItem::new(Line::styled(text, style))
-        }).collect()
-    };
+        let need_above = scroll > 0;
+        // Reserve a row for the above hint and tentatively for below hint
+        let card_rows = inner_h
+            .saturating_sub(need_above as usize)
+            .saturating_sub(1); // always reserve 1 for possible below hint
+        let end = (scroll + card_rows).min(total);
+        let need_below = end < total;
+
+        let card_rows = if need_below {
+            card_rows
+        } else {
+            // No below hint needed — reclaim that row
+            inner_h.saturating_sub(need_above as usize)
+        };
+        let end = (scroll + card_rows).min(total);
+
+        if need_above {
+            items.push(ListItem::new(Line::styled(
+                format!("  ↑ {} above", scroll),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+        items.extend(all_items.into_iter().skip(scroll).take(end - scroll));
+        if need_below {
+            items.push(ListItem::new(Line::styled(
+                format!("  ↓ {} more  (↑/↓)", total - end),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+    }
 
     let title = if choose_mode {
         " 🎴 Choose a card ".to_string()
@@ -1049,6 +1095,15 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
                 KeyCode::Char(c) => tui.input_buf.push(c),
                 KeyCode::Backspace => { tui.input_buf.pop(); }
                 KeyCode::Enter => tui.handle_enter(rng),
+                KeyCode::Up => {
+                    tui.hand_scroll = tui.hand_scroll.saturating_sub(1);
+                }
+                KeyCode::Down => {
+                    if let GameState::Combat { state: cs, .. } = &tui.game {
+                        let max = cs.player.hand.len().saturating_sub(1);
+                        tui.hand_scroll = (tui.hand_scroll + 1).min(max);
+                    }
+                }
                 _ => {}
             }
         }
@@ -1609,6 +1664,66 @@ mod tests {
     fn help_lines_game_over_is_empty() {
         let tui = TuiState::new(GameState::GameOver { victory: false }, false);
         assert!(help_lines(&tui.game).is_empty());
+    }
+
+    // ─── hand scroll ──────────────────────────────────────────────
+
+    fn make_combat_tui_with_many_cards() -> TuiState {
+        let mut state = new_simple_run();
+        let mut r = rng();
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
+        for _ in 0..10 {
+            state = apply_and_drain(state, Command::AddCard(Card::Strike(Grade::Base)), &mut r).unwrap().0;
+        }
+        TuiState::new(state, false)
+    }
+
+    #[test]
+    fn hand_scroll_defaults_to_zero() {
+        let tui = make_combat_tui();
+        assert_eq!(tui.hand_scroll, 0);
+    }
+
+    #[test]
+    fn handle_enter_resets_hand_scroll_on_success() {
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 3;
+        let mut r = rng();
+        tui.input_buf = "end".to_string();
+        tui.handle_enter(&mut r);
+        assert_eq!(tui.hand_scroll, 0, "scroll should reset after a successful command");
+    }
+
+    #[test]
+    fn render_hand_shows_above_hint_when_scrolled() {
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 2;
+        // Height 20 gives hand panel ~6 inner rows — 10 cards definitely overflows
+        let out = render_to_string(&tui, 100, 20);
+        assert!(out.contains("above"), "should show 'above' hint when scrolled: {out}");
+    }
+
+    #[test]
+    fn render_hand_shows_below_hint_when_cards_overflow() {
+        let tui = make_combat_tui_with_many_cards();
+        // Height 20, 10 cards — will overflow
+        let out = render_to_string(&tui, 100, 20);
+        assert!(out.contains("more"), "should show 'more' hint when cards overflow: {out}");
+    }
+
+    #[test]
+    fn render_hand_hides_first_card_when_scrolled_past_it() {
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 0;
+        let out_unscrolled = render_to_string(&tui, 100, 20);
+        tui.hand_scroll = 4;
+        let out_scrolled = render_to_string(&tui, 100, 20);
+        // First card [1] visible when scroll=0, hidden when scroll=4
+        assert!(out_unscrolled.contains("[1]"), "card 1 should be visible at scroll=0");
+        assert!(!out_scrolled.contains("[1]"), "card 1 should be hidden at scroll=4");
+        // Card [5] hidden when scroll=0 (overflows), visible when scroll=4
+        assert!(out_scrolled.contains("[5]"), "card 5 should be visible at scroll=4");
     }
 
     // ─── damage flash ─────────────────────────────────────────────
