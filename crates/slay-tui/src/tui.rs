@@ -409,6 +409,7 @@ fn hp_bar(current: i32, max: i32, width: usize) -> String {
 fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
     let dummy = StatusMap::new();
     let target_statuses = state.enemies.first().map_or(&dummy, |e| &e.statuses);
+    let choose_mode = matches!(state.phase, CombatPhase::ChooseCard(_));
 
     let items: Vec<ListItem> = if state.player.hand.is_empty() {
         vec![ListItem::new(Line::styled(
@@ -417,8 +418,9 @@ fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
         ))]
     } else {
         state.player.hand.iter().enumerate().map(|(i, card)| {
-            let affordable = card.card_cost().is_affordable(state.player.energy);
-            let style = if affordable {
+            let style = if choose_mode {
+                Style::default().fg(Color::Yellow)
+            } else if card.card_cost().is_affordable(state.player.energy) {
                 Style::default()
             } else {
                 Style::default().fg(Color::DarkGray)
@@ -436,7 +438,11 @@ fn render_hand(f: &mut Frame, area: Rect, state: &CombatState) {
         }).collect()
     };
 
-    let title = format!(" 🤚 Hand  (Turn {}) ", state.turn);
+    let title = if choose_mode {
+        " 🎴 Choose a card ".to_string()
+    } else {
+        format!(" 🤚 Hand  (Turn {}) ", state.turn)
+    };
     let block = Block::default().borders(Borders::ALL).title(title);
     let list = List::new(items).block(block);
     f.render_widget(list, area);

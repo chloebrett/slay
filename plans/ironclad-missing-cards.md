@@ -31,9 +31,9 @@ All STS1 Ironclad cards not yet implemented. Cards marked ⚠️ need new infras
 | **Sentinel** | 1 | Gain 5 Block. If this card is Exhausted, gain 2 Energy. | On-exhaust energy gain (new hook) |
 | ~~**Power Through**~~ | ~~1~~ | ~~Add 2 Wounds into your hand. Gain 15 Block.~~ | ~~Wound card exists; add-to-hand~~ |
 | **Ghostly Armor** | 1 | Ethereal. Gain 13 Block. | Ethereal mechanic already exists |
-| **Burning Pact** | 1 | Exhaust 1 card. Draw 2 cards. | Choose-a-card-to-exhaust UI |
-| **Armaments** | 1 | Gain 5 Block. Upgrade a card in your hand for the rest of combat. | Choose-a-card-to-upgrade UI |
-| **Warcry** | 0 | Draw 1 card. Put a card from your hand onto the top of your draw pile. Exhaust. | Choose-a-card-to-topdeck UI |
+| ~~**Burning Pact**~~ | ~~1~~ | ~~Exhaust 1 card. Draw 2 cards.~~ | ~~Choose-a-card-to-exhaust UI~~ |
+| ~~**Armaments**~~ | ~~1~~ | ~~Gain 5 Block. Upgrade a card in your hand for the rest of combat.~~ | ~~Choose-a-card-to-upgrade UI~~ |
+| ~~**Warcry**~~ | ~~0~~ | ~~Draw 1 card. Put a card from your hand onto the top of your draw pile. Exhaust.~~ | ~~Choose-a-card-to-topdeck UI~~ |
 
 ---
 
@@ -50,5 +50,5 @@ All Ironclad powers are implemented.
 - **X-cost mechanic** — Card costs all remaining energy; X = energy spent. Needed by: Whirlwind.
 - **Infinite upgrades** — Card grade beyond Base/Plus. Needed by: Searing Blow.
 - **On-exhaust energy gain** — Sentinel grants energy when exhausted (not when played). Needed by: Sentinel.
-- **Choose-a-card UI** — Player selects a card from hand to exhaust/upgrade/topdeck. Needed by: Burning Pact, Armaments, Warcry.
+- ~~**Choose-a-card UI**~~ — ~~Player selects a card from hand to exhaust/upgrade/topdeck. Needed by: Burning Pact, Armaments, Warcry.~~ Done: `CombatPhase::ChooseCard(ChooseCardContext)` + `Command::ChooseHandCard`.
 - **Kill-check** — Did this hit kill the enemy? Needed by: Feed.

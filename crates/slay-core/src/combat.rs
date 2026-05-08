@@ -49,10 +49,18 @@ impl Enemy {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ChooseCardContext {
+    BurningPact { draws: usize },
+    Warcry,
+    Armaments,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum CombatPhase {
     PlayerTurn,
     EnemyTurn,
     StartOfPlayerTurn,
+    ChooseCard(ChooseCardContext),
     Victory,
     Defeat,
 }
@@ -409,6 +417,33 @@ pub(crate) fn apply_combat_command(
             let potion = state.player.potions.remove(slot);
             crate::potions::apply(potion, target_idx, &mut state, &mut events, rng);
             events.push(Event::PotionUsed { potion });
+        }
+        Command::ChooseHandCard(idx) => {
+            let CombatPhase::ChooseCard(context) = state.phase.clone() else {
+                return Err(CommandError::InvalidPhase);
+            };
+            if idx >= state.player.hand.len() {
+                return Err(CommandError::InvalidCard);
+            }
+            match context {
+                ChooseCardContext::BurningPact { draws } => {
+                    let card = state.player.hand.remove(idx);
+                    exhaust_card(card, &mut state, &mut events, rng);
+                    draw_with_triggers(&mut state, draws, &mut events, rng);
+                }
+                ChooseCardContext::Warcry => {
+                    let card = state.player.hand.remove(idx);
+                    state.player.draw_pile.push(card);
+                }
+                ChooseCardContext::Armaments => {
+                    let card = state.player.hand[idx].clone();
+                    if let Some(upgraded) = card.upgrade() {
+                        events.push(Event::CardUpgraded { from: card, to: upgraded.clone() });
+                        state.player.hand[idx] = upgraded;
+                    }
+                }
+            }
+            state.phase = CombatPhase::PlayerTurn;
         }
         Command::ChooseNode(_)
         | Command::Rest

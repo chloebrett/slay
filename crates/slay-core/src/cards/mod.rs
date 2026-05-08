@@ -1,8 +1,10 @@
+mod armaments;
 mod anger;
 mod bash;
 mod ascenders_bane;
 mod barricade;
 mod berserk;
+mod burning_pact;
 mod brutality;
 mod combust;
 mod evolve;
@@ -62,6 +64,7 @@ mod heavy_blade;
 mod sword_boomerang;
 mod twin_strike;
 mod uppercut;
+mod warcry;
 mod wild_strike;
 
 use crate::status::{StatusEffect, StatusMap, resolve_damage};
@@ -117,6 +120,9 @@ pub enum Card {
     Flex(Grade),
     PerfectedStrike(Grade),
     PowerThrough(Grade),
+    BurningPact(Grade),
+    Warcry(Grade),
+    Armaments(Grade),
     Reaper(Grade),
     Whirlwind(Grade),
     Immolate(Grade),
@@ -250,6 +256,9 @@ impl Card {
             Card::Flex(g)           => flex::def(*g),
             Card::PerfectedStrike(g) => perfected_strike::def(*g),
             Card::PowerThrough(g)    => power_through::def(*g),
+            Card::BurningPact(g)     => burning_pact::def(*g),
+            Card::Warcry(g)          => warcry::def(*g),
+            Card::Armaments(g)       => armaments::def(*g),
             Card::Reaper(g)          => reaper::def(*g),
             Card::Whirlwind(g)       => whirlwind::def(*g),
             Card::Immolate(g)     => immolate::def(*g),
@@ -298,7 +307,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -316,7 +325,7 @@ impl Card {
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
-            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::Reaper(g) | Card::Whirlwind(g)
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
@@ -371,6 +380,9 @@ impl Card {
             Card::Flex(_)           => Card::Flex(g),
             Card::PerfectedStrike(_) => Card::PerfectedStrike(g),
             Card::PowerThrough(_)    => Card::PowerThrough(g),
+            Card::BurningPact(_)     => Card::BurningPact(g),
+            Card::Warcry(_)          => Card::Warcry(g),
+            Card::Armaments(_)       => Card::Armaments(g),
             Card::Reaper(_)          => Card::Reaper(g),
             Card::Whirlwind(_)       => Card::Whirlwind(g),
             Card::Immolate(_)     => Card::Immolate(g),
@@ -471,6 +483,9 @@ impl Card {
             Card::Flex(g)           => flex::id(*g),
             Card::PerfectedStrike(g) => perfected_strike::id(*g),
             Card::PowerThrough(g)    => power_through::id(*g),
+            Card::BurningPact(g)     => burning_pact::id(*g),
+            Card::Warcry(g)          => warcry::id(*g),
+            Card::Armaments(g)       => armaments::id(*g),
             Card::Reaper(g)          => reaper::id(*g),
             Card::Whirlwind(g)       => whirlwind::id(*g),
             Card::Immolate(g)     => immolate::id(*g),
@@ -542,6 +557,9 @@ impl Card {
             Card::Flex(Base),            Card::Flex(Plus),
             Card::PerfectedStrike(Base), Card::PerfectedStrike(Plus),
             Card::PowerThrough(Base),    Card::PowerThrough(Plus),
+            Card::BurningPact(Base),     Card::BurningPact(Plus),
+            Card::Warcry(Base),          Card::Warcry(Plus),
+            Card::Armaments(Base),       Card::Armaments(Plus),
             Card::Reaper(Base),          Card::Reaper(Plus),
             Card::Whirlwind(Base),       Card::Whirlwind(Plus),
             Card::Immolate(Base),     Card::Immolate(Plus),
@@ -621,6 +639,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Flex(g)           => flex::apply(state, events, *g, target),
         Card::PerfectedStrike(g) => perfected_strike::apply(state, events, *g, target),
         Card::PowerThrough(g)    => power_through::apply(state, events, *g, target, rng),
+        Card::BurningPact(g)     => burning_pact::apply(state, *g),
+        Card::Warcry(g)          => warcry::apply(state, events, *g, rng),
+        Card::Armaments(g)       => armaments::apply(state, events, *g, rng),
         Card::Reaper(g)          => reaper::apply(state, events, *g, target),
         Card::Whirlwind(g)       => whirlwind::apply(state, events, *g, x_value),
         Card::Immolate(g)     => immolate::apply(state, events, *g, target),
@@ -651,7 +672,7 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Juggernaut(Base), Card::Rupture(Base),
         Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
         Card::Evolve(Base), Card::FireBreathing(Base), Card::Flex(Base),
-        Card::Feed(Base), Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::PowerThrough(Base), Card::Reaper(Base), Card::Whirlwind(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
+        Card::Feed(Base), Card::FiendFire(Base), Card::PerfectedStrike(Base), Card::PowerThrough(Base), Card::BurningPact(Base), Card::Warcry(Base), Card::Armaments(Base), Card::Reaper(Base), Card::Whirlwind(Base), Card::Immolate(Base), Card::Intimidate(Base), Card::Shockwave(Base), Card::LimitBreak(Base),
     ]
 }
 
