@@ -1,6 +1,6 @@
 # Plan: Command Hints (B + C)
 
-**Status**: Phase B complete
+**Status**: Complete
 
 ## Goal
 
@@ -65,12 +65,12 @@ Implementation: add `render_help_overlay(f, area, state)` in `tui.rs`, mirroring
 
 ### Phase C
 
-- [ ] Pressing `?` in any game phase opens the help overlay
-- [ ] The overlay lists all valid commands for the current phase (syntax + description)
-- [ ] Pressing `?`, `esc`, or `enter` closes the overlay
-- [ ] While the overlay is open, other keypresses do not trigger game commands
-- [ ] The overlay uses the same centred modal pattern as the pile overlay
-- [ ] `show_help` starts as `false`; toggling works correctly from any phase
+- [x] Pressing `?` in any game phase opens the help overlay
+- [x] The overlay lists all valid commands for the current phase (syntax + description)
+- [x] Pressing `?`, `esc`, or `enter` closes the overlay
+- [x] While the overlay is open, other keypresses do not trigger game commands
+- [x] The overlay uses the same centred modal pattern as the pile overlay
+- [x] `show_help` starts as `false`; toggling works correctly from any phase
 
 ---
 
