@@ -107,6 +107,9 @@ impl TuiState {
 
         match apply_and_drain(self.game.clone(), command, rng) {
             Ok((new_state, events)) => {
+                if let Some(banner) = phase_banner(&self.game, &new_state) {
+                    self.push_log(banner);
+                }
                 self.game = new_state;
                 for ev in &events {
                     let msg = describe_event(ev);
@@ -122,6 +125,34 @@ impl TuiState {
             }
         }
     }
+}
+
+fn phase_banner(before: &GameState, after: &GameState) -> Option<String> {
+    if std::mem::discriminant(before) == std::mem::discriminant(after) {
+        return None;
+    }
+    let banner = match after {
+        GameState::Combat { state: cs, floor, is_boss, .. } => {
+            let enemies: Vec<&str> = cs.enemies.iter().map(|e| e.name()).collect();
+            let label = if *is_boss { "Boss" } else { "Combat" };
+            format!("══ ⚔️  Floor {} — {label}: {} ══", floor + 1, enemies.join(", "))
+        }
+        GameState::RestSite(rs) => format!("══ 🏕️  Floor {} — Rest Site ══", rs.floor + 1),
+        GameState::Shop(s) => format!("══ 🛒  Floor {} — Merchant ══", s.floor + 1),
+        GameState::CardReward(cr) => format!("══ 🃏  Floor {} — Card Reward ══", cr.floor),
+        GameState::TreasureRoom(tr) => format!("══ 💰  Floor {} — Treasure ══", tr.floor + 1),
+        GameState::EventRoom(er) => {
+            let event_name = match er.event {
+                EventKind::Ssssserpent => "Ssssserpent",
+                EventKind::BigFish => "Big Fish",
+                EventKind::Mushrooms => "Mushrooms",
+                EventKind::GoldenIdol => "Golden Idol",
+            };
+            format!("══ 📜  Floor {} — {event_name} ══", er.floor + 1)
+        }
+        GameState::Map(_) | GameState::GameOver { .. } => return None,
+    };
+    Some(banner)
 }
 
 fn player_relics(state: &GameState) -> &[Relic] {
@@ -1146,6 +1177,41 @@ mod tests {
         tui.input_buf = "play 1".to_string();
 
         eprintln!("{}", render_to_string(&tui, 100, 30));
+    }
+
+    // ─── phase banners ────────────────────────────────────────────
+
+    #[test]
+    fn entering_combat_pushes_banner_with_enemy_names() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        tui.input_buf = "spawn red-louse".to_string();
+        tui.handle_enter(&mut r);
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        let log: Vec<&str> = tui.event_log.iter().map(String::as_str).collect();
+        assert!(
+            log.iter().any(|l| l.contains("⚔️") && l.contains("Red Louse")),
+            "expected combat banner with enemy name, log: {log:?}"
+        );
+    }
+
+    #[test]
+    fn phase_banner_combat_contains_floor_and_enemies() {
+        let mut state = new_simple_run();
+        let mut r = rng();
+        let before = state.clone();
+        state = apply_and_drain(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap().0;
+        state = apply_and_drain(state, Command::ChooseNode(0), &mut r).unwrap().0;
+        let banner = phase_banner(&before, &state).expect("should produce a banner");
+        assert!(banner.contains("⚔️"), "banner: {banner}");
+        assert!(banner.contains("Red Louse"), "banner: {banner}");
+    }
+
+    #[test]
+    fn phase_banner_returns_none_for_same_phase() {
+        let state = new_simple_run();
+        assert!(phase_banner(&state, &state.clone()).is_none());
     }
 
     // ─── handle_enter ─────────────────────────────────────────────
