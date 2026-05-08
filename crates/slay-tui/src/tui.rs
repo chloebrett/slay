@@ -127,6 +127,14 @@ impl TuiState {
     }
 }
 
+fn hp_color(hp: i32, max_hp: i32) -> Color {
+    if max_hp == 0 { return Color::White; }
+    let pct = hp * 100 / max_hp;
+    if pct <= 20 { Color::Red }
+    else if pct <= 50 { Color::Yellow }
+    else { Color::White }
+}
+
 fn phase_banner(before: &GameState, after: &GameState) -> Option<String> {
     if std::mem::discriminant(before) == std::mem::discriminant(after) {
         return None;
@@ -219,16 +227,22 @@ fn render_top_bar(f: &mut Frame, area: Rect, state: &GameState) {
             } else {
                 format!("   🧪 {}", potions.join(" "))
             };
-            let stats = format!(
-                "🧙  HP {}/{} {}   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
-                p.hp.0, p.max_hp.0, hp_bar(p.hp.0, p.max_hp.0, 20),
+            let hp_str = format!("HP {}/{} {}", p.hp.0, p.max_hp.0, hp_bar(p.hp.0, p.max_hp.0, 20));
+            let rest = format!(
+                "   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
                 p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
             );
+            use ratatui::text::Span;
+            let stats_line = Line::from(vec![
+                Span::raw("🧙  "),
+                Span::styled(hp_str, Style::default().fg(hp_color(p.hp.0, p.max_hp.0))),
+                Span::raw(rest),
+            ]);
             let bar = relics_bar(&p.relics);
             if bar.is_empty() {
-                vec![Line::raw(stats)]
+                vec![stats_line]
             } else {
-                vec![Line::raw(stats), Line::raw(bar)]
+                vec![stats_line, Line::raw(bar)]
             }
         }
         None => vec![Line::raw("")],
@@ -1177,6 +1191,33 @@ mod tests {
         tui.input_buf = "play 1".to_string();
 
         eprintln!("{}", render_to_string(&tui, 100, 30));
+    }
+
+    // ─── hp_color ─────────────────────────────────────────────────
+
+    #[test]
+    fn hp_color_full_is_white() {
+        assert_eq!(hp_color(80, 80), Color::White);
+    }
+
+    #[test]
+    fn hp_color_half_is_yellow() {
+        assert_eq!(hp_color(40, 80), Color::Yellow);
+    }
+
+    #[test]
+    fn hp_color_just_above_half_is_white() {
+        assert_eq!(hp_color(41, 80), Color::White);
+    }
+
+    #[test]
+    fn hp_color_low_is_red() {
+        assert_eq!(hp_color(16, 80), Color::Red);
+    }
+
+    #[test]
+    fn hp_color_exactly_twenty_percent_is_red() {
+        assert_eq!(hp_color(16, 80), Color::Red);
     }
 
     // ─── phase banners ────────────────────────────────────────────
