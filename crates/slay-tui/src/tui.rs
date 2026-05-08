@@ -18,6 +18,8 @@ use std::collections::VecDeque;
 
 const LOG_CAPACITY: usize = 200;
 
+const WIPE_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
+
 const PILE_KEYS: &[(&str, PileView, &str)] = &[
     ("z", PileView::Draw,    "view draw pile"),
     ("x", PileView::Discard, "view discard pile"),
@@ -33,6 +35,7 @@ pub struct TuiState {
     pub show_pile: Option<PileView>,
     pub show_help: bool,
     pub show_relics: bool,
+    pub wipe_start: Option<std::time::Instant>,
     pub debug: bool,
     pub should_quit: bool,
 }
@@ -54,6 +57,7 @@ impl TuiState {
             show_pile: None,
             show_help: false,
             show_relics: false,
+            wipe_start: None,
             debug,
             should_quit: false,
         };
@@ -107,6 +111,9 @@ impl TuiState {
 
         match apply_and_drain(self.game.clone(), command, rng) {
             Ok((new_state, events)) => {
+                if matches!(&self.game, GameState::Map(_)) && !matches!(&new_state, GameState::Map(_)) {
+                    self.wipe_start = Some(std::time::Instant::now());
+                }
                 if let Some(banner) = phase_banner(&self.game, &new_state) {
                     self.push_log(banner);
                 }
@@ -203,6 +210,9 @@ pub fn render_frame(f: &mut Frame, tui: &TuiState) {
     }
     if tui.show_help {
         render_help_overlay(f, f.area(), &tui.game);
+    }
+    if tui.wipe_start.is_some() {
+        render_wipe_overlay(f, f.area());
     }
 }
 
@@ -771,6 +781,12 @@ fn render_relic_overlay(f: &mut Frame, area: Rect, relics: &[Relic]) {
     f.render_widget(para, popup);
 }
 
+fn render_wipe_overlay(f: &mut Frame, area: Rect) {
+    let block = Block::default().style(Style::default().bg(Color::Black));
+    f.render_widget(ratatui::widgets::Clear, area);
+    f.render_widget(block, area);
+}
+
 fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     let lines: Vec<Line> = help_lines(state)
         .into_iter()
@@ -832,6 +848,10 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
                     let _ = event::read()?;
                 }
                 break;
+            }
+
+            if tui.wipe_start.map(|t| t.elapsed() >= WIPE_DURATION).unwrap_or(false) {
+                tui.wipe_start = None;
             }
 
             if !event::poll(Duration::from_millis(100))? {
@@ -914,6 +934,25 @@ mod tests {
 
     fn make_map_tui() -> TuiState {
         let state = new_simple_run();
+        TuiState::new(state, false)
+    }
+
+    fn make_map_tui_with_node(node: MapNode) -> TuiState {
+        use slay_core::{Block, Energy, Hp, MapGraph, Player, Scenario, StatusMap};
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 99, relics: vec![], potions: vec![],
+            },
+            floor: 0,
+            graph: MapGraph { rows: vec![vec![node.clone()]], edges: vec![vec![vec![]]] },
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        });
         TuiState::new(state, false)
     }
 
@@ -1212,12 +1251,17 @@ mod tests {
 
     #[test]
     fn hp_color_low_is_red() {
-        assert_eq!(hp_color(16, 80), Color::Red);
+        assert_eq!(hp_color(8, 80), Color::Red);
     }
 
     #[test]
     fn hp_color_exactly_twenty_percent_is_red() {
         assert_eq!(hp_color(16, 80), Color::Red);
+    }
+
+    #[test]
+    fn hp_color_just_above_twenty_percent_is_yellow() {
+        assert_eq!(hp_color(17, 80), Color::Yellow);
     }
 
     // ─── phase banners ────────────────────────────────────────────
@@ -1399,6 +1443,70 @@ mod tests {
     fn help_lines_game_over_is_empty() {
         let tui = TuiState::new(GameState::GameOver { victory: false }, false);
         assert!(help_lines(&tui.game).is_empty());
+    }
+
+    // ─── wipe overlay ─────────────────────────────────────────────
+
+    #[test]
+    fn wipe_start_defaults_to_none() {
+        let tui = make_combat_tui();
+        assert!(tui.wipe_start.is_none());
+    }
+
+    #[test]
+    fn entering_combat_from_map_sets_wipe_start() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        tui.input_buf = "spawn red-louse".to_string();
+        tui.handle_enter(&mut r);
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.wipe_start.is_some(), "wipe_start should be set after Map → Combat transition");
+    }
+
+    #[test]
+    fn entering_rest_site_from_map_sets_wipe_start() {
+        let mut tui = make_map_tui_with_node(MapNode::RestSite);
+        let mut r = rng();
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.wipe_start.is_some(), "wipe_start should be set after Map → RestSite transition");
+    }
+
+    #[test]
+    fn entering_shop_from_map_sets_wipe_start() {
+        let mut tui = make_map_tui_with_node(MapNode::Merchant);
+        let mut r = rng();
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.wipe_start.is_some(), "wipe_start should be set after Map → Shop transition");
+    }
+
+    #[test]
+    fn entering_treasure_from_map_sets_wipe_start() {
+        let mut tui = make_map_tui_with_node(MapNode::Treasure);
+        let mut r = rng();
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.wipe_start.is_some(), "wipe_start should be set after Map → Treasure transition");
+    }
+
+    #[test]
+    fn entering_event_from_map_sets_wipe_start() {
+        let mut tui = make_map_tui_with_node(MapNode::Event);
+        let mut r = rng();
+        tui.input_buf = "1".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.wipe_start.is_some(), "wipe_start should be set after Map → Event transition");
+    }
+
+    #[test]
+    fn wipe_active_blacks_out_frame() {
+        let mut tui = make_combat_tui();
+        tui.wipe_start = Some(std::time::Instant::now());
+        let out = render_to_string(&tui, 100, 30);
+        assert!(!out.contains("Louse"), "combat content should not be visible during wipe");
+        assert!(!out.contains("HP"), "combat content should not be visible during wipe");
     }
 
     // ─── help overlay render ───────────────────────────────────────
