@@ -5,6 +5,8 @@ mod barricade;
 mod berserk;
 mod brutality;
 mod combust;
+mod evolve;
+mod fire_breathing;
 mod carnage;
 mod clash;
 mod dark_embrace;
@@ -98,6 +100,8 @@ pub enum Card {
     Berserk(Grade),
     Brutality(Grade),
     Combust(Grade),
+    Evolve(Grade),
+    FireBreathing(Grade),
     // Skill (exhausts on base)
     LimitBreak(Grade),
     Dazed,
@@ -189,6 +193,8 @@ impl Card {
             Card::Rupture(g)      => rupture::def(*g),
             Card::Berserk(g)      => berserk::def(*g),
             Card::Combust(g)      => combust::def(*g),
+            Card::Evolve(g)       => evolve::def(*g),
+            Card::FireBreathing(g) => fire_breathing::def(*g),
             Card::Brutality(g)    => brutality::def(*g),
             Card::LimitBreak(g)   => limit_break::def(*g),
             Card::Dazed           => dazed::def(),
@@ -249,7 +255,8 @@ impl Card {
             Card::Barricade(g) | Card::DemonForm(g) |
             Card::FeelNoPain(g) | Card::DarkEmbrace(g) |
             Card::Juggernaut(g) | Card::Rupture(g) |
-            Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g) | Card::LimitBreak(g) => Some(*g),
+            Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
+            | Card::Evolve(g) | Card::FireBreathing(g) | Card::LimitBreak(g) => Some(*g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
@@ -296,6 +303,8 @@ impl Card {
             Card::Rupture(_)      => Card::Rupture(g),
             Card::Berserk(_)      => Card::Berserk(g),
             Card::Combust(_)      => Card::Combust(g),
+            Card::Evolve(_)       => Card::Evolve(g),
+            Card::FireBreathing(_) => Card::FireBreathing(g),
             Card::Brutality(_)    => Card::Brutality(g),
             Card::LimitBreak(_)   => Card::LimitBreak(g),
             Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
@@ -377,6 +386,8 @@ impl Card {
             Card::Rupture(g)      => rupture::id(*g),
             Card::Berserk(g)      => berserk::id(*g),
             Card::Combust(g)      => combust::id(*g),
+            Card::Evolve(g)       => evolve::id(*g),
+            Card::FireBreathing(g) => fire_breathing::id(*g),
             Card::Brutality(g)    => brutality::id(*g),
             Card::LimitBreak(g)   => limit_break::id(*g),
             Card::Dazed           => dazed::id(),
@@ -436,6 +447,8 @@ impl Card {
             Card::Rupture(Base),      Card::Rupture(Plus),
             Card::Berserk(Base),      Card::Berserk(Plus),
             Card::Combust(Base),      Card::Combust(Plus),
+            Card::Evolve(Base),       Card::Evolve(Plus),
+            Card::FireBreathing(Base), Card::FireBreathing(Plus),
             Card::Brutality(Base),    Card::Brutality(Plus),
             Card::LimitBreak(Base),   Card::LimitBreak(Plus),
             Card::Dazed,
@@ -503,6 +516,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Rupture(g)      => rupture::apply(state, events, *g, target),
         Card::Berserk(g)      => berserk::apply(state, events, *g, target),
         Card::Combust(g)      => combust::apply(state, events, *g, target),
+        Card::Evolve(g)       => evolve::apply(state, events, *g, target),
+        Card::FireBreathing(g) => fire_breathing::apply(state, events, *g, target),
         Card::Brutality(g)    => brutality::apply(state, events, *g, target),
         Card::LimitBreak(g)   => limit_break::apply(state, events, *g, target),
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
@@ -526,7 +541,8 @@ pub fn reward_pool() -> Vec<Card> {
         Card::Barricade(Base), Card::DemonForm(Base),
         Card::FeelNoPain(Base), Card::DarkEmbrace(Base),
         Card::Juggernaut(Base), Card::Rupture(Base),
-        Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base), Card::LimitBreak(Base),
+        Card::Berserk(Base), Card::Brutality(Base), Card::Combust(Base),
+        Card::Evolve(Base), Card::FireBreathing(Base), Card::LimitBreak(Base),
     ]
 }
 

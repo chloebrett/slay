@@ -25,6 +25,8 @@ pub enum StatusEffect {
     Berserk,
     Brutality,
     Combust,
+    Evolve,
+    FireBreathing,
     StonePlating,
 }
 

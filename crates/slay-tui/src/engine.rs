@@ -111,6 +111,8 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Berserk           => ("😡", "Berserk"),
         StatusEffect::Brutality         => ("🩸", "Brutality"),
         StatusEffect::Combust           => ("🔥", "Combust"),
+        StatusEffect::Evolve            => ("🧬", "Evolve"),
+        StatusEffect::FireBreathing     => ("🐉", "Fire Breathing"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
     }
 }

@@ -140,6 +140,42 @@ impl CombatState {
     }
 }
 
+pub(crate) fn draw_with_triggers(state: &mut CombatState, n: usize, events: &mut Vec<Event>, rng: &mut impl Rng) {
+    use crate::cards::CardType;
+    let before = state.player.hand.len();
+    draw_cards(&mut state.player, n, rng);
+    let after = state.player.hand.len();
+
+    let status_drawn = state.player.hand[before..after].iter()
+        .filter(|c| c.def().card_type == CardType::Status).count();
+    let curse_drawn = state.player.hand[before..after].iter()
+        .filter(|c| c.def().card_type == CardType::Curse).count();
+
+    let fire_breathing = state.player.statuses.get(&StatusEffect::FireBreathing).copied().unwrap_or(0);
+    if fire_breathing > 0 {
+        let triggers = (status_drawn + curse_drawn) as i32;
+        if triggers > 0 {
+            for i in 0..state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { continue; }
+                let dmg = resolve_damage(fire_breathing * triggers, &StatusMap::new(), &state.enemies[i].statuses);
+                let e = &mut state.enemies[i];
+                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
+                if state.enemies[i].hp <= Hp(0) {
+                    events.push(Event::EnemyDied);
+                }
+            }
+        }
+    }
+
+    let evolve = state.player.statuses.get(&StatusEffect::Evolve).copied().unwrap_or(0);
+    if evolve > 0 && status_drawn > 0 {
+        for _ in 0..status_drawn {
+            draw_with_triggers(state, evolve as usize, events, rng);
+        }
+    }
+}
+
 pub(crate) fn draw_cards(player: &mut Player, n: usize, rng: &mut impl Rng) {
     for _ in 0..n {
         if player.draw_pile.is_empty() {
@@ -483,12 +519,12 @@ pub(crate) fn apply_combat_command(
             let brutality = state.player.statuses.get(&StatusEffect::Brutality).copied().unwrap_or(0);
             if brutality > 0 {
                 damage_player(&mut state, &mut events, 1);
-                draw_cards(&mut state.player, 1, rng);
+                draw_with_triggers(&mut state, 1, &mut events, rng);
                 events.push(Event::CardsDrawn { count: 1 });
             }
-            draw_cards(&mut state.player, 5, rng);
+            draw_with_triggers(&mut state, 5, &mut events, rng);
             if extra > 0 {
-                draw_cards(&mut state.player, extra, rng);
+                draw_with_triggers(&mut state, extra, &mut events, rng);
                 events.push(Event::CardsDrawn { count: extra });
             }
             state.phase = CombatPhase::PlayerTurn;
