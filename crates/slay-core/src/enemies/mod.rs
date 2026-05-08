@@ -2,6 +2,7 @@ mod blue_slaver;
 mod cultist;
 mod fungibeast;
 mod green_louse;
+mod gremlin_nob;
 mod jaw_worm;
 mod red_louse;
 mod red_slaver;
@@ -26,6 +27,7 @@ pub enum EnemyKind {
     BlueSlaver,
     RedSlaver,
     TheGuardian,
+    GremlinNob,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -174,6 +176,7 @@ impl EnemyKind {
             EnemyKind::BlueSlaver      => blue_slaver::DEF,
             EnemyKind::RedSlaver       => red_slaver::DEF,
             EnemyKind::TheGuardian     => the_guardian::DEF,
+            EnemyKind::GremlinNob      => gremlin_nob::DEF,
         }
     }
 
@@ -192,22 +195,24 @@ impl EnemyKind {
             EnemyKind::BlueSlaver      => "blue-slaver",
             EnemyKind::RedSlaver       => "red-slaver",
             EnemyKind::TheGuardian     => "the-guardian",
+            EnemyKind::GremlinNob      => "gremlin-nob",
         }
     }
 
     pub fn from_id(s: &str) -> Option<EnemyKind> {
         match s {
-            "fungibeast"       => Some(EnemyKind::Fungibeast),
-            "cultist"          => Some(EnemyKind::Cultist),
-            "jaw-worm"         => Some(EnemyKind::JawWorm),
+            "fungibeast"        => Some(EnemyKind::Fungibeast),
+            "cultist"           => Some(EnemyKind::Cultist),
+            "jaw-worm"          => Some(EnemyKind::JawWorm),
             "small-spike-slime" => Some(EnemyKind::SmallSpikeSlime),
-            "red-louse"        => Some(EnemyKind::RedLouse),
-            "green-louse"      => Some(EnemyKind::GreenLouse),
-            "small-acid-slime" => Some(EnemyKind::SmallAcidSlime),
-            "blue-slaver"      => Some(EnemyKind::BlueSlaver),
-            "red-slaver"       => Some(EnemyKind::RedSlaver),
-            "the-guardian"     => Some(EnemyKind::TheGuardian),
-            _                  => None,
+            "red-louse"         => Some(EnemyKind::RedLouse),
+            "green-louse"       => Some(EnemyKind::GreenLouse),
+            "small-acid-slime"  => Some(EnemyKind::SmallAcidSlime),
+            "blue-slaver"       => Some(EnemyKind::BlueSlaver),
+            "red-slaver"        => Some(EnemyKind::RedSlaver),
+            "the-guardian"      => Some(EnemyKind::TheGuardian),
+            "gremlin-nob"       => Some(EnemyKind::GremlinNob),
+            _                   => None,
         }
     }
 }
@@ -246,6 +251,7 @@ pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Mo
         EnemyKind::BlueSlaver      => blue_slaver::next_move(last, rng),
         EnemyKind::RedSlaver       => red_slaver::next_move(last, rng),
         EnemyKind::TheGuardian     => the_guardian::next_move(last),
+        EnemyKind::GremlinNob      => gremlin_nob::next_move(last, rng),
     }
 }
 
@@ -637,6 +643,52 @@ mod tests {
     #[test]
     fn guardian_twin_slam_leads_to_whirlwind() {
         assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianTwinSlam), &mut rng()), Move::GuardianWhirlwind);
+    }
+
+    // --- Gremlin Nob ---
+
+    #[test]
+    fn gremlin_nob_has_84_hp() {
+        assert_eq!(EnemyKind::GremlinNob.max_hp(), Hp(84));
+    }
+
+    #[test]
+    fn gremlin_nob_name_is_gremlin_nob() {
+        assert_eq!(EnemyKind::GremlinNob.name(), "Gremlin Nob");
+    }
+
+    #[test]
+    fn gremlin_nob_first_move_is_bellow() {
+        assert_eq!(next_move(&EnemyKind::GremlinNob, None, &mut rng()), Move::NobBellow);
+    }
+
+    #[test]
+    fn gremlin_nob_never_bellows_twice() {
+        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &mut rng());
+        assert_ne!(next, Move::NobBellow);
+    }
+
+    #[test]
+    fn gremlin_nob_after_bellow_uses_skull_bash_or_bull_rush() {
+        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &mut rng());
+        assert!(
+            matches!(next, Move::SkullBash | Move::BullRush),
+            "expected SkullBash or BullRush, got {next:?}"
+        );
+    }
+
+    #[test]
+    fn gremlin_nob_never_repeats_last_move() {
+        for last in [Move::SkullBash, Move::BullRush] {
+            let next = next_move(&EnemyKind::GremlinNob, Some(last), &mut rng());
+            assert_ne!(next, last, "repeated {last:?}");
+        }
+    }
+
+    #[test]
+    fn gremlin_nob_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("gremlin-nob"), Some(EnemyKind::GremlinNob));
+        assert_eq!(EnemyKind::GremlinNob.id(), "gremlin-nob");
     }
 
     // --- Gremlin Nob moves ---
