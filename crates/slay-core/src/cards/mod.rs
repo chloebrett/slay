@@ -127,6 +127,14 @@ pub enum Card {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Grade { Base, Plus }
 
+pub struct GradeValues<T> { pub base: T, pub plus: T }
+
+impl<T: Copy> GradeValues<T> {
+    pub fn get(self, grade: Grade) -> T {
+        match grade { Grade::Base => self.base, Grade::Plus => self.plus }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CardType {
     Attack,
