@@ -2525,3 +2525,66 @@
         assert_eq!(Card::from_id("sentinel"),      Some(Card::Sentinel(Grade::Base)));
         assert_eq!(Card::from_id("sentinel-plus"), Some(Card::Sentinel(Grade::Plus)));
     }
+
+    // --- Searing Blow ---
+
+    #[test]
+    fn searing_blow_base_deals_12_damage() {
+        let state = combat_with_hand(vec![Card::SearingBlow(0)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(8)); // 20 - 12
+    }
+
+    #[test]
+    fn searing_blow_upgraded_once_deals_16_damage() {
+        let state = combat_with_hand(vec![Card::SearingBlow(1)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(4)); // 20 - 16
+    }
+
+    #[test]
+    fn searing_blow_upgraded_twice_deals_21_damage() {
+        let mut state = combat_with_hand(vec![Card::SearingBlow(2)]);
+        state.enemies[0].hp = crate::types::Hp(30);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(9)); // 30 - 21
+    }
+
+    #[test]
+    fn searing_blow_upgraded_three_times_deals_27_damage() {
+        let mut state = combat_with_hand(vec![Card::SearingBlow(3)]);
+        state.enemies[0].hp = crate::types::Hp(40);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, crate::types::Hp(13)); // 40 - 27
+    }
+
+    #[test]
+    fn searing_blow_upgrade_always_returns_some() {
+        assert_eq!(Card::SearingBlow(0).upgrade(), Some(Card::SearingBlow(1)));
+        assert_eq!(Card::SearingBlow(1).upgrade(), Some(Card::SearingBlow(2)));
+        assert_eq!(Card::SearingBlow(5).upgrade(), Some(Card::SearingBlow(6)));
+    }
+
+    #[test]
+    fn searing_blow_base_name_is_searing_blow() {
+        assert_eq!(Card::SearingBlow(0).name(), "Searing Blow");
+    }
+
+    #[test]
+    fn searing_blow_upgraded_name_is_searing_blow_plus() {
+        assert_eq!(Card::SearingBlow(1).name(), "Searing Blow+");
+        assert_eq!(Card::SearingBlow(3).name(), "Searing Blow+");
+    }
+
+    #[test]
+    fn searing_blow_description_shows_correct_damage() {
+        assert!(Card::SearingBlow(0).description().contains("12"));
+        assert!(Card::SearingBlow(1).description().contains("16"));
+        assert!(Card::SearingBlow(2).description().contains("21"));
+        assert!(Card::SearingBlow(3).description().contains("27"));
+    }
+
+    #[test]
+    fn searing_blow_id_round_trips() {
+        assert_eq!(Card::from_id("searing-blow"), Some(Card::SearingBlow(0)));
+    }
