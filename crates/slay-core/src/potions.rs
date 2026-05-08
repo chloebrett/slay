@@ -1,3 +1,8 @@
+use crate::combat::{CombatPhase, CombatState, Event, Target, apply_status, deal_damage, draw_cards};
+use crate::rng::Rng;
+use crate::status::{StatusEffect, StatusMap, resolve_block, resolve_damage};
+use crate::types::Hp;
+
 pub const MAX_POTIONS: usize = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,6 +76,65 @@ impl Potion {
             "energy-potion"    => Some(Potion::EnergyPotion),
             _                  => None,
         }
+    }
+}
+
+pub(crate) fn apply(potion: Potion, target_idx: usize, state: &mut CombatState, events: &mut Vec<Event>, rng: &mut impl Rng) {
+    match potion {
+        Potion::FirePotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            let dmg = resolve_damage(20, &StatusMap::new(), &state.enemies[target].statuses);
+            let e = &mut state.enemies[target];
+            let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+            events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
+            if state.enemies[target].hp <= Hp(0) {
+                events.push(Event::EnemyDied);
+            }
+        }
+        Potion::ExplosivePotion => {
+            for i in 0..state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { continue; }
+                let dmg = resolve_damage(10, &StatusMap::new(), &state.enemies[i].statuses);
+                let e = &mut state.enemies[i];
+                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
+                if state.enemies[i].hp <= Hp(0) {
+                    events.push(Event::EnemyDied);
+                }
+            }
+        }
+        Potion::BlockPotion => {
+            let gained = resolve_block(12, &state.player.statuses);
+            state.player.block.0 += gained;
+            events.push(Event::PlayerBlocked { amount: gained });
+        }
+        Potion::StrengthPotion => {
+            apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 2, events);
+        }
+        Potion::SwiftPotion => {
+            draw_cards(&mut state.player, 3, rng);
+            events.push(Event::CardsDrawn { count: 3 });
+        }
+        Potion::FearPotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Vulnerable, 3, events);
+        }
+        Potion::WeakPotion => {
+            let target = target_idx.min(state.enemies.len().saturating_sub(1));
+            apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Weak, 3, events);
+        }
+        Potion::BloodPotion => {
+            let heal = (state.player.max_hp.0 * 20 / 100).max(1);
+            state.player.hp.0 = (state.player.hp.0 + heal).min(state.player.max_hp.0);
+            events.push(Event::Healed { amount: heal });
+        }
+        Potion::EnergyPotion => {
+            state.player.energy.0 += 2;
+            events.push(Event::EnergyGained { amount: 2 });
+        }
+    }
+    if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+        state.phase = CombatPhase::Victory;
     }
 }
 
