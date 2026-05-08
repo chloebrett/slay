@@ -583,6 +583,15 @@ pub(crate) fn apply_status(
 
 /// Exhausts a card: pushes to exhaust_pile, emits CardExhausted, fires on-exhaust power hooks.
 pub(crate) fn exhaust_card(card: crate::cards::Card, state: &mut CombatState, events: &mut Vec<Event>, rng: &mut impl Rng) {
+    use crate::cards::OnExhaustHook;
+    if let Some(hook) = card.on_exhaust_hook() {
+        match hook {
+            OnExhaustHook::GainEnergy(n) => {
+                state.player.energy.0 += n;
+                events.push(Event::EnergyGained { amount: n });
+            }
+        }
+    }
     events.push(Event::CardExhausted { card: card.clone() });
     state.player.exhaust_pile.push(card);
     let feel_no_pain = get_stacks(&state.player.statuses, StatusEffect::FeelNoPain);
