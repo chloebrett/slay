@@ -925,6 +925,34 @@ mod tests {
     }
 
     #[test]
+    fn relics_command_opens_relic_overlay() {
+        use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
+        let mut r = rng();
+        let graph = slay_core::generate_map(&mut r);
+        let state = GameState::Map(MapState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: vec![], draw_pile: vec![], discard_pile: vec![],
+                exhaust_pile: vec![], statuses: StatusMap::new(),
+                deck: vec![], gold: 0,
+                relics: vec![Relic::Anchor],
+                potions: vec![],
+            },
+            floor: 0, graph, available_cols: vec![0], next_enemies: None,
+            scenario: Scenario::Main,
+        });
+        let mut tui = TuiState::new(state, false);
+        let mut r = rng();
+        tui.input_buf = "relics".to_string();
+        tui.handle_enter(&mut r);
+        assert!(tui.show_relics, "show_relics should be true after 'relics' command");
+        let out = render_to_string(&tui, 120, 30);
+        assert!(out.contains("Anchor"), "expected Anchor name in relic overlay:\n{out}");
+        assert!(out.contains("10 Block"), "expected Anchor description in relic overlay:\n{out}");
+    }
+
+    #[test]
     fn top_bar_shows_relic_emoji_when_player_has_relics() {
         use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
         let mut r = rng();

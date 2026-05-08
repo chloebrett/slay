@@ -947,6 +947,13 @@ fn relic_name_is_human_readable() {
     }
 }
 
+#[test]
+fn all_relics_have_non_empty_description() {
+    for relic in Relic::all() {
+        assert!(!relic.description().is_empty(), "{} has empty description", relic.name());
+    }
+}
+
 // --- Tier 4: Nunchaku ---
 
 #[test]
