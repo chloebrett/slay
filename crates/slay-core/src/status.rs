@@ -27,6 +27,8 @@ pub enum StatusEffect {
     Combust,
     Evolve,
     FireBreathing,
+    StrengthDown,
+    Shackled,
     StonePlating,
 }
 
@@ -72,6 +74,14 @@ pub fn tick_ritual(statuses: &mut StatusMap) -> i32 {
         *statuses.entry(StatusEffect::Strength).or_insert(0) += ritual;
     }
     ritual
+}
+
+/// Removes StrengthDown and Shackled at end of turn.
+/// Returns net Strength modifier: positive = net gain (Shackled), negative = net loss (StrengthDown).
+pub fn tick_strength_modifiers(statuses: &mut StatusMap) -> i32 {
+    let down = statuses.remove(&StatusEffect::StrengthDown).unwrap_or(0);
+    let shackled = statuses.remove(&StatusEffect::Shackled).unwrap_or(0);
+    shackled - down
 }
 
 /// Drains poison: returns damage dealt and decrements the stack.
@@ -180,5 +190,47 @@ mod tests {
         let mut statuses = map_with(StatusEffect::Frail, 1);
         tick_statuses(&mut statuses);
         assert!(!statuses.contains_key(&StatusEffect::Frail));
+    }
+
+    // --- tick_strength_modifiers ---
+
+    #[test]
+    fn strength_down_returns_negative_modifier() {
+        let mut statuses = map_with(StatusEffect::StrengthDown, 2);
+        assert_eq!(tick_strength_modifiers(&mut statuses), -2);
+    }
+
+    #[test]
+    fn strength_down_clears_after_tick() {
+        let mut statuses = map_with(StatusEffect::StrengthDown, 2);
+        tick_strength_modifiers(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::StrengthDown));
+    }
+
+    #[test]
+    fn shackled_returns_positive_modifier() {
+        let mut statuses = map_with(StatusEffect::Shackled, 3);
+        assert_eq!(tick_strength_modifiers(&mut statuses), 3);
+    }
+
+    #[test]
+    fn shackled_clears_after_tick() {
+        let mut statuses = map_with(StatusEffect::Shackled, 3);
+        tick_strength_modifiers(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::Shackled));
+    }
+
+    #[test]
+    fn both_statuses_returns_net_shackled_minus_down() {
+        let mut statuses = StatusMap::new();
+        statuses.insert(StatusEffect::StrengthDown, 2);
+        statuses.insert(StatusEffect::Shackled, 5);
+        assert_eq!(tick_strength_modifiers(&mut statuses), 3);
+    }
+
+    #[test]
+    fn neither_status_returns_zero() {
+        let mut statuses = empty();
+        assert_eq!(tick_strength_modifiers(&mut statuses), 0);
     }
 }
