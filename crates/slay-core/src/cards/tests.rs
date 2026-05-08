@@ -1780,3 +1780,52 @@
         assert_eq!(Card::from_id("immolate"),      Some(Card::Immolate(Grade::Base)));
         assert_eq!(Card::from_id("immolate-plus"), Some(Card::Immolate(Grade::Plus)));
     }
+
+    // --- Fiend Fire ---
+
+    #[test]
+    fn fiend_fire_exhausts_hand_and_deals_7_damage_per_card() {
+        let state = combat_with_hand(vec![
+            Card::FiendFire(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // 2 cards in hand when played → 2 × 7 = 14 damage
+        assert_eq!(state.enemies[0].hp, Hp(6));
+        assert!(state.player.hand.is_empty());
+        assert_eq!(state.player.exhaust_pile.len(), 3); // 2 strikes + fiend fire itself
+    }
+
+    #[test]
+    fn fiend_fire_plus_deals_10_damage_per_card() {
+        let state = combat_with_hand(vec![
+            Card::FiendFire(Grade::Plus),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // 2 × 10 = 20 damage
+        assert_eq!(state.enemies[0].hp, Hp(0));
+    }
+
+    #[test]
+    fn fiend_fire_with_empty_hand_deals_no_damage() {
+        let state = combat_with_hand(vec![Card::FiendFire(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // hand was empty (only Fiend Fire, which was removed before apply), no damage
+        assert_eq!(state.enemies[0].hp, Hp(20));
+        assert_eq!(state.player.exhaust_pile, vec![Card::FiendFire(Grade::Base)]);
+    }
+
+    #[test]
+    fn fiend_fire_exhausts() {
+        assert!(Card::FiendFire(Grade::Base).exhausts());
+        assert!(Card::FiendFire(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn fiend_fire_id_round_trips() {
+        assert_eq!(Card::from_id("fiend-fire"),      Some(Card::FiendFire(Grade::Base)));
+        assert_eq!(Card::from_id("fiend-fire-plus"), Some(Card::FiendFire(Grade::Plus)));
+    }
