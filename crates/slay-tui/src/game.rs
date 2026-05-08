@@ -32,6 +32,12 @@ pub fn run_game(
         }
         let _ = writeln!(writer, "> {input}");
 
+        // Global shortcut: print relic list with descriptions
+        if input.trim() == "relics" {
+            render_relic_list(player_from_state(&state), writer);
+            continue;
+        }
+
         if let GameState::Combat { state: ref cs, .. } = state {
             match input.trim() {
                 "z" => { render_pile("🎴 Draw pile", &cs.player.draw_pile, writer); continue; }
@@ -310,6 +316,32 @@ fn render_combat(state: &CombatState, w: &mut impl Write) {
         "Commands: [1-{}] play card  |  end / e  end turn  |  z draw  x discard  c exhaust",
         state.player.hand.len().max(1),
     );
+}
+
+fn player_from_state(state: &GameState) -> Option<&slay_core::Player> {
+    match state {
+        GameState::Map(m)              => Some(&m.player),
+        GameState::Combat { state, .. } => Some(&state.player),
+        GameState::RestSite(rs)        => Some(&rs.player),
+        GameState::TreasureRoom(tr)    => Some(&tr.player),
+        GameState::CardReward(cr)      => Some(&cr.player),
+        GameState::Shop(shop)          => Some(&shop.player),
+        GameState::EventRoom(er)       => Some(&er.player),
+        GameState::GameOver { .. }     => None,
+    }
+}
+
+fn render_relic_list(player: Option<&slay_core::Player>, w: &mut impl Write) {
+    let relics = player.map_or([].as_slice(), |p| p.relics.as_slice());
+    if relics.is_empty() {
+        let _ = writeln!(w, "🎒 Relics: (none)");
+    } else {
+        let _ = writeln!(w, "🎒 Relics ({}):", relics.len());
+        for relic in relics {
+            let _ = writeln!(w, "  {} {}  —  {}", crate::engine::relic_emoji(relic), relic.name(), relic.description());
+        }
+    }
+    let _ = writeln!(w);
 }
 
 fn render_pile(label: &str, pile: &[slay_core::Card], w: &mut impl Write) {
