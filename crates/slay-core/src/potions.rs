@@ -1,4 +1,4 @@
-use crate::combat::{CombatPhase, CombatState, Event, Target, apply_status, deal_damage, draw_cards};
+use crate::combat::{CombatPhase, CombatState, Event, Target, apply_status, damage_all_enemies, deal_damage, draw_cards};
 use crate::rng::Rng;
 use crate::status::{StatusEffect, StatusMap, resolve_block, resolve_damage};
 use crate::types::Hp;
@@ -92,16 +92,7 @@ pub(crate) fn apply(potion: Potion, target_idx: usize, state: &mut CombatState, 
             }
         }
         Potion::ExplosivePotion => {
-            for i in 0..state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { continue; }
-                let dmg = resolve_damage(10, &StatusMap::new(), &state.enemies[i].statuses);
-                let e = &mut state.enemies[i];
-                let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
-                events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-                if state.enemies[i].hp <= Hp(0) {
-                    events.push(Event::EnemyDied);
-                }
-            }
+            damage_all_enemies(&mut state.enemies, events, 10);
         }
         Potion::BlockPotion => {
             let gained = resolve_block(12, &state.player.statuses);

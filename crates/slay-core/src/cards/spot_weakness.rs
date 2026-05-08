@@ -1,11 +1,11 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, Target, apply_status};
 use crate::enemies::Intent;
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
-    let amount = match grade { Grade::Base => 3, Grade::Plus => 4 };
+    let amount = GradeValues { base: 3, plus: 4 }.get(grade);
     let intent = state.enemies[target].effective_intent(&state.player.statuses);
     if matches!(intent, Intent::Attack(_) | Intent::AttackDefend(_, _)) {
         apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, amount, events);

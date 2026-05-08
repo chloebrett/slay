@@ -1,10 +1,10 @@
-use super::{CardDef, CardDescription, CardType, Grade};
+use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
 use crate::combat::{CombatState, Event, Target, apply_status, deal_damage};
 use crate::status::{StatusEffect, resolve_damage};
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade) {
-    let damage = match grade { Grade::Base => 4, Grade::Plus => 7 };
+    let damage = GradeValues { base: 4, plus: 7 }.get(grade);
     let vuln = 1;
     for i in 0..state.enemies.len() {
         let raw = resolve_damage(damage, &state.player.statuses, &state.enemies[i].statuses);
