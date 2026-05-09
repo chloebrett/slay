@@ -53,6 +53,7 @@ mod flash_of_steel;
 mod good_instincts;
 mod swift_strike;
 mod trip;
+mod void;
 mod writhe;
 mod entrench;
 mod feel_no_pain;
@@ -101,6 +102,7 @@ pub enum Card {
     GoodInstincts(Grade),
     SwiftStrike(Grade),
     Trip(Grade),
+    Void,
     Writhe,
     Cleave(Grade),
     IronWave(Grade),
@@ -191,6 +193,11 @@ pub enum OnExhaustHook {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum OnDrawHook {
+    LoseEnergy(i32),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CardType {
     Attack,
     Skill,
@@ -259,6 +266,7 @@ impl Card {
             Card::Blind(g)         => blind::def(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::def(*g),
             Card::Trip(g)          => trip::def(*g),
+            Card::Void             => void::def(),
             Card::Writhe           => writhe::def(),
             Card::Cleave(g)       => cleave::def(*g),
             Card::IronWave(g)     => iron_wave::def(*g),
@@ -334,11 +342,11 @@ impl Card {
     pub fn is_playable(&self) -> bool {
         !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe)
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void)
     }
 
     pub fn is_ethereal(&self) -> bool {
-        matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane | Card::Carnage(_) | Card::GhostlyArmor(_))
+        matches!(self, Card::Dazed | Card::Clumsy | Card::AscendersBane | Card::Void | Card::Carnage(_) | Card::GhostlyArmor(_))
     }
 
     pub fn is_innate(&self) -> bool {
@@ -359,6 +367,13 @@ impl Card {
     pub fn on_exhaust_hook(&self) -> Option<OnExhaustHook> {
         match self {
             Card::Sentinel(g) => Some(OnExhaustHook::GainEnergy(GradeValues { base: 2, plus: 3 }.get(*g))),
+            _ => None,
+        }
+    }
+
+    pub fn on_draw_hook(&self) -> Option<OnDrawHook> {
+        match self {
+            Card::Void => Some(OnDrawHook::LoseEnergy(1)),
             _ => None,
         }
     }
@@ -387,7 +402,7 @@ impl Card {
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g) => Some(*g),
             Card::SearingBlow(_) |
-            Card::Disarm | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
@@ -463,7 +478,7 @@ impl Card {
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
-            Card::Disarm | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
@@ -527,6 +542,7 @@ impl Card {
             Card::Blind(g)         => blind::id(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::id(*g),
             Card::Trip(g)          => trip::id(*g),
+            Card::Void             => void::id(),
             Card::Writhe           => writhe::id(),
             Card::Cleave(g)       => cleave::id(*g),
             Card::IronWave(g)     => iron_wave::id(*g),
@@ -616,6 +632,7 @@ impl Card {
             Card::Blind(Base),         Card::Blind(Plus),
             Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
             Card::Trip(Base),          Card::Trip(Plus),
+            Card::Void,
             Card::Writhe,
             Card::Cleave(Base),       Card::Cleave(Plus),
             Card::IronWave(Base),     Card::IronWave(Plus),
@@ -771,7 +788,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Slimed => {} // playable, but no effect — just exhausts
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe => {} // unplayable
+        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void => {} // unplayable
     }
 }
 

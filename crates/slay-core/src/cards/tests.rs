@@ -2728,6 +2728,45 @@
         assert!(Card::DramaticEntrance(Grade::Plus).is_innate());
     }
 
+    // --- Void ---
+
+    #[test]
+    fn void_is_not_playable() {
+        assert!(!Card::Void.is_playable());
+    }
+
+    #[test]
+    fn void_is_ethereal() {
+        assert!(Card::Void.is_ethereal());
+    }
+
+    #[test]
+    fn void_is_a_status() {
+        assert_eq!(Card::Void.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn void_id_round_trips() {
+        assert_eq!(Card::from_id("void"), Some(Card::Void));
+    }
+
+    #[test]
+    fn drawing_void_costs_1_energy() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile = vec![Card::Void];
+        let state = full_turn(state);
+        assert_eq!(state.player.energy, Energy(state.player.max_energy.0 - 1));
+    }
+
+    #[test]
+    fn drawing_void_does_not_go_below_zero_energy() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile = vec![Card::Void];
+        state.player.max_energy = Energy(0);
+        let state = full_turn(state);
+        assert_eq!(state.player.energy, Energy(0));
+    }
+
     // --- Writhe ---
 
     #[test]

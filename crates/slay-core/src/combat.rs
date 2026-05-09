@@ -159,15 +159,21 @@ impl CombatState {
 }
 
 pub(crate) fn draw_with_triggers(state: &mut CombatState, n: usize, events: &mut Vec<Event>, rng: &mut impl Rng) {
-    use crate::cards::CardType;
+    use crate::cards::{CardType, OnDrawHook};
     let before = state.player.hand.len();
     draw_cards(&mut state.player, n, rng);
     let after = state.player.hand.len();
 
-    let status_drawn = state.player.hand[before..after].iter()
-        .filter(|c| c.def().card_type == CardType::Status).count();
-    let curse_drawn = state.player.hand[before..after].iter()
-        .filter(|c| c.def().card_type == CardType::Curse).count();
+    let newly_drawn = &state.player.hand[before..after];
+    let status_drawn = newly_drawn.iter().filter(|c| c.def().card_type == CardType::Status).count();
+    let curse_drawn  = newly_drawn.iter().filter(|c| c.def().card_type == CardType::Curse).count();
+    let energy_loss: i32 = newly_drawn.iter().filter_map(|c| {
+        if let Some(OnDrawHook::LoseEnergy(n)) = c.on_draw_hook() { Some(n) } else { None }
+    }).sum();
+
+    if energy_loss > 0 {
+        state.player.energy.0 = (state.player.energy.0 - energy_loss).max(0);
+    }
 
     let fire_breathing = get_stacks(&state.player.statuses, StatusEffect::FireBreathing);
     if fire_breathing > 0 {
