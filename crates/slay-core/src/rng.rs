@@ -1,5 +1,10 @@
 pub trait Rng {
     fn shuffle<T>(&mut self, slice: &mut [T]);
+
+    fn choose<T: Copy>(&mut self, slice: &mut [T]) -> T {
+        self.shuffle(slice);
+        slice[0]
+    }
 }
 
 pub struct SeededRng {

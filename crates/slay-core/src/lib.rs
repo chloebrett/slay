@@ -2,6 +2,7 @@ mod cards;
 mod combat;
 pub mod relics;
 mod enemies;
+pub mod neow;
 mod potions;
 mod rng;
 pub mod run;
@@ -14,6 +15,7 @@ pub use combat::{ChooseCardContext, CombatPhase, CombatState, Enemy, Event, Play
 pub use relics::{Relic, grant_relic};
 pub use enemies::{EnemyKind, Intent, Move};
 pub use rng::{AnyRng, NoOpRng, Rng, ThreadRng};
+pub use neow::{NeowBlessing, NeowContext, NeowState};
 pub use run::{
     apply_command, Command, CommandError, CardRewardState, EventKind, EventRoomState, GameState,
     MapGraph, MapNode, MapState, RestSiteState, Scenario, ShopState, TreasureRoomState,

@@ -77,6 +77,9 @@ pub fn describe_event(event: &Event) -> String {
         Event::PotionUsed { potion } => format!("🧪 You use {}.", potion.name()),
         Event::PotionAwarded { potion } => format!("🧪 {} added to your belt.", potion.name()),
         Event::PotionDiscarded { potion } => format!("🧪 {} discarded.", potion.name()),
+        Event::EnemyFled => "🏃 Enemy fled!".into(),
+        Event::GoldStolen { amount } => format!("💰 Enemy stole {amount} gold!"),
+        Event::GoldReturned { amount } => format!("💰 Returned {amount} gold."),
     }
 }
 
@@ -89,6 +92,8 @@ pub fn describe_intent(intent: &Intent) -> String {
         Intent::Buff => "✨ Buff".into(),
         Intent::Debuff => "💀 Debuff".into(),
         Intent::Split => "🔀 Split".into(),
+        Intent::EscapeBlock(n) => format!("🏃 Flee + Defend {n}"),
+        Intent::Escape => "🏃 Flee".into(),
     }
 }
 
@@ -125,6 +130,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Metallicize       => ("🔩", "Metallicize"),
         StatusEffect::Stunned           => ("💫", "Stunned"),
         StatusEffect::Sleep             => ("💤", "Sleep"),
+        StatusEffect::CurlUp           => ("🛡️", "Curl Up"),
     }
 }
 
@@ -176,6 +182,8 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::MediumSpike     => "🔵",
         EnemyKind::LargeAcid       => "🟢",
         EnemyKind::MediumAcid      => "🟢",
+        EnemyKind::Looter          => "🦹",
+        EnemyKind::Mugger          => "🦹",
     }
 }
 

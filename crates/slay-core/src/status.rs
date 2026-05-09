@@ -34,6 +34,7 @@ pub enum StatusEffect {
     Metallicize,
     Stunned,
     Sleep,
+    CurlUp,
 }
 
 impl StatusEffect {

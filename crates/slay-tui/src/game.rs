@@ -104,7 +104,16 @@ fn render(state: &GameState, w: &mut impl Write) {
         GameState::CardReward(cr) => render_card_reward(cr, w),
         GameState::Shop(shop) => render_shop(shop, w),
         GameState::EventRoom(er) => render_event(er, w),
+        GameState::Neow(neow) => render_neow(neow, w),
         GameState::GameOver { .. } => {}
+    }
+}
+
+fn render_neow(neow: &slay_core::NeowState, w: &mut impl Write) {
+    let _ = writeln!(w, "🌟 Neow's Blessings");
+    let _ = writeln!(w, "Choose a blessing:");
+    for (i, blessing) in neow.blessings.iter().enumerate() {
+        let _ = writeln!(w, "  [{}] {:?}", i + 1, blessing);
     }
 }
 
@@ -351,6 +360,7 @@ fn player_from_state(state: &GameState) -> Option<&slay_core::Player> {
         GameState::CardReward(cr)      => Some(&cr.player),
         GameState::Shop(shop)          => Some(&shop.player),
         GameState::EventRoom(er)       => Some(&er.player),
+        GameState::Neow(neow)          => Some(&neow.player),
         GameState::GameOver { .. }     => None,
     }
 }
@@ -463,6 +473,8 @@ mod tests {
             hand: vec![], draw_pile: vec![], discard_pile: vec![],
             exhaust_pile: vec![], statuses: StatusMap::new(),
             deck: vec![], gold: 0, relics: vec![], potions: vec![],
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         }
     }
 

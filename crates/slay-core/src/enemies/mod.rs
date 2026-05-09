@@ -1,4 +1,6 @@
 mod blue_slaver;
+mod looter;
+mod mugger;
 mod cultist;
 mod fat_gremlin;
 mod fungibeast;
@@ -46,6 +48,8 @@ pub enum EnemyKind {
     GremlinWizard,
     ShieldGremlin,
     Sentry,
+    Looter,
+    Mugger,
     LargeSpike,
     MediumSpike,
     LargeAcid,
@@ -132,6 +136,16 @@ pub enum Move {
     // Sentry
     SentryBeam,
     SentryBolt,
+    // Looter
+    LooterMug,
+    LooterLunge,
+    LooterSmokeBomb,
+    LooterFlee,
+    // Mugger
+    MuggerMug,
+    MuggerLunge,
+    MuggerSmokeBomb,
+    MuggerFlee,
 }
 
 #[derive(Debug, Clone)]
@@ -143,6 +157,7 @@ pub enum Effect {
     AddToDiscard(Card),                 // adds a card to the player's discard pile
     ClearSelfStatus(StatusEffect),      // removes all stacks of a status from self
     GiveAllyBlock(i32),                 // gives block to a random other alive enemy
+    EscapeCombat,                        // enemy flees the battle
 }
 
 pub struct MoveDef {
@@ -208,6 +223,22 @@ impl Move {
             Move::ShieldBash         => MoveDef { name: "Shield Bash",    effects: vec![Effect::DealDamage(6)] },
             Move::SentryBeam         => MoveDef { name: "Beam",           effects: vec![Effect::DealDamage(9)] },
             Move::SentryBolt         => MoveDef { name: "Bolt",           effects: vec![Effect::AddToDiscard(Card::Dazed), Effect::AddToDiscard(Card::Dazed), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
+            Move::LooterMug          => MoveDef { name: "Mug",            effects: vec![Effect::DealDamage(10)] },
+            Move::LooterLunge        => MoveDef { name: "Lunge",          effects: vec![Effect::DealDamage(12)] },
+            Move::LooterSmokeBomb    => MoveDef { name: "Smoke Bomb",     effects: vec![Effect::GainBlock(6)] },
+            Move::LooterFlee         => MoveDef { name: "Flee",           effects: vec![Effect::EscapeCombat] },
+            Move::MuggerMug          => MoveDef { name: "Mug",            effects: vec![Effect::DealDamage(16)] },
+            Move::MuggerLunge        => MoveDef { name: "Lunge",          effects: vec![Effect::DealDamage(20)] },
+            Move::MuggerSmokeBomb    => MoveDef { name: "Smoke Bomb",     effects: vec![Effect::GainBlock(11)] },
+            Move::MuggerFlee         => MoveDef { name: "Flee",           effects: vec![Effect::EscapeCombat] },
+        }
+    }
+
+    pub fn mug_steal_amount(self) -> Option<i32> {
+        match self {
+            Move::LooterMug => Some(10),
+            Move::MuggerMug => Some(16),
+            _ => None,
         }
     }
 
@@ -220,6 +251,21 @@ impl Move {
         }
         if matches!(self, Move::ShieldProtect) {
             return Intent::Defend(7);
+        }
+        if matches!(self, Move::LooterFlee | Move::MuggerFlee) {
+            return Intent::Escape;
+        }
+        if let Move::LooterSmokeBomb = self {
+            return Intent::EscapeBlock(6);
+        }
+        if let Move::MuggerSmokeBomb = self {
+            return Intent::EscapeBlock(11);
+        }
+        if self.mug_steal_amount().is_some() {
+            let dmg: i32 = self.def().effects.iter().filter_map(|e| {
+                if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+            }).sum();
+            return Intent::AttackDebuff(dmg);
         }
         let effects = self.def().effects;
         let damage: i32 = effects.iter().filter_map(|e| {
@@ -250,6 +296,8 @@ pub enum Intent {
     Buff,
     Debuff,
     Split,
+    EscapeBlock(i32),
+    Escape,
 }
 
 pub struct EnemyDef {
@@ -278,6 +326,8 @@ impl EnemyKind {
             EnemyKind::GremlinWizard   => gremlin_wizard::DEF,
             EnemyKind::ShieldGremlin   => shield_gremlin::DEF,
             EnemyKind::Sentry          => sentry::DEF,
+            EnemyKind::Looter          => looter::DEF,
+            EnemyKind::Mugger          => mugger::DEF,
             EnemyKind::LargeSpike      => large_spike_slime::DEF,
             EnemyKind::MediumSpike     => medium_spike_slime::DEF,
             EnemyKind::LargeAcid       => large_acid_slime::DEF,
@@ -308,6 +358,8 @@ impl EnemyKind {
             EnemyKind::GremlinWizard   => "gremlin-wizard",
             EnemyKind::ShieldGremlin   => "shield-gremlin",
             EnemyKind::Sentry          => "sentry",
+            EnemyKind::Looter          => "looter",
+            EnemyKind::Mugger          => "mugger",
             EnemyKind::LargeSpike      => "large-spike-slime",
             EnemyKind::MediumSpike     => "medium-spike-slime",
             EnemyKind::LargeAcid       => "large-acid-slime",
@@ -335,6 +387,8 @@ impl EnemyKind {
             "gremlin-wizard"     => Some(EnemyKind::GremlinWizard),
             "shield-gremlin"     => Some(EnemyKind::ShieldGremlin),
             "sentry"             => Some(EnemyKind::Sentry),
+            "looter"             => Some(EnemyKind::Looter),
+            "mugger"             => Some(EnemyKind::Mugger),
             "large-spike-slime"  => Some(EnemyKind::LargeSpike),
             "medium-spike-slime" => Some(EnemyKind::MediumSpike),
             "large-acid-slime"   => Some(EnemyKind::LargeAcid),
@@ -367,8 +421,22 @@ pub fn on_player_attack_damage(
         EnemyKind::LargeSpike  => large_spike_slime::on_player_attack_damage(current_hp, max_hp),
         EnemyKind::LargeAcid   => large_acid_slime::on_player_attack_damage(current_hp, max_hp),
         EnemyKind::MadGremlin  => mad_gremlin::on_player_attack_damage(statuses, hp_lost, current_hp, max_hp),
+        EnemyKind::RedLouse    => red_louse::on_player_attack_damage(statuses),
+        EnemyKind::GreenLouse  => green_louse::on_player_attack_damage(statuses),
         _ => None,
     }
+}
+
+pub fn initial_statuses(kind: &EnemyKind, rng: &mut impl Rng) -> StatusMap {
+    let mut statuses = StatusMap::new();
+    match kind {
+        EnemyKind::RedLouse | EnemyKind::GreenLouse => {
+            let curl_up = rng.choose(&mut [3, 4, 5, 6, 7]);
+            statuses.insert(StatusEffect::CurlUp, curl_up);
+        }
+        _ => {}
+    }
+    statuses
 }
 
 pub fn shield_gremlin_next_move(_history: &[Move], allies_alive: usize) -> Move {
@@ -396,6 +464,8 @@ pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: 
         EnemyKind::GremlinWizard   => gremlin_wizard::next_move(history),
         EnemyKind::ShieldGremlin   => shield_gremlin::next_move(1), // default: assume allies present
         EnemyKind::Sentry          => sentry::next_move(last),
+        EnemyKind::Looter          => looter::next_move(history),
+        EnemyKind::Mugger          => mugger::next_move(history),
         EnemyKind::LargeSpike      => large_spike_slime::next_move(history, rng),
         EnemyKind::MediumSpike     => medium_spike_slime::next_move(history, rng),
         EnemyKind::LargeAcid       => large_acid_slime::next_move(history, rng),
@@ -714,6 +784,78 @@ mod tests {
     #[test]
     fn slave_entangle_is_debuff() {
         assert_eq!(Move::SlaveEntangle.intent(), Intent::Debuff);
+    }
+
+    // --- Curl Up (Red Louse + Green Louse) ---
+
+    fn curl_up_statuses(amount: i32) -> StatusMap {
+        let mut m = StatusMap::new();
+        m.insert(StatusEffect::CurlUp, amount);
+        m
+    }
+
+    #[test]
+    fn red_louse_starts_combat_with_curl_up_status() {
+        let statuses = initial_statuses(&EnemyKind::RedLouse, &mut rng());
+        let curl_up = statuses.get(&StatusEffect::CurlUp).copied().unwrap_or(0);
+        assert!(curl_up >= 3 && curl_up <= 7, "expected 3-7, got {curl_up}");
+    }
+
+    #[test]
+    fn green_louse_starts_combat_with_curl_up_status() {
+        let statuses = initial_statuses(&EnemyKind::GreenLouse, &mut rng());
+        let curl_up = statuses.get(&StatusEffect::CurlUp).copied().unwrap_or(0);
+        assert!(curl_up >= 3 && curl_up <= 7, "expected 3-7, got {curl_up}");
+    }
+
+    #[test]
+    fn jaw_worm_has_no_initial_statuses() {
+        let statuses = initial_statuses(&EnemyKind::JawWorm, &mut rng());
+        assert!(statuses.is_empty());
+    }
+
+    #[test]
+    fn red_louse_gains_block_equal_to_curl_up_when_hit() {
+        let reaction = on_player_attack_damage(&EnemyKind::RedLouse, &curl_up_statuses(5), 1, Hp(11), Hp(12));
+        assert_eq!(reaction.unwrap().block_gain, 5);
+    }
+
+    #[test]
+    fn red_louse_curl_up_clears_after_triggering() {
+        let reaction = on_player_attack_damage(&EnemyKind::RedLouse, &curl_up_statuses(5), 1, Hp(11), Hp(12));
+        let cleared = reaction.unwrap().silent_sets.iter().any(|&(s, v)| s == StatusEffect::CurlUp && v == 0);
+        assert!(cleared);
+    }
+
+    #[test]
+    fn red_louse_no_curl_up_reaction_without_status() {
+        let reaction = on_player_attack_damage(&EnemyKind::RedLouse, &StatusMap::new(), 1, Hp(11), Hp(12));
+        assert!(reaction.is_none());
+    }
+
+    #[test]
+    fn red_louse_no_curl_up_reaction_when_status_zero() {
+        let reaction = on_player_attack_damage(&EnemyKind::RedLouse, &curl_up_statuses(0), 1, Hp(11), Hp(12));
+        assert!(reaction.is_none());
+    }
+
+    #[test]
+    fn green_louse_gains_block_equal_to_curl_up_when_hit() {
+        let reaction = on_player_attack_damage(&EnemyKind::GreenLouse, &curl_up_statuses(3), 1, Hp(11), Hp(12));
+        assert_eq!(reaction.unwrap().block_gain, 3);
+    }
+
+    #[test]
+    fn green_louse_curl_up_clears_after_triggering() {
+        let reaction = on_player_attack_damage(&EnemyKind::GreenLouse, &curl_up_statuses(7), 1, Hp(11), Hp(12));
+        let cleared = reaction.unwrap().silent_sets.iter().any(|&(s, v)| s == StatusEffect::CurlUp && v == 0);
+        assert!(cleared);
+    }
+
+    #[test]
+    fn green_louse_no_curl_up_reaction_without_status() {
+        let reaction = on_player_attack_damage(&EnemyKind::GreenLouse, &StatusMap::new(), 1, Hp(11), Hp(12));
+        assert!(reaction.is_none());
     }
 
     // --- The Guardian ---
@@ -1473,5 +1615,177 @@ mod tests {
     #[test]
     fn sentry_bolt_intent_is_debuff() {
         assert_eq!(Move::SentryBolt.intent(), Intent::Debuff);
+    }
+
+    // --- Looter ---
+
+    #[test]
+    fn looter_has_44_hp() {
+        assert_eq!(EnemyKind::Looter.max_hp(), Hp(44));
+    }
+
+    #[test]
+    fn looter_is_named_correctly() {
+        assert_eq!(EnemyKind::Looter.name(), "Looter");
+    }
+
+    #[test]
+    fn looter_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("looter"), Some(EnemyKind::Looter));
+    }
+
+    #[test]
+    fn looter_first_move_is_mug() {
+        assert_eq!(next_move(&EnemyKind::Looter, &[], &StatusMap::new(), &mut rng()), Move::LooterMug);
+    }
+
+    #[test]
+    fn looter_second_move_is_lunge() {
+        assert_eq!(
+            next_move(&EnemyKind::Looter, &[Move::LooterMug], &StatusMap::new(), &mut rng()),
+            Move::LooterLunge
+        );
+    }
+
+    #[test]
+    fn looter_third_move_is_mug() {
+        assert_eq!(
+            next_move(&EnemyKind::Looter, &[Move::LooterMug, Move::LooterLunge], &StatusMap::new(), &mut rng()),
+            Move::LooterMug
+        );
+    }
+
+    #[test]
+    fn looter_fourth_move_is_smoke_bomb() {
+        assert_eq!(
+            next_move(&EnemyKind::Looter, &[Move::LooterMug, Move::LooterLunge, Move::LooterMug], &StatusMap::new(), &mut rng()),
+            Move::LooterSmokeBomb
+        );
+    }
+
+    #[test]
+    fn looter_fifth_move_is_flee() {
+        assert_eq!(
+            next_move(&EnemyKind::Looter, &[Move::LooterMug, Move::LooterLunge, Move::LooterMug, Move::LooterSmokeBomb], &StatusMap::new(), &mut rng()),
+            Move::LooterFlee
+        );
+    }
+
+    #[test]
+    fn looter_mug_deals_10_damage() {
+        let dmg: i32 = Move::LooterMug.def().effects.iter().filter_map(|e| {
+            if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(dmg, 10);
+    }
+
+    #[test]
+    fn looter_lunge_deals_12_damage() {
+        let dmg: i32 = Move::LooterLunge.def().effects.iter().filter_map(|e| {
+            if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(dmg, 12);
+    }
+
+    #[test]
+    fn looter_smoke_bomb_gains_6_block() {
+        let block: i32 = Move::LooterSmokeBomb.def().effects.iter().filter_map(|e| {
+            if let Effect::GainBlock(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(block, 6);
+    }
+
+    #[test]
+    fn looter_flee_has_escape_effect() {
+        assert!(Move::LooterFlee.def().effects.iter().any(|e| matches!(e, Effect::EscapeCombat)));
+    }
+
+    #[test]
+    fn looter_mug_steals_10_gold() {
+        assert_eq!(Move::LooterMug.mug_steal_amount(), Some(10));
+    }
+
+    #[test]
+    fn looter_lunge_steals_no_gold() {
+        assert_eq!(Move::LooterLunge.mug_steal_amount(), None);
+    }
+
+    #[test]
+    fn looter_mug_intent_is_attack_debuff() {
+        assert_eq!(Move::LooterMug.intent(), Intent::AttackDebuff(10));
+    }
+
+    #[test]
+    fn looter_lunge_intent_is_attack_12() {
+        assert_eq!(Move::LooterLunge.intent(), Intent::Attack(12));
+    }
+
+    #[test]
+    fn looter_smoke_bomb_intent_is_escape_block_6() {
+        assert_eq!(Move::LooterSmokeBomb.intent(), Intent::EscapeBlock(6));
+    }
+
+    #[test]
+    fn looter_flee_intent_is_escape() {
+        assert_eq!(Move::LooterFlee.intent(), Intent::Escape);
+    }
+
+    // --- Mugger ---
+
+    #[test]
+    fn mugger_has_48_hp() {
+        assert_eq!(EnemyKind::Mugger.max_hp(), Hp(48));
+    }
+
+    #[test]
+    fn mugger_is_named_correctly() {
+        assert_eq!(EnemyKind::Mugger.name(), "Mugger");
+    }
+
+    #[test]
+    fn mugger_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("mugger"), Some(EnemyKind::Mugger));
+    }
+
+    #[test]
+    fn mugger_first_move_is_mug() {
+        assert_eq!(next_move(&EnemyKind::Mugger, &[], &StatusMap::new(), &mut rng()), Move::MuggerMug);
+    }
+
+    #[test]
+    fn mugger_fifth_move_is_flee() {
+        assert_eq!(
+            next_move(&EnemyKind::Mugger, &[Move::MuggerMug, Move::MuggerLunge, Move::MuggerMug, Move::MuggerSmokeBomb], &StatusMap::new(), &mut rng()),
+            Move::MuggerFlee
+        );
+    }
+
+    #[test]
+    fn mugger_mug_deals_16_damage() {
+        let dmg: i32 = Move::MuggerMug.def().effects.iter().filter_map(|e| {
+            if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(dmg, 16);
+    }
+
+    #[test]
+    fn mugger_lunge_deals_20_damage() {
+        let dmg: i32 = Move::MuggerLunge.def().effects.iter().filter_map(|e| {
+            if let Effect::DealDamage(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(dmg, 20);
+    }
+
+    #[test]
+    fn mugger_smoke_bomb_gains_11_block() {
+        let block: i32 = Move::MuggerSmokeBomb.def().effects.iter().filter_map(|e| {
+            if let Effect::GainBlock(n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(block, 11);
+    }
+
+    #[test]
+    fn mugger_mug_steals_16_gold() {
+        assert_eq!(Move::MuggerMug.mug_steal_amount(), Some(16));
     }
 }

@@ -236,7 +236,7 @@ fn phase_banner(before: &GameState, after: &GameState) -> Option<String> {
             };
             format!("══ 📜  Floor {} — {event_name} ══", er.floor + 1)
         }
-        GameState::Map(_) | GameState::GameOver { .. } => return None,
+        GameState::Map(_) | GameState::GameOver { .. } | GameState::Neow(_) => return None,
     };
     Some(banner)
 }
@@ -250,6 +250,7 @@ fn player_relics(state: &GameState) -> &[Relic] {
         GameState::CardReward(cr)    => &cr.player.relics,
         GameState::Shop(shop)        => &shop.player.relics,
         GameState::EventRoom(er)     => &er.player.relics,
+        GameState::Neow(neow)        => &neow.player.relics,
         GameState::GameOver { .. }   => &[],
     }
 }
@@ -298,6 +299,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
         GameState::CardReward(cr) => Some(&cr.player),
         GameState::Shop(shop) => Some(&shop.player),
         GameState::EventRoom(er) => Some(&er.player),
+        GameState::Neow(neow) => Some(&neow.player),
         GameState::GameOver { .. } => None,
     };
     let lines: Vec<Line> = match player {
@@ -349,7 +351,21 @@ fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
         GameState::Shop(shop) => render_shop(f, area, shop),
         GameState::EventRoom(er) => render_event_room(f, area, er),
         GameState::GameOver { victory } => render_game_over(f, area, *victory),
+        GameState::Neow(neow) => render_neow(f, area, neow),
     }
+}
+
+fn render_neow(f: &mut Frame, area: Rect, neow: &slay_core::NeowState) {
+    use ratatui::widgets::Paragraph;
+    let mut lines = vec![
+        ratatui::text::Line::raw("🌟 Neow's Blessings — choose:"),
+        ratatui::text::Line::raw(""),
+    ];
+    for (i, blessing) in neow.blessings.iter().enumerate() {
+        lines.push(ratatui::text::Line::raw(format!("  [{}] {:?}", i + 1, blessing)));
+    }
+    let para = Paragraph::new(lines);
+    f.render_widget(para, area);
 }
 
 fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
@@ -848,6 +864,9 @@ fn help_lines(state: &GameState) -> Vec<String> {
             "N               choose option N".to_string(),
         ],
         GameState::GameOver { .. } => vec![],
+        GameState::Neow(_) => vec![
+            "N               choose blessing N".to_string(),
+        ],
     }
 }
 
@@ -970,7 +989,7 @@ fn wipe_title_lines(state: &GameState) -> Vec<Line<'static>> {
                 Line::styled(event_name, Style::default().fg(Color::Gray)),
             ]
         }
-        GameState::Map(_) | GameState::GameOver { .. } => vec![],
+        GameState::Map(_) | GameState::GameOver { .. } | GameState::Neow(_) => vec![],
     }
 }
 
@@ -1156,7 +1175,8 @@ pub(crate) fn render_to_string(tui: &TuiState, width: u16, height: u16) -> Strin
 mod tests {
     use super::*;
     use slay_core::{
-        AnyRng, Card, Command, EnemyKind, Grade, NoOpRng, new_run, new_simple_run,
+        AnyRng, Card, Command, EnemyKind, Grade, MapNode, MapState, NeowContext, NoOpRng,
+        new_run, new_simple_run,
     };
 
     fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
@@ -1183,6 +1203,7 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 99, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0,
             graph: MapGraph { rows: vec![vec![node.clone()]], edges: vec![vec![vec![]]] },
@@ -1194,8 +1215,10 @@ mod tests {
     }
 
     fn make_main_run_map_tui() -> TuiState {
-        let mut noop = NoOpRng;
-        let state = new_run(&mut noop);
+        let mut noop = AnyRng::NoOp(NoOpRng);
+        let ctx = NeowContext::default();
+        let state = new_run(&mut noop, &ctx);
+        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut noop).unwrap();
         TuiState::new(state, false)
     }
 
@@ -1227,6 +1250,7 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,
@@ -1296,6 +1320,7 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0,
             graph,
@@ -1313,8 +1338,10 @@ mod tests {
 
     #[test]
     fn rest_site_screen_shows_heal_amount() {
-        let mut r = NoOpRng;
-        let state = new_run(&mut r);
+        let mut r = AnyRng::NoOp(NoOpRng);
+        let ctx = NeowContext::default();
+        let state = new_run(&mut r, &ctx);
+        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         // Force into rest site by hand
         let player = match state {
             GameState::Map(m) => m.player,
@@ -1334,8 +1361,10 @@ mod tests {
 
     #[test]
     fn card_reward_screen_shows_card_options() {
-        let mut r = NoOpRng;
-        let state = new_run(&mut r);
+        let mut r = AnyRng::NoOp(NoOpRng);
+        let ctx = NeowContext::default();
+        let state = new_run(&mut r, &ctx);
+        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         let player = match state {
             GameState::Map(m) => m.player,
             _ => panic!(),
@@ -1391,6 +1420,7 @@ mod tests {
                 deck: vec![], gold: 0,
                 relics: vec![Relic::Anchor],
                 potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,
@@ -1419,6 +1449,7 @@ mod tests {
                 deck: vec![], gold: 0,
                 relics: vec![Relic::Anchor, Relic::BurningBlood],
                 potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,
@@ -1440,6 +1471,7 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,

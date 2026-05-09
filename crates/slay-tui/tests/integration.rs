@@ -1,6 +1,7 @@
 use slay_core::{
-    generate_map, new_run, starter_deck, AnyRng, Block, Card, CombatPhase, CombatState, Enemy,
-    EnemyKind, Energy, GameState, Grade, Hp, Intent, Move, NoOpRng, Player, Relic, RestSiteState, StatusMap,
+    generate_map, new_run, starter_deck, AnyRng, Block, Card, CombatPhase, CombatState, Command,
+    Enemy, EnemyKind, Energy, GameState, Grade, Hp, Move, NeowContext, NoOpRng, Player,
+    Relic, RestSiteState, StatusMap,
 };
 
 struct TestHarness {
@@ -11,7 +12,12 @@ struct TestHarness {
 
 impl TestHarness {
     fn with_state(state: GameState) -> Self {
-        Self { state, rng: AnyRng::NoOp(NoOpRng), debug: false }
+        let mut this = Self { state, rng: AnyRng::NoOp(NoOpRng), debug: false };
+        // auto-advance past Neow so integration tests start from Map
+        if matches!(this.state, GameState::Neow(_)) {
+            this.send("1").ok();
+        }
+        this
     }
 
     fn debug(mut self) -> Self {
@@ -37,6 +43,8 @@ impl TestHarness {
                     gold: 0,
                     relics: vec![],
                     potions: vec![],
+                    neow_lament_combats_remaining: 0,
+                    reached_boss: false,
                 },
                 enemies: vec![Enemy {
                     kind: EnemyKind::RedLouse,
@@ -46,6 +54,7 @@ impl TestHarness {
                     move_: Move::LouseBite,
                     move_history: vec![],
                     statuses: StatusMap::new(),
+                    stolen_gold: 0,
                 }],
                 turn: 1,
                 phase: CombatPhase::PlayerTurn,
@@ -209,6 +218,8 @@ fn rest_heals_player_hp() {
             gold: 0,
             relics: vec![],
             potions: vec![],
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         },
         floor: 3,
         graph: generate_map(&mut AnyRng::NoOp(NoOpRng)),
@@ -235,7 +246,7 @@ fn set_instant_win(state: &mut GameState) {
 
 #[test]
 fn full_run_reaches_victory() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default()));
 
     // segment 1: floors 0-2 (3 combats)
     for _ in 0..3 {
@@ -363,6 +374,8 @@ fn upgrade_at_rest_site_replaces_card_in_deck() {
         gold: 0,
         relics: vec![],
         potions: vec![],
+        neow_lament_combats_remaining: 0,
+        reached_boss: false,
     };
     let state = GameState::RestSite(RestSiteState { player, floor: 3, graph: generate_map(&mut AnyRng::NoOp(NoOpRng)), available_cols: vec![0, 1] });
     let mut game = TestHarness::with_state(state);
@@ -381,7 +394,7 @@ fn win_command_rejected_without_debug_flag() {
 
 #[test]
 fn skip_command_rejected_without_debug_flag() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default()));
     assert!(game.send("skip").is_err());
 }
 
@@ -394,7 +407,7 @@ fn win_command_kills_enemy_in_debug_mode() {
 
 #[test]
 fn skip_floor_advances_map_in_debug_mode() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default())).debug();
     game.send("skip").unwrap();
     let GameState::Map(map) = &game.state else { panic!("expected Map") };
     assert_eq!(map.floor, 1);
@@ -417,13 +430,13 @@ fn player_dies_when_hp_reaches_zero() {
 
 #[test]
 fn relic_command_rejected_without_debug_flag() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng));
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default()));
     assert!(game.send("relic strawberry").is_err());
 }
 
 #[test]
 fn relic_command_adds_relic_on_map_in_debug_mode() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default())).debug();
     game.send("relic strawberry").unwrap();
     let GameState::Map(map) = &game.state else { panic!("expected Map") };
     assert!(map.player.relics.contains(&Relic::Strawberry));
@@ -431,7 +444,7 @@ fn relic_command_adds_relic_on_map_in_debug_mode() {
 
 #[test]
 fn relic_command_raises_max_hp_via_strawberry() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default())).debug();
     game.send("relic strawberry").unwrap();
     let GameState::Map(map) = &game.state else { panic!("expected Map") };
     assert_eq!(map.player.max_hp, Hp(87));
@@ -447,6 +460,6 @@ fn relic_command_adds_relic_during_combat_in_debug_mode() {
 
 #[test]
 fn relic_unknown_id_returns_error() {
-    let mut game = TestHarness::with_state(new_run(&mut NoOpRng)).debug();
+    let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default())).debug();
     assert!(game.send("relic not-a-relic").is_err());
 }

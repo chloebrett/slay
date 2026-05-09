@@ -17,7 +17,17 @@ pub fn parse(input: &str, state: &GameState, debug: bool) -> Option<Command> {
         GameState::Shop(_) => parse_shop(&s),
         GameState::EventRoom(_) => parse_event(&s),
         GameState::GameOver { .. } => None,
+        GameState::Neow(_) => parse_neow(&s),
     }
+}
+
+fn parse_neow(s: &str) -> Option<Command> {
+    if let Ok(n) = s.trim().parse::<usize>() {
+        if n > 0 {
+            return Some(Command::ChooseNeowBlessing(n - 1));
+        }
+    }
+    None
 }
 
 fn parse_discard_potion(s: &str) -> Option<Command> {
@@ -195,6 +205,8 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0,
+                reached_boss: false,
             },
             floor: 0,
             graph,
@@ -279,12 +291,15 @@ mod tests {
                     hand: vec![], draw_pile: vec![], discard_pile: vec![],
                     exhaust_pile: vec![], statuses: StatusMap::new(),
                     deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                    neow_lament_combats_remaining: 0,
+                    reached_boss: false,
                 },
                 enemies: vec![Enemy {
                     kind: EnemyKind::RedLouse,
                     hp: Hp(20), max_hp: Hp(20), block: Block(0),
                     move_: Move::LouseBite, move_history: vec![],
                     statuses: StatusMap::new(),
+                    stolen_gold: 0,
                 }],
                 turn: 1,
                 phase: CombatPhase::PlayerTurn,
@@ -368,6 +383,8 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0,
+                reached_boss: false,
             },
             floor: 3,
             graph: slay_core::run::generate_map(&mut rng()),
@@ -389,6 +406,8 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 200, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0,
+                reached_boss: false,
             },
             floor: 3,
             cards: vec![],
@@ -432,6 +451,8 @@ mod tests {
                 hand: vec![], draw_pile: vec![], discard_pile: vec![],
                 exhaust_pile: vec![], statuses: StatusMap::new(),
                 deck: vec![], gold: 0, relics: vec![], potions: vec![],
+                neow_lament_combats_remaining: 0,
+                reached_boss: false,
             },
             floor: 1,
             options: vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Bash(Grade::Base)],

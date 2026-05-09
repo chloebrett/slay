@@ -23,6 +23,16 @@ pub struct PotionDef {
     pub targeted: bool,
 }
 
+pub fn random_potions(rng: &mut impl Rng, count: usize) -> Vec<Potion> {
+    let mut pool = vec![
+        Potion::FirePotion, Potion::ExplosivePotion, Potion::BlockPotion,
+        Potion::StrengthPotion, Potion::SwiftPotion, Potion::FearPotion,
+        Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
+    ];
+    rng.shuffle(&mut pool);
+    pool.into_iter().take(count).collect()
+}
+
 impl Potion {
     pub fn def(self) -> PotionDef {
         match self {

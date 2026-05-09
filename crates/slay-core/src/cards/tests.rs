@@ -2615,6 +2615,136 @@
         assert!(!state.player.discard_pile.contains(&Card::Slimed));
     }
 
+    // --- Blind ---
+
+    #[test]
+    fn blind_applies_2_weak_to_enemy() {
+        let state = combat_with_hand(vec![Card::Blind(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Weak), 2);
+    }
+
+    #[test]
+    fn blind_plus_applies_2_weak_to_all_enemies() {
+        let state = combat_with_hand(vec![Card::Blind(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Weak), 2);
+        assert_eq!(state.enemies.len(), 1); // single-enemy combat still works
+    }
+
+    #[test]
+    fn blind_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::Blind(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn blind_plus_applies_weak_to_all_in_two_enemy_combat() {
+        let state = combat_with_hand(vec![Card::Blind(Grade::Plus)]);
+        let (state, events) = apply_command(
+            crate::combat::combat_with_two_enemies(vec![Card::Blind(Grade::Plus)]),
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Weak), 2);
+        assert_eq!(get_stacks(&state.enemies[1].statuses, StatusEffect::Weak), 2);
+        let _ = events;
+    }
+
+    // --- Trip ---
+
+    #[test]
+    fn trip_applies_2_vulnerable_to_all_enemies() {
+        let (state, _) = apply_command(
+            combat_with_two_enemies(vec![Card::Trip(Grade::Base)]),
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Vulnerable), 2);
+        assert_eq!(get_stacks(&state.enemies[1].statuses, StatusEffect::Vulnerable), 2);
+    }
+
+    #[test]
+    fn trip_plus_applies_2_vulnerable_to_all_enemies() {
+        let (state, _) = apply_command(
+            combat_with_two_enemies(vec![Card::Trip(Grade::Plus)]),
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Vulnerable), 2);
+        assert_eq!(get_stacks(&state.enemies[1].statuses, StatusEffect::Vulnerable), 2);
+    }
+
+    #[test]
+    fn trip_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::Trip(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    // --- Dramatic Entrance ---
+
+    #[test]
+    fn dramatic_entrance_deals_8_damage_to_all_enemies() {
+        let (state, _) = apply_command(
+            combat_with_two_enemies(vec![Card::DramaticEntrance(Grade::Base)]),
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(12));
+        assert_eq!(state.enemies[1].hp, Hp(12));
+    }
+
+    #[test]
+    fn dramatic_entrance_plus_deals_12_damage_to_all_enemies() {
+        let (state, _) = apply_command(
+            combat_with_two_enemies(vec![Card::DramaticEntrance(Grade::Plus)]),
+            Command::PlayCard(0, 0),
+            &mut rng(),
+        ).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(8));
+        assert_eq!(state.enemies[1].hp, Hp(8));
+    }
+
+    #[test]
+    fn dramatic_entrance_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::DramaticEntrance(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn dramatic_entrance_exhausts() {
+        let state = combat_with_hand(vec![Card::DramaticEntrance(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::DramaticEntrance(Grade::Base)));
+        assert!(!state.player.discard_pile.contains(&Card::DramaticEntrance(Grade::Base)));
+    }
+
+    #[test]
+    fn dramatic_entrance_is_innate() {
+        assert!(Card::DramaticEntrance(Grade::Base).is_innate());
+        assert!(Card::DramaticEntrance(Grade::Plus).is_innate());
+    }
+
+    // --- Writhe ---
+
+    #[test]
+    fn writhe_is_not_playable() {
+        assert!(!Card::Writhe.is_playable());
+    }
+
+    #[test]
+    fn writhe_is_innate() {
+        assert!(Card::Writhe.is_innate());
+    }
+
+    #[test]
+    fn writhe_is_a_curse() {
+        assert_eq!(Card::Writhe.card_type(), CardType::Curse);
+    }
+
     // --- Neutral card id round-trips ---
 
     #[test]

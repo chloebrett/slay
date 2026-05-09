@@ -160,6 +160,18 @@ impl Relic {
         Self::all().into_iter().find(|r| r.id() == s)
     }
 
+    fn common_pool() -> Vec<Relic> {
+        vec![Relic::Strawberry, Relic::Pear, Relic::Mango, Relic::OldCoin, Relic::Whetstone, Relic::WarPaint]
+    }
+
+    fn rare_pool() -> Vec<Relic> {
+        vec![Relic::Nunchaku, Relic::OrnamentalFan, Relic::Kunai, Relic::Shuriken, Relic::Kusarigama, Relic::LetterOpener, Relic::TuningFork, Relic::GremlinHorn, Relic::Pocketwatch]
+    }
+
+    fn boss_pool() -> Vec<Relic> {
+        vec![Relic::BlackBlood, Relic::Chandelier, Relic::Candelabra, Relic::HornCleat, Relic::StoneCalendar, Relic::CaptainsWheel]
+    }
+
     pub fn def(&self) -> RelicDef {
         match self {
             Relic::Strawberry       => strawberry::def(),
@@ -209,6 +221,24 @@ impl Relic {
     pub fn description(&self) -> &'static str {
         self.def().description
     }
+}
+
+pub fn random_common_relic(rng: &mut impl Rng) -> Relic {
+    let mut pool = Relic::common_pool();
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: common_pool() is non-empty
+}
+
+pub fn random_rare_relic(rng: &mut impl Rng) -> Relic {
+    let mut pool = Relic::rare_pool();
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: rare_pool() is non-empty
+}
+
+pub fn random_boss_relic(rng: &mut impl Rng) -> Relic {
+    let mut pool = Relic::boss_pool();
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: boss_pool() is non-empty
 }
 
 pub fn grant_relic(player: &mut Player, relic: Relic, rng: &mut impl Rng) -> Vec<Event> {

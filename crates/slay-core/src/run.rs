@@ -1,5 +1,6 @@
 use crate::cards::{Card, starter_deck};
 use crate::combat::{apply_combat_command, CombatPhase, CombatState, Event, Player};
+use crate::neow::{NeowBlessing, NeowContext, NeowState};
 use crate::potions::{Potion, MAX_POTIONS};
 use crate::enemies::EnemyKind;
 use crate::relics::{
@@ -42,6 +43,7 @@ pub enum Command {
     LeaveTreasure,
     ChooseEventOption(usize),
     ChooseHandCard(usize),
+    ChooseNeowBlessing(usize),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -168,6 +170,7 @@ pub const POTION_PRICE: i32 = 50;
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum GameState {
+    Neow(NeowState),
     Map(MapState),
     Combat { state: CombatState, floor: usize, is_boss: bool, graph: MapGraph, next_floor_cols: Vec<usize>, scenario: Scenario },
     RestSite(RestSiteState),
@@ -178,7 +181,7 @@ pub enum GameState {
     GameOver { victory: bool },
 }
 
-pub fn new_run(rng: &mut impl Rng) -> GameState {
+pub fn new_run(rng: &mut impl Rng, ctx: &NeowContext) -> GameState {
     let deck = starter_deck();
     let player = Player {
         hp: Hp(80),
@@ -195,9 +198,79 @@ pub fn new_run(rng: &mut impl Rng) -> GameState {
         gold: 99,
         relics: Vec::new(),
         potions: Vec::new(),
+        neow_lament_combats_remaining: 0,
+        reached_boss: false,
     };
     let graph = generate_map(rng);
-    GameState::Map(MapState { player, floor: 0, graph, available_cols: vec![0, 1], next_enemies: None, scenario: Scenario::Main })
+    let blessings = generate_blessings(rng, ctx);
+    GameState::Neow(NeowState { player, graph, blessings })
+}
+
+fn generate_blessings(rng: &mut impl Rng, ctx: &NeowContext) -> Vec<NeowBlessing> {
+    if ctx.runs_completed == 0 {
+        return vec![NeowBlessing::GainMaxHp(8), NeowBlessing::NeowsLament];
+    }
+    let mut blessings = vec![
+        pick_category_1(rng),
+        pick_category_2(rng),
+        pick_category_3(rng),
+    ];
+    if ctx.prev_run_reached_boss {
+        blessings.push(pick_category_4(rng));
+    }
+    blessings
+}
+
+fn pick_category_1(rng: &mut impl Rng) -> NeowBlessing {
+    use crate::cards::{reward_pool, Grade};
+    let mut pool = vec![
+        NeowBlessing::RemoveCard,
+        NeowBlessing::TransformCard,
+        NeowBlessing::UpgradeCard,
+    ];
+    let mut rare_cards = reward_pool()
+        .into_iter()
+        .filter(|c| matches!(c.grade(), Some(Grade::Base)) && c.def().card_type == crate::cards::CardType::Attack)
+        .take(10)
+        .collect::<Vec<_>>();
+    rng.shuffle(&mut rare_cards);
+    rare_cards.truncate(3);
+    if rare_cards.len() == 3 {
+        pool.push(NeowBlessing::ChooseRareCard(rare_cards));
+    }
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: pool always has >= 3 elements
+}
+
+fn pick_category_2(rng: &mut impl Rng) -> NeowBlessing {
+    use crate::relics::random_common_relic;
+    use crate::potions::random_potions;
+    let mut pool = vec![
+        NeowBlessing::GainMaxHp(8),
+        NeowBlessing::NeowsLament,
+        NeowBlessing::GainGold(100),
+        NeowBlessing::GainRelic(random_common_relic(rng)),
+        NeowBlessing::GainPotions(random_potions(rng, 3)),
+    ];
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: pool has 5 elements
+}
+
+fn pick_category_3(rng: &mut impl Rng) -> NeowBlessing {
+    use crate::relics::random_rare_relic;
+    let mut pool = vec![
+        NeowBlessing::LoseHpGainGold { hp_loss: 7, gold: 250 },
+        NeowBlessing::LoseHpRemoveCards { hp_loss: 7, count: 2 },
+        NeowBlessing::LoseHpTransformCards { hp_loss: 7, count: 2 },
+        NeowBlessing::LoseHpGainRareRelic { hp_loss: 7, relic: random_rare_relic(rng) },
+    ];
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: pool has 4 elements
+}
+
+fn pick_category_4(rng: &mut impl Rng) -> NeowBlessing {
+    use crate::relics::random_boss_relic;
+    NeowBlessing::SwapStarterRelic(random_boss_relic(rng))
 }
 
 pub fn new_simple_run() -> GameState {
@@ -216,6 +289,8 @@ pub fn new_simple_run() -> GameState {
         gold: 0,
         relics: Vec::new(),
         potions: Vec::new(),
+        neow_lament_combats_remaining: 0,
+        reached_boss: false,
     };
     let graph = MapGraph {
         rows: vec![vec![MapNode::Combat(vec![EnemyKind::RedLouse])]],
@@ -375,6 +450,12 @@ pub fn apply_command(
                         let mut combat_state = CombatState::from_player(player, enemies, rng);
                         let mut events = Vec::new();
                         apply_combat_start_relics(&mut combat_state, &mut events, rng, is_boss);
+                        if combat_state.player.neow_lament_combats_remaining > 0 {
+                            for enemy in &mut combat_state.enemies {
+                                if enemy.hp > Hp(0) { enemy.hp = Hp(1); }
+                            }
+                            combat_state.player.neow_lament_combats_remaining -= 1;
+                        }
                         if combat_state.enemies.iter().all(|e| e.hp <= Hp(0)) {
                             events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
                             let mut victory_player = combat_state.player;
@@ -727,6 +808,59 @@ pub fn apply_command(
             _ => Err(CommandError::InvalidPhase),
         },
 
+        GameState::Neow(NeowState { player, graph, blessings }) => match command {
+            Command::ChooseNeowBlessing(idx) => {
+                if idx >= blessings.len() {
+                    return Err(CommandError::InvalidCard);
+                }
+                let blessing = blessings[idx].clone();
+                let mut player = player;
+                match blessing {
+                    NeowBlessing::GainMaxHp(amount) => {
+                        player.max_hp.0 += amount;
+                        player.hp.0 = (player.hp.0 + amount).min(player.max_hp.0);
+                    }
+                    NeowBlessing::NeowsLament => {
+                        player.neow_lament_combats_remaining = 3;
+                    }
+                    NeowBlessing::GainGold(amount) => {
+                        player.gold += amount;
+                    }
+                    NeowBlessing::GainRelic(relic) => {
+                        crate::relics::grant_relic(&mut player, relic, rng);
+                    }
+                    NeowBlessing::GainPotions(potions) => {
+                        player.potions.extend(potions);
+                    }
+                    NeowBlessing::LoseHpGainGold { hp_loss, gold } => {
+                        player.hp.0 -= hp_loss;
+                        player.gold += gold;
+                    }
+                    NeowBlessing::LoseHpGainRareRelic { hp_loss, relic } => {
+                        player.hp.0 -= hp_loss;
+                        crate::relics::grant_relic(&mut player, relic, rng);
+                    }
+                    NeowBlessing::ObtainCurseGainRareRelic { curse, relic } => {
+                        player.deck.push(curse);
+                        crate::relics::grant_relic(&mut player, relic, rng);
+                    }
+                    NeowBlessing::SwapStarterRelic(relic) => {
+                        player.relics.retain(|r| !matches!(r, Relic::BurningBlood));
+                        crate::relics::grant_relic(&mut player, relic, rng);
+                    }
+                    NeowBlessing::RemoveCard
+                    | NeowBlessing::TransformCard
+                    | NeowBlessing::UpgradeCard
+                    | NeowBlessing::ChooseRareCard(_)
+                    | NeowBlessing::LoseHpRemoveCards { .. }
+                    | NeowBlessing::LoseHpTransformCards { .. } => {}
+                }
+                let available_cols = (0..graph.rows.first().map_or(0, |r| r.len())).collect();
+                Ok((GameState::Map(MapState { player, floor: 0, graph, available_cols, next_enemies: None, scenario: Scenario::Main }), Vec::new()))
+            }
+            _ => Err(CommandError::InvalidPhase),
+        },
+
         GameState::GameOver { .. } => Err(CommandError::CombatOver),
     }
 }
@@ -737,8 +871,82 @@ mod tests {
     use crate::cards::Grade;
     use crate::combat::Enemy;
     use crate::enemies::Move;
+    use crate::neow::NeowContext;
     use crate::relics::Relic;
     use crate::status::StatusEffect;
+
+    // --- Neow ---
+
+    #[test]
+    fn new_run_starts_in_neow_phase() {
+        let state = new_run(&mut rng(), &NeowContext::default());
+        assert!(matches!(state, GameState::Neow(_)));
+    }
+
+    #[test]
+    fn first_run_neow_offers_two_blessings() {
+        let GameState::Neow(neow) = new_run(&mut rng(), &NeowContext::default()) else { panic!("expected Neow") };
+        assert_eq!(neow.blessings.len(), 2);
+    }
+
+    #[test]
+    fn subsequent_run_without_boss_neow_offers_three_blessings() {
+        let ctx = NeowContext { runs_completed: 1, prev_run_reached_boss: false };
+        let GameState::Neow(neow) = new_run(&mut rng(), &ctx) else { panic!("expected Neow") };
+        assert_eq!(neow.blessings.len(), 3);
+    }
+
+    #[test]
+    fn subsequent_run_with_boss_neow_offers_four_blessings() {
+        let ctx = NeowContext { runs_completed: 1, prev_run_reached_boss: true };
+        let GameState::Neow(neow) = new_run(&mut rng(), &ctx) else { panic!("expected Neow") };
+        assert_eq!(neow.blessings.len(), 4);
+    }
+
+    #[test]
+    fn choosing_neow_blessing_transitions_to_map() {
+        let mut r = rng();
+        let state = new_run(&mut r, &NeowContext::default());
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
+        assert!(matches!(state, GameState::Map(_)));
+    }
+
+    #[test]
+    fn neow_gain_max_hp_increases_player_max_hp() {
+        let mut r = rng();
+        let state = new_run(&mut r, &NeowContext::default());
+        let GameState::Neow(ref neow) = state else { panic!() };
+        let hp_before = neow.player.max_hp.0;
+        let gain_hp_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::GainMaxHp(_))).expect("should have GainMaxHp");
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(gain_hp_idx), &mut r).unwrap();
+        let GameState::Map(map) = state else { panic!() };
+        assert!(map.player.max_hp.0 > hp_before);
+    }
+
+    #[test]
+    fn neow_lament_sets_lament_counter_on_player() {
+        let mut r = rng();
+        let state = new_run(&mut r, &NeowContext::default());
+        let GameState::Neow(ref neow) = state else { panic!() };
+        let lament_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::NeowsLament)).expect("should have NeowsLament");
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(lament_idx), &mut r).unwrap();
+        let GameState::Map(map) = state else { panic!() };
+        assert_eq!(map.player.neow_lament_combats_remaining, 3);
+    }
+
+    #[test]
+    fn neow_lament_sets_enemies_to_one_hp_in_combat() {
+        let mut r = rng();
+        // Give lament, then enter combat
+        let state = new_run(&mut r, &NeowContext::default());
+        let GameState::Neow(ref neow) = state else { panic!() };
+        let lament_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::NeowsLament)).expect("should have NeowsLament");
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(lament_idx), &mut r).unwrap();
+        let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut r).unwrap();
+        let GameState::Combat { state: ref cs, .. } = state else { panic!() };
+        assert!(cs.enemies.iter().all(|e| e.hp.0 == 1));
+    }
 
     #[test]
     fn command_error_display_not_enough_energy() {
@@ -765,6 +973,12 @@ mod tests {
         NoOpRng
     }
 
+    fn run_after_neow() -> GameState {
+        let state = new_run(&mut rng(), &NeowContext::default());
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut rng()).unwrap();
+        state
+    }
+
     fn make_player() -> Player {
         Player {
             hp: Hp(80),
@@ -781,6 +995,8 @@ mod tests {
             gold: 0,
             relics: Vec::new(),
             potions: Vec::new(),
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         }
     }
 
@@ -806,7 +1022,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -837,7 +1053,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -862,13 +1078,13 @@ mod tests {
 
     #[test]
     fn new_run_starts_on_map() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         assert!(matches!(state, GameState::Map(_)));
     }
 
     #[test]
     fn new_run_starts_at_floor_0() {
-        if let GameState::Map(map) = new_run(&mut rng()) {
+        if let GameState::Map(map) = run_after_neow() {
             assert_eq!(map.floor, 0);
         } else {
             panic!("expected Map state");
@@ -877,7 +1093,7 @@ mod tests {
 
     #[test]
     fn new_run_player_starts_with_99_gold() {
-        if let GameState::Map(map) = new_run(&mut rng()) {
+        if let GameState::Map(map) = run_after_neow() {
             assert_eq!(map.player.gold, 99);
         } else {
             panic!("expected Map state");
@@ -886,7 +1102,7 @@ mod tests {
 
     #[test]
     fn new_run_player_has_starter_deck() {
-        if let GameState::Map(map) = new_run(&mut rng()) {
+        if let GameState::Map(map) = run_after_neow() {
             assert_eq!(map.player.deck.len(), starter_deck().len());
         } else {
             panic!("expected Map state");
@@ -897,21 +1113,21 @@ mod tests {
 
     #[test]
     fn choose_node_0_enters_combat() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::Combat { floor: 0, .. }));
     }
 
     #[test]
     fn choose_node_invalid_index_returns_error() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let result = apply_command(state, Command::ChooseNode(2), &mut rng());
         assert_eq!(result, Err(CommandError::InvalidPhase));
     }
 
     #[test]
     fn non_map_commands_rejected_on_map() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         assert_eq!(
             apply_command(state.clone(), Command::EndTurn, &mut rng()),
             Err(CommandError::InvalidPhase)
@@ -994,7 +1210,7 @@ mod tests {
 
     #[test]
     fn non_boss_node_sets_is_boss_false() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (next, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { is_boss, .. } = next else { panic!("expected Combat") };
         assert!(!is_boss);
@@ -1174,7 +1390,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1348,7 +1564,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1456,7 +1672,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -1477,7 +1693,7 @@ mod tests {
 
     #[test]
     fn exhaust_pile_is_empty_at_combat_start() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert!(cs.player.exhaust_pile.is_empty());
@@ -1598,7 +1814,7 @@ mod tests {
 
     #[test]
     fn available_cols_starts_as_both_columns() {
-        let GameState::Map(map) = new_run(&mut rng()) else { panic!("expected Map") };
+        let GameState::Map(map) = run_after_neow() else { panic!("expected Map") };
         assert_eq!(map.available_cols, vec![0, 1]);
     }
 
@@ -1954,7 +2170,7 @@ mod tests {
 
     #[test]
     fn skip_floor_from_map_advances_floor() {
-        let state = new_run(&mut rng()); // Map at floor 0
+        let state = run_after_neow(); // Map at floor 0
         let (state, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
         let GameState::Map(map) = state else { panic!("expected Map") };
         assert_eq!(map.floor, 1);
@@ -1971,7 +2187,7 @@ mod tests {
 
     #[test]
     fn win_combat_rejected_from_map() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         assert_eq!(
             apply_command(state, Command::WinCombat, &mut rng()),
             Err(CommandError::InvalidPhase)
@@ -2036,7 +2252,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2168,7 +2384,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2208,7 +2424,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2242,7 +2458,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2545,7 +2761,7 @@ mod tests {
 
     #[test]
     fn add_relic_on_map_grants_relic_to_player() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (next, _) = apply_command(state, Command::AddRelic(Relic::BurningBlood), &mut rng()).unwrap();
         let GameState::Map(map) = next else { panic!("expected Map") };
         assert!(map.player.relics.contains(&Relic::BurningBlood));
@@ -2578,7 +2794,7 @@ mod tests {
     // --- Potion rewards ---
 
     fn combat_at_floor_0() -> GameState {
-        let (state, _) = apply_command(new_run(&mut rng()), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(run_after_neow(), Command::ChooseNode(0), &mut rng()).unwrap();
         state
     }
 
@@ -2597,7 +2813,7 @@ mod tests {
 
     #[test]
     fn potion_offered_when_slots_full_on_victory() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
@@ -2610,7 +2826,7 @@ mod tests {
 
     #[test]
     fn potion_not_awarded_on_boss_floor() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         // skip to boss floor (floor 9)
         let mut state = state;
         for _ in 0..9 {
@@ -2699,7 +2915,7 @@ mod tests {
 
     #[test]
     fn discard_in_card_reward_collects_offered_potion() {
-        let state = new_run(&mut rng());
+        let state = run_after_neow();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::AddPotion(Potion::BlockPotion), &mut rng()).unwrap();
@@ -2734,7 +2950,7 @@ mod tests {
                 max_hp: Hp(enemy_hp),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2798,7 +3014,7 @@ mod tests {
                 max_hp: Hp(200),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2854,7 +3070,7 @@ mod tests {
                 max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2895,7 +3111,7 @@ mod tests {
                 max_hp: Hp(200),
                 block: Block(0),
                 move_: Move::LouseBite,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,

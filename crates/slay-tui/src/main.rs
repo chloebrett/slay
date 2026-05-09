@@ -1,4 +1,4 @@
-use slay_core::{new_run, AnyRng, GameState};
+use slay_core::{new_run, AnyRng, GameState, NeowContext};
 use std::io::{self, BufRead, IsTerminal, Write};
 use std::sync::mpsc;
 use std::thread;
@@ -44,9 +44,11 @@ fn main() {
         (state, seed)
     } else {
         slay_tui::save::delete_run();
+        let meta = slay_tui::save::load_meta();
+        let ctx = NeowContext { runs_completed: meta.runs_completed, prev_run_reached_boss: false };
         let seed: u64 = rand::random();
         let mut rng = AnyRng::seeded(seed);
-        (new_run(&mut rng), seed)
+        (new_run(&mut rng, &ctx), seed)
     };
 
     let mut rng = AnyRng::seeded(seed);

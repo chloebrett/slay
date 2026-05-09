@@ -23,6 +23,8 @@ pub struct Player {
     pub gold: i32,
     pub relics: Vec<Relic>,
     pub potions: Vec<Potion>,
+    pub neow_lament_combats_remaining: u32,
+    pub reached_boss: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -34,6 +36,7 @@ pub struct Enemy {
     pub move_: Move,
     pub move_history: Vec<Move>,
     pub statuses: StatusMap,
+    pub stolen_gold: i32,
 }
 
 impl Enemy {
@@ -97,6 +100,8 @@ impl CombatState {
             gold: 0,
             relics: Vec::new(),
             potions: Vec::new(),
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         };
         Self::from_player(player, vec![EnemyKind::RedLouse], rng)
     }
@@ -133,8 +138,8 @@ impl CombatState {
                     max_hp,
                     block: Block(0),
                     move_: first_move,
-                    move_history: vec![],
-                    statuses: StatusMap::new(),
+                    move_history: vec![], stolen_gold: 0,
+                    statuses: enemies::initial_statuses(kind, rng),
                 }
             })
             .collect();
@@ -211,6 +216,9 @@ pub enum Event {
     EnemyPoisoned { damage: i32 },
     EnemyDied,
     EnemySplit,
+    EnemyFled,
+    GoldStolen { amount: i32 },
+    GoldReturned { amount: i32 },
     PlayerDied,
     PlayerSelfDamaged { amount: i32 },
     EnergyGained { amount: i32 },
@@ -353,6 +361,11 @@ fn apply_play_card(
         return Ok((state, events));
     }
     if state.enemies[actual_target].hp <= Hp(0) {
+        let stolen = state.enemies[actual_target].stolen_gold;
+        if stolen > 0 {
+            state.player.gold += stolen;
+            events.push(Event::GoldReturned { amount: stolen });
+        }
         events.push(Event::EnemyDied);
         apply_enemy_died_relics(&mut state, &mut events, rng);
     }
@@ -483,7 +496,8 @@ pub(crate) fn apply_combat_command(
         | Command::BuyRelic
         | Command::BuyPotion
         | Command::LeaveTreasure
-        | Command::ChooseEventOption(_) => {
+        | Command::ChooseEventOption(_)
+        | Command::ChooseNeowBlessing(_) => {
             return Err(CommandError::InvalidPhase);
         }
         Command::EndEnemyTurn => {
@@ -519,7 +533,7 @@ pub(crate) fn apply_combat_command(
                                 max_hp: spawn_max_hp,
                                 block: Block(0),
                                 move_: Move::MediumSpikeLick,
-                                move_history: vec![],
+                                move_history: vec![], stolen_gold: 0,
                                 statuses: StatusMap::new(),
                             });
                         }
@@ -527,7 +541,14 @@ pub(crate) fn apply_combat_command(
                         i += 2;
                         continue;
                     }
+                    if let Some(steal_amount) = current_move.mug_steal_amount() {
+                        let stolen = steal_amount.min(state.player.gold);
+                        state.player.gold -= stolen;
+                        state.enemies[i].stolen_gold += stolen;
+                        events.push(Event::GoldStolen { amount: stolen });
+                    }
                     let enemy_statuses = state.enemies[i].statuses.clone();
+                    let mut fled = false;
                     for effect in current_move.def().effects {
                         match effect {
                             Effect::DealDamage(n) => {
@@ -562,7 +583,15 @@ pub(crate) fn apply_combat_command(
                                     events.push(Event::EnemyDefended { amount: n });
                                 }
                             }
+                            Effect::EscapeCombat => {
+                                state.enemies.remove(i);
+                                events.push(Event::EnemyFled);
+                                fled = true;
+                            }
                         }
+                    }
+                    if fled {
+                        continue;
                     }
                 }
                 tick_statuses(&mut state.enemies[i].statuses);
@@ -582,6 +611,8 @@ pub(crate) fn apply_combat_command(
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
+            } else if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                state.phase = CombatPhase::Victory;
             } else {
                 state.phase = CombatPhase::StartOfPlayerTurn;
             }
@@ -776,6 +807,8 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             gold: 0,
             relics: Vec::new(),
             potions: Vec::new(),
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         },
         enemies: vec![Enemy {
             kind: EnemyKind::RedLouse,
@@ -783,7 +816,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             max_hp: Hp(20),
             block: Block(0),
             move_: Move::RedLouseBite,
-            move_history: vec![],
+            move_history: vec![], stolen_gold: 0,
             statuses: StatusMap::new(),
         }],
         turn: 1,
@@ -807,6 +840,8 @@ pub(crate) fn combat_with_deck(deck: Vec<Card>, rng: &mut impl Rng) -> CombatSta
         statuses: StatusMap::new(), gold: 0,
         relics: Vec::new(), potions: Vec::new(),
         deck,
+        neow_lament_combats_remaining: 0,
+        reached_boss: false,
     };
     CombatState::from_player(player, vec![EnemyKind::RedLouse], rng)
 }
@@ -819,7 +854,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         max_hp: Hp(20),
         block: Block(0),
         move_: Move::RedLouseBite,
-        move_history: vec![],
+        move_history: vec![], stolen_gold: 0,
         statuses: StatusMap::new(),
     };
     CombatState {
@@ -838,6 +873,8 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
             gold: 0,
             relics: Vec::new(),
             potions: Vec::new(),
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
         },
         enemies: vec![louse(), louse()],
         turn: 1,
@@ -1522,7 +1559,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            move_history: vec![],
+            move_history: vec![], stolen_gold: 0,
             statuses: StatusMap::new(),
         };
         enemy.statuses.insert(StatusEffect::Strength, 3);
@@ -1536,7 +1573,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            move_history: vec![],
+            move_history: vec![], stolen_gold: 0,
             statuses: StatusMap::new(),
         };
         let mut player_statuses = StatusMap::new();
@@ -1550,7 +1587,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            move_history: vec![],
+            move_history: vec![], stolen_gold: 0,
             statuses: StatusMap::new(),
         };
         enemy.statuses.insert(StatusEffect::Weak, 1);
@@ -1732,6 +1769,8 @@ mod tests {
                 gold: 0,
                 relics: Vec::new(),
                 potions: Vec::new(),
+                neow_lament_combats_remaining: 0,
+                reached_boss: false,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::TheGuardian,
@@ -1739,7 +1778,7 @@ mod tests {
                 max_hp: Hp(240),
                 block: Block(0),
                 move_: Move::GuardianChargingUp,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2125,6 +2164,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::LargeSpike,
@@ -2132,7 +2172,7 @@ mod tests {
                 max_hp: Hp(67),
                 block: Block(0),
                 move_: Move::LargeSpikeSplit,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2218,13 +2258,14 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::MadGremlin,
                 hp: Hp(20), max_hp: Hp(20),
                 block: Block(0),
                 move_: Move::GremlinScratch,
-                move_history: vec![],
+                move_history: vec![], stolen_gold: 0,
                 statuses: StatusMap::new(),
             }],
             turn: 1, phase: CombatPhase::PlayerTurn,
@@ -2259,6 +2300,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
+                neow_lament_combats_remaining: 0, reached_boss: false,
             },
             enemies: vec![
                 Enemy {
@@ -2266,7 +2308,7 @@ mod tests {
                     hp: Hp(12), max_hp: Hp(12),
                     block: Block(0),
                     move_: Move::ShieldProtect,
-                    move_history: vec![],
+                    move_history: vec![], stolen_gold: 0,
                     statuses: StatusMap::new(),
                 },
                 Enemy {
@@ -2274,7 +2316,7 @@ mod tests {
                     hp: Hp(20), max_hp: Hp(20),
                     block: Block(0),
                     move_: Move::GremlinScratch,
-                    move_history: vec![],
+                    move_history: vec![], stolen_gold: 0,
                     statuses: StatusMap::new(),
                 },
             ],
@@ -2297,5 +2339,144 @@ mod tests {
         let state = two_enemy_combat_shield_protect();
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         assert_eq!(state.enemies[1].block.0, 7);
+    }
+
+    // --- Thieves ---
+
+    fn looter_combat_with_gold(gold: i32) -> CombatState {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.player.gold = gold;
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::Looter,
+            hp: Hp(44),
+            max_hp: Hp(44),
+            block: Block(0),
+            move_: crate::enemies::Move::LooterMug,
+            move_history: vec![], stolen_gold: 0,
+            statuses: StatusMap::new(),
+                    }];
+        state.phase = CombatPhase::EnemyTurn;
+        state
+    }
+
+    fn looter_on_move(move_: crate::enemies::Move) -> CombatState {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![]);
+        state.player.gold = 50;
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::Looter,
+            hp: Hp(44),
+            max_hp: Hp(44),
+            block: Block(0),
+            move_,
+            move_history: vec![], stolen_gold: 0,
+            statuses: StatusMap::new(),
+                    }];
+        state.phase = CombatPhase::EnemyTurn;
+        state
+    }
+
+    #[test]
+    fn enemy_stolen_gold_default_is_zero() {
+        let state = combat_with_hand(vec![]);
+        assert_eq!(state.enemies[0].stolen_gold, 0);
+    }
+
+    #[test]
+    fn looter_mug_steals_gold_from_player() {
+        let state = looter_combat_with_gold(50);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.gold, 40);
+    }
+
+    #[test]
+    fn looter_mug_accumulates_stolen_gold_on_enemy() {
+        let state = looter_combat_with_gold(50);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].stolen_gold, 10);
+    }
+
+    #[test]
+    fn looter_mug_emits_gold_stolen_event() {
+        let state = looter_combat_with_gold(50);
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(events.contains(&Event::GoldStolen { amount: 10 }));
+    }
+
+    #[test]
+    fn looter_mug_cannot_steal_more_than_player_has() {
+        let state = looter_combat_with_gold(5);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.gold, 0);
+        assert_eq!(state.enemies[0].stolen_gold, 5);
+    }
+
+    #[test]
+    fn looter_mug_gold_cannot_go_below_zero() {
+        let state = looter_combat_with_gold(0);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.gold, 0);
+    }
+
+    #[test]
+    fn killing_looter_returns_stolen_gold() {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.player.gold = 50;
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::Looter,
+            hp: Hp(1),
+            max_hp: Hp(44),
+            block: Block(0),
+            move_: crate::enemies::Move::LooterMug,
+            move_history: vec![],
+            statuses: StatusMap::new(),
+            stolen_gold: 10,
+        }];
+        let (state, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.gold, 60);
+        assert!(events.contains(&Event::GoldReturned { amount: 10 }));
+    }
+
+    #[test]
+    fn looter_flee_removes_enemy_from_combat() {
+        let state = looter_on_move(crate::enemies::Move::LooterFlee);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies.is_empty());
+    }
+
+    #[test]
+    fn looter_flee_emits_enemy_fled_event() {
+        let state = looter_on_move(crate::enemies::Move::LooterFlee);
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemyFled));
+    }
+
+    #[test]
+    fn looter_flee_does_not_return_stolen_gold() {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![]);
+        state.player.gold = 40;
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::Looter,
+            hp: Hp(44),
+            max_hp: Hp(44),
+            block: Block(0),
+            move_: crate::enemies::Move::LooterFlee,
+            move_history: vec![],
+            statuses: StatusMap::new(),
+            stolen_gold: 10,
+        }];
+        state.phase = CombatPhase::EnemyTurn;
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.gold, 40);
+    }
+
+    #[test]
+    fn combat_ends_in_victory_when_last_enemy_flees() {
+        let state = looter_on_move(crate::enemies::Move::LooterFlee);
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Victory);
     }
 }

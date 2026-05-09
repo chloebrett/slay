@@ -43,13 +43,17 @@ mod cleave;
 mod clothesline;
 mod dazed;
 mod slimed;
+mod blind;
 mod deadly_poison;
 mod defend;
 mod disarm;
+mod dramatic_entrance;
 mod finesse;
 mod flash_of_steel;
 mod good_instincts;
 mod swift_strike;
+mod trip;
+mod writhe;
 mod entrench;
 mod feel_no_pain;
 mod hemokinesis;
@@ -88,12 +92,16 @@ pub enum Card {
     Bash(Grade),
     Clothesline(Grade),
     Inflame(Grade),
+    Blind(Grade),
     DeadlyPoison(Grade),
     Disarm,
+    DramaticEntrance(Grade),
     Finesse(Grade),
     FlashOfSteel(Grade),
     GoodInstincts(Grade),
     SwiftStrike(Grade),
+    Trip(Grade),
+    Writhe,
     Cleave(Grade),
     IronWave(Grade),
     SpotWeakness(Grade),
@@ -248,6 +256,10 @@ impl Card {
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
             Card::GoodInstincts(g) => good_instincts::def(*g),
             Card::SwiftStrike(g)   => swift_strike::def(*g),
+            Card::Blind(g)         => blind::def(*g),
+            Card::DramaticEntrance(g) => dramatic_entrance::def(*g),
+            Card::Trip(g)          => trip::def(*g),
+            Card::Writhe           => writhe::def(),
             Card::Cleave(g)       => cleave::def(*g),
             Card::IronWave(g)     => iron_wave::def(*g),
             Card::SpotWeakness(g) => spot_weakness::def(*g),
@@ -322,7 +334,7 @@ impl Card {
     pub fn is_playable(&self) -> bool {
         !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane)
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe)
     }
 
     pub fn is_ethereal(&self) -> bool {
@@ -330,7 +342,7 @@ impl Card {
     }
 
     pub fn is_innate(&self) -> bool {
-        matches!(self, Card::Brutality(Grade::Plus))
+        matches!(self, Card::Brutality(Grade::Plus) | Card::DramaticEntrance(_) | Card::Writhe)
     }
 
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
@@ -352,7 +364,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
+        matches!(self, Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -372,9 +384,10 @@ impl Card {
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
-            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g) => Some(*g),
+            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
+            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g) => Some(*g),
             Card::SearingBlow(_) |
-            Card::Disarm | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
@@ -446,8 +459,11 @@ impl Card {
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
             Card::SwiftStrike(_)   => Card::SwiftStrike(g),
+            Card::Blind(_)         => Card::Blind(g),
+            Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
+            Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
-            Card::Disarm | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
@@ -508,6 +524,10 @@ impl Card {
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
             Card::GoodInstincts(g) => good_instincts::id(*g),
             Card::SwiftStrike(g)   => swift_strike::id(*g),
+            Card::Blind(g)         => blind::id(*g),
+            Card::DramaticEntrance(g) => dramatic_entrance::id(*g),
+            Card::Trip(g)          => trip::id(*g),
+            Card::Writhe           => writhe::id(),
             Card::Cleave(g)       => cleave::id(*g),
             Card::IronWave(g)     => iron_wave::id(*g),
             Card::SpotWeakness(g)   => spot_weakness::id(*g),
@@ -593,6 +613,10 @@ impl Card {
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
             Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
             Card::SwiftStrike(Base),   Card::SwiftStrike(Plus),
+            Card::Blind(Base),         Card::Blind(Plus),
+            Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
+            Card::Trip(Base),          Card::Trip(Plus),
+            Card::Writhe,
             Card::Cleave(Base),       Card::Cleave(Plus),
             Card::IronWave(Base),     Card::IronWave(Plus),
             Card::SpotWeakness(Base),   Card::SpotWeakness(Plus),
@@ -686,6 +710,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),
         Card::GoodInstincts(g) => good_instincts::apply(state, events, *g, rng),
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
+        Card::Blind(g)         => blind::apply(state, events, *g, target),
+        Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),
+        Card::Trip(g)          => trip::apply(state, events, *g),
         Card::Cleave(g)        => cleave::apply(state, events, *g),
         Card::IronWave(g)     => iron_wave::apply(state, events, *g, target, rng),
         Card::SpotWeakness(g)   => spot_weakness::apply(state, events, *g, target),
@@ -744,7 +771,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Slimed => {} // playable, but no effect — just exhausts
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable
+        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe => {} // unplayable
     }
 }
 

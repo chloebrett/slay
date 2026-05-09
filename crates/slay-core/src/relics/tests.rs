@@ -23,6 +23,8 @@ fn test_player() -> Player {
         gold: 0,
         relics: vec![],
         potions: vec![],
+        neow_lament_combats_remaining: 0,
+        reached_boss: false,
     }
 }
 
