@@ -10,15 +10,10 @@ struct SaveFile {
     state: GameState,
 }
 
+#[derive(Default)]
 pub struct MetaSave {
     pub runs_completed: u32,
     pub runs_won: u32,
-}
-
-impl Default for MetaSave {
-    fn default() -> Self {
-        Self { runs_completed: 0, runs_won: 0 }
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

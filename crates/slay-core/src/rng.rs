@@ -52,13 +52,13 @@ impl Rng for ThreadRng {
 
 pub enum AnyRng {
     Thread(ThreadRng),
-    Seeded(SeededRng),
+    Seeded(Box<SeededRng>),
     NoOp(NoOpRng),
 }
 
 impl AnyRng {
     pub fn seeded(seed: u64) -> Self {
-        AnyRng::Seeded(SeededRng::new(seed))
+        AnyRng::Seeded(Box::new(SeededRng::new(seed)))
     }
 
     pub fn seed(&self) -> Option<u64> {

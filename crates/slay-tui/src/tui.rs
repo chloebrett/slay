@@ -389,11 +389,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
         // Connector rows between this floor and the one below
         if floor > 0 {
-            let conn_style = if floor <= map.floor {
-                Style::default().fg(Color::DarkGray)
-            } else {
-                Style::default().fg(Color::DarkGray)
-            };
+            let conn_style = Style::default().fg(Color::DarkGray);
             let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols);
             lines.push(Line::styled(r0, conn_style));
             lines.push(Line::styled(r1, conn_style));

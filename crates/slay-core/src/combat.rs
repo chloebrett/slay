@@ -723,14 +723,13 @@ pub(crate) fn damage_player(state: &mut CombatState, events: &mut Vec<Event>, am
     events.push(Event::PlayerSelfDamaged { amount });
 }
 
-pub(crate) fn damage_all_enemies(enemies: &mut Vec<Enemy>, events: &mut Vec<Event>, base_damage: i32) {
-    for i in 0..enemies.len() {
-        if enemies[i].hp <= Hp(0) { continue; }
-        let dmg = resolve_damage(base_damage, &StatusMap::new(), &enemies[i].statuses);
-        let e = &mut enemies[i];
-        let dealt = deal_damage(dmg, &mut e.hp, &mut e.block);
+pub(crate) fn damage_all_enemies(enemies: &mut [Enemy], events: &mut Vec<Event>, base_damage: i32) {
+    for enemy in enemies.iter_mut() {
+        if enemy.hp <= Hp(0) { continue; }
+        let dmg = resolve_damage(base_damage, &StatusMap::new(), &enemy.statuses);
+        let dealt = deal_damage(dmg, &mut enemy.hp, &mut enemy.block);
         events.push(Event::PlayerAttacked { raw: dmg, damage: dealt });
-        if enemies[i].hp <= Hp(0) {
+        if enemy.hp <= Hp(0) {
             events.push(Event::EnemyDied);
         }
     }
