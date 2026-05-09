@@ -4,6 +4,7 @@ mod fungibeast;
 mod green_louse;
 mod gremlin_nob;
 mod jaw_worm;
+mod lagavulin;
 mod red_louse;
 mod red_slaver;
 mod small_acid_slime;
@@ -28,6 +29,7 @@ pub enum EnemyKind {
     RedSlaver,
     TheGuardian,
     GremlinNob,
+    Lagavulin,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +76,12 @@ pub enum Move {
     NobBellow,
     SkullBash,
     BullRush,
+    // Lagavulin
+    LagavulinSleep,
+    LagavulinStunned,
+    LagavulinAttackA,
+    LagavulinAttackB,
+    LagavulinSiphonSoul,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +132,11 @@ impl Move {
             Move::NobBellow  => MoveDef { name: "Bellow",     effects: vec![Effect::GainStatus(StatusEffect::Enrage, 2)] },
             Move::SkullBash  => MoveDef { name: "Skull Bash", effects: vec![Effect::DealDamage(6), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
             Move::BullRush   => MoveDef { name: "Bull Rush",  effects: vec![Effect::DealDamage(14)] },
+            Move::LagavulinSleep    => MoveDef { name: "Sleep",       effects: vec![] },
+            Move::LagavulinStunned  => MoveDef { name: "Stunned",     effects: vec![] },
+            Move::LagavulinAttackA  => MoveDef { name: "Attack",      effects: vec![Effect::DealDamage(18)] },
+            Move::LagavulinAttackB  => MoveDef { name: "Attack",      effects: vec![Effect::DealDamage(18)] },
+            Move::LagavulinSiphonSoul => MoveDef { name: "Siphon Soul", effects: vec![Effect::ApplyStatus(StatusEffect::Strength, -1), Effect::ApplyStatus(StatusEffect::Dexterity, -1)] },
         }
     }
 
@@ -177,6 +190,7 @@ impl EnemyKind {
             EnemyKind::RedSlaver       => red_slaver::DEF,
             EnemyKind::TheGuardian     => the_guardian::DEF,
             EnemyKind::GremlinNob      => gremlin_nob::DEF,
+            EnemyKind::Lagavulin       => lagavulin::DEF,
         }
     }
 
@@ -196,6 +210,7 @@ impl EnemyKind {
             EnemyKind::RedSlaver       => "red-slaver",
             EnemyKind::TheGuardian     => "the-guardian",
             EnemyKind::GremlinNob      => "gremlin-nob",
+            EnemyKind::Lagavulin       => "lagavulin",
         }
     }
 
@@ -212,6 +227,7 @@ impl EnemyKind {
             "red-slaver"        => Some(EnemyKind::RedSlaver),
             "the-guardian"      => Some(EnemyKind::TheGuardian),
             "gremlin-nob"       => Some(EnemyKind::GremlinNob),
+            "lagavulin"         => Some(EnemyKind::Lagavulin),
             _                   => None,
         }
     }
@@ -239,7 +255,7 @@ pub fn on_player_attack_damage(
     }
 }
 
-pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Move {
+pub fn next_move(kind: &EnemyKind, last: Option<Move>, statuses: &StatusMap, rng: &mut impl Rng) -> Move {
     match kind {
         EnemyKind::Fungibeast      => fungibeast::next_move(last),
         EnemyKind::Cultist         => cultist::next_move(last),
@@ -252,6 +268,7 @@ pub fn next_move(kind: &EnemyKind, last: Option<Move>, rng: &mut impl Rng) -> Mo
         EnemyKind::RedSlaver       => red_slaver::next_move(last, rng),
         EnemyKind::TheGuardian     => the_guardian::next_move(last),
         EnemyKind::GremlinNob      => gremlin_nob::next_move(last, rng),
+        EnemyKind::Lagavulin       => lagavulin::next_move(last, statuses),
     }
 }
 
@@ -269,17 +286,17 @@ mod tests {
 
     #[test]
     fn fungibeast_light_first_turn() {
-        assert_eq!(next_move(&EnemyKind::Fungibeast, None, &mut rng()), Move::FungiLight);
+        assert_eq!(next_move(&EnemyKind::Fungibeast, None, &StatusMap::new(), &mut rng()), Move::FungiLight);
     }
 
     #[test]
     fn fungibeast_heavy_after_light() {
-        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiLight), &mut rng()), Move::FungiHeavy);
+        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiLight), &StatusMap::new(), &mut rng()), Move::FungiHeavy);
     }
 
     #[test]
     fn fungibeast_light_after_heavy() {
-        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiHeavy), &mut rng()), Move::FungiLight);
+        assert_eq!(next_move(&EnemyKind::Fungibeast, Some(Move::FungiHeavy), &StatusMap::new(), &mut rng()), Move::FungiLight);
     }
 
     #[test]
@@ -289,17 +306,17 @@ mod tests {
 
     #[test]
     fn cultist_incantation_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::Cultist, None, &mut rng()), Move::Incantation);
+        assert_eq!(next_move(&EnemyKind::Cultist, None, &StatusMap::new(), &mut rng()), Move::Incantation);
     }
 
     #[test]
     fn cultist_dark_strike_after_incantation() {
-        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::Incantation), &mut rng()), Move::DarkStrike);
+        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::Incantation), &StatusMap::new(), &mut rng()), Move::DarkStrike);
     }
 
     #[test]
     fn cultist_dark_strike_repeats() {
-        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::DarkStrike), &mut rng()), Move::DarkStrike);
+        assert_eq!(next_move(&EnemyKind::Cultist, Some(Move::DarkStrike), &StatusMap::new(), &mut rng()), Move::DarkStrike);
     }
 
     #[test]
@@ -309,13 +326,13 @@ mod tests {
 
     #[test]
     fn jaw_worm_chomps_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::JawWorm, None, &mut rng()), Move::Chomp);
+        assert_eq!(next_move(&EnemyKind::JawWorm, None, &StatusMap::new(), &mut rng()), Move::Chomp);
     }
 
     #[test]
     fn jaw_worm_never_repeats_last_move() {
         for last in [Move::Chomp, Move::Thrash, Move::Bellow] {
-            let next = next_move(&EnemyKind::JawWorm, Some(last), &mut rng());
+            let next = next_move(&EnemyKind::JawWorm, Some(last), &StatusMap::new(), &mut rng());
             assert_ne!(next, last, "repeated {last:?}");
         }
     }
@@ -342,8 +359,8 @@ mod tests {
 
     #[test]
     fn small_spike_slime_always_flame_tackles() {
-        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, None, &mut rng()), Move::FlameTackle);
-        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, Some(Move::FlameTackle), &mut rng()), Move::FlameTackle);
+        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, None, &StatusMap::new(), &mut rng()), Move::FlameTackle);
+        assert_eq!(next_move(&EnemyKind::SmallSpikeSlime, Some(Move::FlameTackle), &StatusMap::new(), &mut rng()), Move::FlameTackle);
     }
 
     #[test]
@@ -358,17 +375,17 @@ mod tests {
 
     #[test]
     fn red_louse_bites_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::RedLouse, None, &mut rng()), Move::RedLouseBite);
+        assert_eq!(next_move(&EnemyKind::RedLouse, None, &StatusMap::new(), &mut rng()), Move::RedLouseBite);
     }
 
     #[test]
     fn red_louse_bites_after_grow() {
-        assert_eq!(next_move(&EnemyKind::RedLouse, Some(Move::Grow), &mut rng()), Move::RedLouseBite);
+        assert_eq!(next_move(&EnemyKind::RedLouse, Some(Move::Grow), &StatusMap::new(), &mut rng()), Move::RedLouseBite);
     }
 
     #[test]
     fn red_louse_never_repeats_grow() {
-        let next = next_move(&EnemyKind::RedLouse, Some(Move::Grow), &mut rng());
+        let next = next_move(&EnemyKind::RedLouse, Some(Move::Grow), &StatusMap::new(), &mut rng());
         assert_ne!(next, Move::Grow);
     }
 
@@ -446,12 +463,12 @@ mod tests {
 
     #[test]
     fn green_louse_bites_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::GreenLouse, None, &mut rng()), Move::GreenBite);
+        assert_eq!(next_move(&EnemyKind::GreenLouse, None, &StatusMap::new(), &mut rng()), Move::GreenBite);
     }
 
     #[test]
     fn green_louse_never_repeats_spit_web() {
-        let next = next_move(&EnemyKind::GreenLouse, Some(Move::SpitWeb), &mut rng());
+        let next = next_move(&EnemyKind::GreenLouse, Some(Move::SpitWeb), &StatusMap::new(), &mut rng());
         assert_ne!(next, Move::SpitWeb);
     }
 
@@ -474,17 +491,17 @@ mod tests {
 
     #[test]
     fn small_acid_slime_tackles_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, None, &mut rng()), Move::AcidTackle);
+        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, None, &StatusMap::new(), &mut rng()), Move::AcidTackle);
     }
 
     #[test]
     fn small_acid_slime_licks_after_tackle() {
-        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, Some(Move::AcidTackle), &mut rng()), Move::Lick);
+        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, Some(Move::AcidTackle), &StatusMap::new(), &mut rng()), Move::Lick);
     }
 
     #[test]
     fn small_acid_slime_tackles_after_lick() {
-        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, Some(Move::Lick), &mut rng()), Move::AcidTackle);
+        assert_eq!(next_move(&EnemyKind::SmallAcidSlime, Some(Move::Lick), &StatusMap::new(), &mut rng()), Move::AcidTackle);
     }
 
     #[test]
@@ -506,13 +523,13 @@ mod tests {
 
     #[test]
     fn blue_slaver_stabs_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::BlueSlaver, None, &mut rng()), Move::BlueStab);
+        assert_eq!(next_move(&EnemyKind::BlueSlaver, None, &StatusMap::new(), &mut rng()), Move::BlueStab);
     }
 
     #[test]
     fn blue_slaver_never_repeats_last_move() {
         for last in [Move::BlueStab, Move::Rake] {
-            let next = next_move(&EnemyKind::BlueSlaver, Some(last), &mut rng());
+            let next = next_move(&EnemyKind::BlueSlaver, Some(last), &StatusMap::new(), &mut rng());
             assert_ne!(next, last, "repeated {last:?}");
         }
     }
@@ -536,20 +553,20 @@ mod tests {
 
     #[test]
     fn red_slaver_stabs_on_first_turn() {
-        assert_eq!(next_move(&EnemyKind::RedSlaver, None, &mut rng()), Move::RedStab);
+        assert_eq!(next_move(&EnemyKind::RedSlaver, None, &StatusMap::new(), &mut rng()), Move::RedStab);
     }
 
     #[test]
     fn red_slaver_never_repeats_last_move() {
         for last in [Move::RedStab, Move::Scrape, Move::SlaveEntangle] {
-            let next = next_move(&EnemyKind::RedSlaver, Some(last), &mut rng());
+            let next = next_move(&EnemyKind::RedSlaver, Some(last), &StatusMap::new(), &mut rng());
             assert_ne!(next, last, "repeated {last:?}");
         }
     }
 
     #[test]
     fn red_slaver_never_uses_entangle_twice() {
-        let next = next_move(&EnemyKind::RedSlaver, Some(Move::SlaveEntangle), &mut rng());
+        let next = next_move(&EnemyKind::RedSlaver, Some(Move::SlaveEntangle), &StatusMap::new(), &mut rng());
         assert_ne!(next, Move::SlaveEntangle);
     }
 
@@ -612,37 +629,37 @@ mod tests {
 
     #[test]
     fn guardian_first_move_is_charging_up() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, None, &mut rng()), Move::GuardianChargingUp);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, None, &StatusMap::new(), &mut rng()), Move::GuardianChargingUp);
     }
 
     #[test]
     fn guardian_fierce_bash_after_charging_up() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianChargingUp), &mut rng()), Move::GuardianFierceBash);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianChargingUp), &StatusMap::new(), &mut rng()), Move::GuardianFierceBash);
     }
 
     #[test]
     fn guardian_vent_steam_after_fierce_bash() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianFierceBash), &mut rng()), Move::GuardianVentSteam);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianFierceBash), &StatusMap::new(), &mut rng()), Move::GuardianVentSteam);
     }
 
     #[test]
     fn guardian_whirlwind_after_vent_steam() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianVentSteam), &mut rng()), Move::GuardianWhirlwind);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianVentSteam), &StatusMap::new(), &mut rng()), Move::GuardianWhirlwind);
     }
 
     #[test]
     fn guardian_charging_up_after_whirlwind() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianWhirlwind), &mut rng()), Move::GuardianChargingUp);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianWhirlwind), &StatusMap::new(), &mut rng()), Move::GuardianChargingUp);
     }
 
     #[test]
     fn guardian_roll_attack_after_twin_slam_setup() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianRollAttack), &mut rng()), Move::GuardianTwinSlam);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianRollAttack), &StatusMap::new(), &mut rng()), Move::GuardianTwinSlam);
     }
 
     #[test]
     fn guardian_twin_slam_leads_to_whirlwind() {
-        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianTwinSlam), &mut rng()), Move::GuardianWhirlwind);
+        assert_eq!(next_move(&EnemyKind::TheGuardian, Some(Move::GuardianTwinSlam), &StatusMap::new(), &mut rng()), Move::GuardianWhirlwind);
     }
 
     // --- Gremlin Nob ---
@@ -659,18 +676,18 @@ mod tests {
 
     #[test]
     fn gremlin_nob_first_move_is_bellow() {
-        assert_eq!(next_move(&EnemyKind::GremlinNob, None, &mut rng()), Move::NobBellow);
+        assert_eq!(next_move(&EnemyKind::GremlinNob, None, &StatusMap::new(), &mut rng()), Move::NobBellow);
     }
 
     #[test]
     fn gremlin_nob_never_bellows_twice() {
-        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &mut rng());
+        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &StatusMap::new(), &mut rng());
         assert_ne!(next, Move::NobBellow);
     }
 
     #[test]
     fn gremlin_nob_after_bellow_uses_skull_bash_or_bull_rush() {
-        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &mut rng());
+        let next = next_move(&EnemyKind::GremlinNob, Some(Move::NobBellow), &StatusMap::new(), &mut rng());
         assert!(
             matches!(next, Move::SkullBash | Move::BullRush),
             "expected SkullBash or BullRush, got {next:?}"
@@ -680,7 +697,7 @@ mod tests {
     #[test]
     fn gremlin_nob_never_repeats_last_move() {
         for last in [Move::SkullBash, Move::BullRush] {
-            let next = next_move(&EnemyKind::GremlinNob, Some(last), &mut rng());
+            let next = next_move(&EnemyKind::GremlinNob, Some(last), &StatusMap::new(), &mut rng());
             assert_ne!(next, last, "repeated {last:?}");
         }
     }
@@ -721,5 +738,85 @@ mod tests {
     #[test]
     fn bull_rush_name_is_bull_rush() {
         assert_eq!(Move::BullRush.def().name, "Bull Rush");
+    }
+
+    // --- Lagavulin ---
+
+    fn sleeping_statuses() -> StatusMap {
+        let mut m = StatusMap::new();
+        m.insert(StatusEffect::Sleep, 3);
+        m
+    }
+
+    #[test]
+    fn lagavulin_has_109_hp() {
+        assert_eq!(EnemyKind::Lagavulin.max_hp(), Hp(109));
+    }
+
+    #[test]
+    fn lagavulin_is_named_lagavulin() {
+        assert_eq!(EnemyKind::Lagavulin.name(), "Lagavulin");
+    }
+
+    #[test]
+    fn lagavulin_first_move_is_sleep() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, None, &sleeping_statuses(), &mut rng()), Move::LagavulinSleep);
+    }
+
+    #[test]
+    fn lagavulin_stays_sleeping_while_sleep_active() {
+        let statuses = sleeping_statuses();
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinSleep), &statuses, &mut rng()), Move::LagavulinSleep);
+    }
+
+    #[test]
+    fn lagavulin_wakes_naturally_when_sleep_expires() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinSleep), &StatusMap::new(), &mut rng()), Move::LagavulinAttackA);
+    }
+
+    #[test]
+    fn lagavulin_attacks_after_stun() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinStunned), &StatusMap::new(), &mut rng()), Move::LagavulinAttackA);
+    }
+
+    #[test]
+    fn lagavulin_awake_cycle_attack_a_then_b() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinAttackA), &StatusMap::new(), &mut rng()), Move::LagavulinAttackB);
+    }
+
+    #[test]
+    fn lagavulin_awake_cycle_attack_b_then_siphon() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinAttackB), &StatusMap::new(), &mut rng()), Move::LagavulinSiphonSoul);
+    }
+
+    #[test]
+    fn lagavulin_awake_cycle_siphon_then_attack_a() {
+        assert_eq!(next_move(&EnemyKind::Lagavulin, Some(Move::LagavulinSiphonSoul), &StatusMap::new(), &mut rng()), Move::LagavulinAttackA);
+    }
+
+    #[test]
+    fn lagavulin_attack_a_deals_18_damage() {
+        assert_eq!(Move::LagavulinAttackA.intent(), Intent::Attack(18));
+    }
+
+    #[test]
+    fn lagavulin_attack_b_deals_18_damage() {
+        assert_eq!(Move::LagavulinAttackB.intent(), Intent::Attack(18));
+    }
+
+    #[test]
+    fn lagavulin_siphon_soul_is_debuff() {
+        assert_eq!(Move::LagavulinSiphonSoul.intent(), Intent::Debuff);
+    }
+
+    #[test]
+    fn lagavulin_sleep_is_buff() {
+        assert_eq!(Move::LagavulinSleep.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn lagavulin_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("lagavulin"), Some(EnemyKind::Lagavulin));
+        assert_eq!(EnemyKind::Lagavulin.id(), "lagavulin");
     }
 }

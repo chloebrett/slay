@@ -121,7 +121,7 @@ impl CombatState {
             .iter()
             .map(|kind| {
                 let max_hp = kind.max_hp();
-                let first_move = enemies::next_move(kind, None, rng);
+                let first_move = enemies::next_move(kind, None, &crate::status::StatusMap::new(), rng);
                 Enemy {
                     kind: kind.clone(),
                     hp: max_hp,
@@ -554,7 +554,7 @@ pub(crate) fn apply_combat_command(
             state.turn += 1;
             for enemy in state.enemies.iter_mut() {
                 if enemy.hp > Hp(0) {
-                    enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, rng);
+                    enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, &enemy.statuses, rng);
                     events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
                 }
             }
@@ -1352,6 +1352,15 @@ mod tests {
         state.enemies[0].statuses.insert(StatusEffect::Metallicize, 8);
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         assert_eq!(state.enemies[0].block, Block(8));
+    }
+
+    #[test]
+    fn metallicize_absent_produces_no_block_event() {
+        let mut state = combat_with_hand(Vec::new());
+        state.phase = CombatPhase::EnemyTurn;
+        // RedLouseBite has no block gain, and no metallicize — no EnemyDefended event
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(!events.iter().any(|e| matches!(e, Event::EnemyDefended { .. })));
     }
 
     #[test]
