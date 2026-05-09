@@ -18,6 +18,7 @@ use std::collections::VecDeque;
 
 const LOG_CAPACITY: usize = 200;
 
+#[allow(dead_code)] // used in the event loop, not in test compilation
 const WIPE_DURATION: std::time::Duration = std::time::Duration::from_millis(500);
 const FLASH_DURATION: std::time::Duration = std::time::Duration::from_millis(200);
 

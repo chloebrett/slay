@@ -29,8 +29,8 @@ Cards available to all characters. ✅ = implemented in Rust.
 | Decay | Curse | Unplayable. End of turn: take 2 damage. | ✅ |
 | Doubt | Curse | Unplayable. End of turn: gain 1 Weak. | ✅ |
 | Injury | Curse | Unplayable. | ✅ |
-| Normality | Curse | Unplayable. You cannot play more than 3 cards this turn. | |
-| Pain | Curse | Unplayable. When you play a card, lose 1 HP. | |
+| Normality | Curse | Unplayable. You cannot play more than 3 cards this turn. | ✅ |
+| Pain | Curse | Unplayable. When you play a card, lose 1 HP. | ✅ |
 | Parasite | Curse | Unplayable. If transformed or removed, lose 3 Max HP. | ✅ |
 | Regret | Curse | Unplayable. End of turn: lose 1 HP per card in hand. | ✅ |
 | Shame | Curse | Unplayable. End of turn: gain 1 Frail. | ✅ |
@@ -140,8 +140,6 @@ New mechanics required before implementing colorless reward cards:
 - **Panacea** — gain 2 Artifact; Artifact is a new status that absorbs the next debuff applied, intercepting `apply_status` for debuffs.
 - **Panache** — deal 10 AoE damage every 5 cards played in a turn; needs a `cards_played_this_turn` counter in `CombatState` and a post-play trigger that checks it.
 - **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.
-- **Pain (curse)** — whenever the player plays a card, lose 1 HP; needs an on-play trigger checked against curses in hand (or a flag on `CombatState`).
-- **Normality (curse)** — cannot play more than 3 cards this turn; needs the same `cards_played_this_turn` counter and enforcement in the play-card path.
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 - **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.

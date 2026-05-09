@@ -1200,7 +1200,7 @@
 
     #[test]
     fn without_barricade_block_clears_each_turn() {
-        let mut state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Defend(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let state = full_turn(state);
         assert_eq!(state.player.block, Block(0));
@@ -2641,7 +2641,7 @@
 
     #[test]
     fn blind_plus_applies_weak_to_all_in_two_enemy_combat() {
-        let state = combat_with_hand(vec![Card::Blind(Grade::Plus)]);
+        let _state = combat_with_hand(vec![Card::Blind(Grade::Plus)]);
         let (state, events) = apply_command(
             crate::combat::combat_with_two_enemies(vec![Card::Blind(Grade::Plus)]),
             Command::PlayCard(0, 0),
@@ -2726,6 +2726,43 @@
     fn dramatic_entrance_is_innate() {
         assert!(Card::DramaticEntrance(Grade::Base).is_innate());
         assert!(Card::DramaticEntrance(Grade::Plus).is_innate());
+    }
+
+    // --- Pain ---
+
+    #[test]
+    fn pain_is_not_playable() {
+        assert!(!Card::Pain.is_playable());
+    }
+
+    #[test]
+    fn pain_is_a_curse() {
+        assert_eq!(Card::Pain.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn pain_id_round_trips() {
+        assert_eq!(Card::from_id("pain"), Some(Card::Pain));
+    }
+
+    #[test]
+    fn pain_deals_1_hp_when_card_played() {
+        let state = combat_with_hand(vec![Card::Strike(Grade::Base), Card::Pain]);
+        let hp_before = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(hp_before.0 - 1));
+    }
+
+    #[test]
+    fn pain_triggers_once_per_card_played() {
+        let mut state = combat_with_hand(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Pain,
+        ]);
+        state.player.energy = Energy(9);
+        let hp_before = state.player.hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(hp_before.0 - 2));
     }
 
     // --- Normality ---

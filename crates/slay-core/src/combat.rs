@@ -364,6 +364,9 @@ fn apply_play_card(
         CardType::Power | CardType::Curse | CardType::Status => {}
     }
     state.cards_played_this_turn += 1;
+    if state.player.hand.iter().any(|c| matches!(c, Card::Pain)) {
+        damage_player(&mut state, &mut events, 1);
+    }
     apply_card_play_relics(&mut state, &mut events, card_type, rng);
     if state.player.hp <= Hp(0) {
         state.phase = CombatPhase::Defeat;
@@ -1865,7 +1868,6 @@ mod tests {
 
     #[test]
     fn mode_shift_grants_20_block() {
-        use crate::status::StatusEffect;
         let mut state = guardian_combat(vec![
             Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
             Card::Strike(Grade::Base), Card::Strike(Grade::Base),
@@ -1892,7 +1894,6 @@ mod tests {
 
     #[test]
     fn mode_shift_sets_move_to_roll_attack() {
-        use crate::status::StatusEffect;
         let mut state = guardian_combat(vec![
             Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
             Card::Strike(Grade::Base), Card::Strike(Grade::Base),
@@ -2122,14 +2123,14 @@ mod tests {
 
     #[test]
     fn playing_skill_card_triggers_enrage_strength_gain() {
-        let mut state = combat_with_enrage(2, vec![Card::Defend(Grade::Base)]);
+        let state = combat_with_enrage(2, vec![Card::Defend(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 2);
     }
 
     #[test]
     fn playing_attack_card_does_not_trigger_enrage() {
-        let mut state = combat_with_enrage(2, vec![Card::Strike(Grade::Base)]);
+        let state = combat_with_enrage(2, vec![Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 0);
     }
@@ -2145,7 +2146,7 @@ mod tests {
 
     #[test]
     fn enrage_does_not_trigger_for_power_card() {
-        let mut state = combat_with_enrage(2, vec![Card::Inflame(Grade::Base)]);
+        let state = combat_with_enrage(2, vec![Card::Inflame(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 0);
     }
@@ -2242,7 +2243,7 @@ mod tests {
         let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         assert_eq!(state.enemies.len(), 2);
         // now kill both medium slimes
-        let mut state = {
+        let state = {
             let mut s = state;
             s.phase = CombatPhase::PlayerTurn;
             s.player.energy = Energy(3);
