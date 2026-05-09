@@ -196,6 +196,56 @@ def extract_all_card_ids() -> list[dict]:
     return result
 
 
+def planned_neutral_cards() -> list[dict]:
+    """Neutral cards not yet implemented (colorless reward pool + missing status/curse cards)."""
+    return [
+        # Status
+        {"id": "void",              "name": "Void",              "class": "neutral", "rarity": "status",  "type": "Status", "cost": None},
+        # Curses
+        {"id": "normality",         "name": "Normality",         "class": "neutral", "rarity": "curse",   "type": "Curse",  "cost": None},
+        {"id": "pain",              "name": "Pain",              "class": "neutral", "rarity": "curse",   "type": "Curse",  "cost": None},
+        {"id": "writhe",            "name": "Writhe",            "class": "neutral", "rarity": "curse",   "type": "Curse",  "cost": None},
+        # Colorless common
+        {"id": "bandage-up",        "name": "Bandage Up",        "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "blind",             "name": "Blind",             "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "dark-shackles",     "name": "Dark Shackles",     "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "deep-breath",       "name": "Deep Breath",       "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "finesse",           "name": "Finesse",           "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "flash-of-steel",    "name": "Flash of Steel",    "class": "neutral", "rarity": "common",  "type": "Attack", "cost": 0},
+        {"id": "good-instincts",    "name": "Good Instincts",    "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "impatience",        "name": "Impatience",        "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "jack-of-all-trades","name": "Jack of All Trades","class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "madness",           "name": "Madness",           "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 1},
+        {"id": "panacea",           "name": "Panacea",           "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "panic-button",      "name": "Panic Button",      "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "purity",            "name": "Purity",            "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "swift-strike",      "name": "Swift Strike",      "class": "neutral", "rarity": "common",  "type": "Attack", "cost": 0},
+        {"id": "thinking-ahead",    "name": "Thinking Ahead",    "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        {"id": "transmutation",     "name": "Transmutation",     "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": "X"},
+        {"id": "violence",          "name": "Violence",          "class": "neutral", "rarity": "common",  "type": "Skill",  "cost": 0},
+        # Colorless uncommon
+        {"id": "discovery",         "name": "Discovery",         "class": "neutral", "rarity": "uncommon","type": "Skill",  "cost": 1},
+        {"id": "dramatic-entrance", "name": "Dramatic Entrance", "class": "neutral", "rarity": "uncommon","type": "Attack", "cost": 0},
+        {"id": "enlightenment",     "name": "Enlightenment",     "class": "neutral", "rarity": "uncommon","type": "Skill",  "cost": 0},
+        {"id": "forethought",       "name": "Forethought",       "class": "neutral", "rarity": "uncommon","type": "Skill",  "cost": 0},
+        {"id": "hand-of-greed",     "name": "Hand of Greed",     "class": "neutral", "rarity": "uncommon","type": "Attack", "cost": 2},
+        {"id": "mind-blast",        "name": "Mind Blast",        "class": "neutral", "rarity": "uncommon","type": "Attack", "cost": 2},
+        {"id": "panache",           "name": "Panache",           "class": "neutral", "rarity": "uncommon","type": "Power",  "cost": 0},
+        {"id": "sadistic-nature",   "name": "Sadistic Nature",   "class": "neutral", "rarity": "uncommon","type": "Power",  "cost": 0},
+        {"id": "the-bomb",          "name": "The Bomb",          "class": "neutral", "rarity": "uncommon","type": "Skill",  "cost": 2},
+        {"id": "trip",              "name": "Trip",              "class": "neutral", "rarity": "uncommon","type": "Skill",  "cost": 0},
+        # Colorless rare
+        {"id": "apotheosis",        "name": "Apotheosis",        "class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 2},
+        {"id": "chrysalis",         "name": "Chrysalis",         "class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 2},
+        {"id": "master-of-strategy","name": "Master of Strategy","class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 0},
+        {"id": "mayhem",            "name": "Mayhem",            "class": "neutral", "rarity": "rare",    "type": "Power",  "cost": 2},
+        {"id": "metamorphosis",     "name": "Metamorphosis",     "class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 2},
+        {"id": "ritual-dagger",     "name": "Ritual Dagger",     "class": "neutral", "rarity": "rare",    "type": "Attack", "cost": 1},
+        {"id": "secret-technique",  "name": "Secret Technique",  "class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 0},
+        {"id": "secret-weapon",     "name": "Secret Weapon",     "class": "neutral", "rarity": "rare",    "type": "Skill",  "cost": 0},
+    ]
+
+
 def planned_silent_cards() -> list[dict]:
     """All Silent cards not yet implemented."""
     planned = [
@@ -269,13 +319,18 @@ def planned_silent_cards() -> list[dict]:
         {"id": "tools-of-the-trade","name":"Tools of the Trade","class":"silent","rarity": "rare",    "type": "Power",  "cost": 1},
         {"id": "unload",          "name": "Unload",          "class": "silent", "rarity": "rare",     "type": "Attack", "cost": 1},
     ]
-    planned_ids = {c["id"] for c in planned}
-    return [dict(c, implemented=False) for c in planned]
+    return planned
+
+
+def _with_implemented_false(cards: list[dict]) -> list[dict]:
+    return [dict(c, implemented=False) for c in cards]
 
 
 def main():
     implemented = extract_all_card_ids()
-    planned = planned_silent_cards()
+    planned_neutral = _with_implemented_false(planned_neutral_cards())
+    planned_silent = _with_implemented_false(planned_silent_cards())
+    planned = planned_neutral + planned_silent
 
     # Remove planned cards that are already implemented
     impl_ids = {c["id"] for c in implemented}
@@ -298,13 +353,14 @@ def main():
     json.dump(all_cards, open(DST, "w"), indent=2)
     print(f"Written {len(all_cards)} cards to {DST}")
 
-    impl_ic = sum(1 for c in all_cards if c["implemented"] and c["class"] == "ironclad")
-    impl_s  = sum(1 for c in all_cards if c["implemented"] and c["class"] == "silent")
-    impl_n  = sum(1 for c in all_cards if c["implemented"] and c["class"] == "neutral")
-    plan_s  = sum(1 for c in all_cards if not c["implemented"] and c["class"] == "silent")
+    impl_ic  = sum(1 for c in all_cards if c["implemented"] and c["class"] == "ironclad")
+    impl_s   = sum(1 for c in all_cards if c["implemented"] and c["class"] == "silent")
+    impl_n   = sum(1 for c in all_cards if c["implemented"] and c["class"] == "neutral")
+    plan_n   = sum(1 for c in all_cards if not c["implemented"] and c["class"] == "neutral")
+    plan_s   = sum(1 for c in all_cards if not c["implemented"] and c["class"] == "silent")
 
     print(f"  Implemented — Ironclad: {impl_ic}, Silent: {impl_s}, Neutral: {impl_n}")
-    print(f"  Planned    — Silent: {plan_s}")
+    print(f"  Planned    — Neutral: {plan_n}, Silent: {plan_s}")
 
 
 if __name__ == "__main__":

@@ -171,6 +171,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::FatGremlin      => "🐷",
         EnemyKind::GremlinWizard   => "🧙",
         EnemyKind::ShieldGremlin   => "🛡️",
+        EnemyKind::Sentry          => "🤖",
         EnemyKind::LargeSpike      => "🔵",
         EnemyKind::MediumSpike     => "🔵",
         EnemyKind::LargeAcid       => "🟢",

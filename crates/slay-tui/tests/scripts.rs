@@ -6,7 +6,7 @@ fn run_script(script_content: &str) -> String {
     let state = new_simple_run();
     let mut rng = AnyRng::NoOp(NoOpRng);
     let mut output = Vec::<u8>::new();
-    slay_tui::game::run_game(state, script_content.as_bytes(), &mut output, &mut rng, true);
+    slay_tui::game::run_game(state, script_content.as_bytes(), &mut output, &mut rng, true, None);
     String::from_utf8(output).expect("output is valid utf8")
 }
 

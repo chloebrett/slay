@@ -5,7 +5,7 @@ use crate::types::Hp;
 
 pub const MAX_POTIONS: usize = 3;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Potion {
     FirePotion,
     ExplosivePotion,

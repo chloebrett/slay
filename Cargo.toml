@@ -6,4 +6,5 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-indexmap = "1"
+indexmap = { version = "1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }

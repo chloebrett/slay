@@ -77,7 +77,7 @@ mod wild_strike;
 use crate::status::{StatusEffect, StatusMap, resolve_damage};
 use crate::types::Energy;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Card {
     Strike(Grade),
     Defend(Grade),
@@ -158,7 +158,7 @@ pub enum Card {
     AscendersBane,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Grade { Base, Plus }
 
 pub struct GradeValues<T> { pub base: T, pub plus: T }

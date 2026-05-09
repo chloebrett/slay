@@ -7,7 +7,7 @@ use crate::run::{Command, CommandError};
 use crate::status::{StatusEffect, StatusMap, drain_poison, get_stacks, resolve_damage, tick_ritual, tick_statuses, tick_strength_modifiers};
 use crate::types::{Block, Energy, Hp};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
     pub hp: Hp,
     pub max_hp: Hp,
@@ -25,7 +25,7 @@ pub struct Player {
     pub potions: Vec<Potion>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Enemy {
     pub kind: EnemyKind,
     pub hp: Hp,
@@ -48,14 +48,14 @@ impl Enemy {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ChooseCardContext {
     BurningPact { draws: usize },
     Warcry,
     Armaments,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum CombatPhase {
     PlayerTurn,
     EnemyTurn,
@@ -65,7 +65,7 @@ pub enum CombatPhase {
     Defeat,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CombatState {
     pub player: Player,
     pub enemies: Vec<Enemy>,

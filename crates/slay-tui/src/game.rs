@@ -7,6 +7,16 @@ use slay_core::{
     RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
+use std::sync::mpsc::SyncSender;
+
+type SaveTx = SyncSender<Option<(GameState, u64)>>;
+
+fn queue_save(tx: &Option<SaveTx>, state: &GameState, rng: &AnyRng) {
+    if let Some(tx) = tx {
+        let seed = rng.seed().unwrap_or(0);
+        let _ = tx.try_send(Some((state.clone(), seed)));
+    }
+}
 
 pub fn run_game(
     mut state: GameState,
@@ -14,6 +24,7 @@ pub fn run_game(
     writer: &mut impl Write,
     rng: &mut AnyRng,
     debug: bool,
+    save_tx: Option<SaveTx>,
 ) {
     let _ = writeln!(writer, "{}", slay_core::welcome());
     if debug {
@@ -59,15 +70,19 @@ pub fn run_game(
                 print_events(&events, writer);
 
                 match &state {
-                    GameState::GameOver { victory: true } => {
-                        let _ = writeln!(writer, "\n🏆 You conquered the Spire! Run complete.");
+                    GameState::GameOver { victory } => {
+                        if *victory {
+                            let _ = writeln!(writer, "\n🏆 You conquered the Spire! Run complete.");
+                            on_run_end(true, &save_tx);
+                        } else {
+                            let _ = writeln!(writer, "\n💀 You have been slain. Game over.");
+                            on_run_end(false, &save_tx);
+                        }
                         break;
                     }
-                    GameState::GameOver { victory: false } => {
-                        let _ = writeln!(writer, "\n💀 You have been slain. Game over.");
-                        break;
+                    _ => {
+                        queue_save(&save_tx, &state, rng);
                     }
-                    _ => {}
                 }
 
                 let _ = writeln!(writer);
@@ -363,6 +378,24 @@ fn render_pile(label: &str, pile: &[slay_core::Card], w: &mut impl Write) {
         }
     }
     let _ = writeln!(w);
+}
+
+fn on_run_end(victory: bool, save_tx: &Option<SaveTx>) {
+    crate::save::delete_run();
+    let mut meta = crate::save::load_meta();
+    meta.runs_completed += 1;
+    if victory { meta.runs_won += 1; }
+    crate::save::save_meta(&meta);
+    if let Some(tx) = save_tx {
+        let _ = tx.try_send(None);
+    }
+}
+
+pub(crate) fn on_run_end_tui(
+    victory: bool,
+    save_tx: &Option<std::sync::mpsc::SyncSender<Option<(slay_core::GameState, u64)>>>,
+) {
+    on_run_end(victory, save_tx);
 }
 
 fn print_events(events: &[Event], w: &mut impl Write) {

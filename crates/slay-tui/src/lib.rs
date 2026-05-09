@@ -1,6 +1,7 @@
 pub mod command;
 pub mod engine;
 pub mod game;
+pub mod save;
 pub mod tui;
 
 #[cfg(test)]
@@ -13,7 +14,7 @@ mod tests {
         let input = b"";
         let mut output = Vec::<u8>::new();
         let state = new_simple_run();
-        run_game(state, input.as_ref(), &mut output, &mut AnyRng::NoOp(NoOpRng), false);
+        run_game(state, input.as_ref(), &mut output, &mut AnyRng::NoOp(NoOpRng), false, None);
         let text = String::from_utf8(output).unwrap();
         assert!(text.contains("Slay the Spire"), "expected welcome in output, got:\n{text}");
     }
@@ -30,7 +31,7 @@ mod tests {
         state = apply_command(state, Command::ChooseNode(0), &mut rng).unwrap().0;
 
         let mut output = Vec::<u8>::new();
-        run_game(state, b"".as_ref(), &mut output, &mut rng, false);
+        run_game(state, b"".as_ref(), &mut output, &mut rng, false, None);
         let text = String::from_utf8(output).unwrap();
         assert!(text.contains("Draw:"), "expected 'Draw:' in combat HUD, got:\n{text}");
         assert!(text.contains("Discard:"), "expected 'Discard:' in combat HUD, got:\n{text}");

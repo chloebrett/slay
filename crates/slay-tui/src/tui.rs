@@ -27,7 +27,6 @@ const PILE_KEYS: &[(&str, PileView, &str)] = &[
     ("c", PileView::Exhaust, "view exhaust pile"),
 ];
 
-#[derive(Debug)]
 pub struct TuiState {
     pub game: GameState,
     pub input_buf: String,
@@ -42,6 +41,7 @@ pub struct TuiState {
     pub hand_scroll: usize,
     pub debug: bool,
     pub should_quit: bool,
+    save_tx: Option<std::sync::mpsc::SyncSender<Option<(GameState, u64)>>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +53,14 @@ pub enum PileView {
 
 impl TuiState {
     pub fn new(game: GameState, debug: bool) -> Self {
+        Self::new_with_save(game, debug, None)
+    }
+
+    pub fn new_with_save(
+        game: GameState,
+        debug: bool,
+        save_tx: Option<std::sync::mpsc::SyncSender<Option<(GameState, u64)>>>,
+    ) -> Self {
         let enemy_flashes = match &game {
             GameState::Combat { state: cs, .. } => vec![None; cs.enemies.len()],
             _ => vec![],
@@ -71,6 +79,7 @@ impl TuiState {
             hand_scroll: 0,
             debug,
             should_quit: false,
+            save_tx,
         };
         s.push_log(slay_core::welcome().to_string());
         if debug {
@@ -162,8 +171,13 @@ impl TuiState {
                     self.push_log(msg);
                 }
                 self.last_error = None;
-                if matches!(self.game, GameState::GameOver { .. }) {
+                if let GameState::GameOver { victory } = &self.game {
+                    let victory = *victory;
+                    crate::game::on_run_end_tui(victory, &self.save_tx);
                     self.should_quit = true;
+                } else if let Some(tx) = &self.save_tx {
+                    let seed = rng.seed().unwrap_or(0);
+                    let _ = tx.try_send(Some((self.game.clone(), seed)));
                 }
             }
             Err(e) => {
@@ -1008,7 +1022,12 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
 
 // Public entry point: take over the terminal and run the ratatui event loop.
 #[cfg(not(test))]
-pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Result<()> {
+pub fn run_tui(
+    state: GameState,
+    rng: &mut AnyRng,
+    debug: bool,
+    save_tx: Option<std::sync::mpsc::SyncSender<Option<(GameState, u64)>>>,
+) -> std::io::Result<()> {
     use crossterm::{
         event::{self, Event as CxEvent, KeyCode, KeyEventKind, KeyModifiers},
         execute,
@@ -1034,7 +1053,7 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let mut tui = TuiState::new(state, debug);
+    let mut tui = TuiState::new_with_save(state, debug, save_tx);
 
     let result = (|| -> std::io::Result<()> {
         loop {
@@ -1113,6 +1132,9 @@ pub fn run_tui(state: GameState, rng: &mut AnyRng, debug: bool) -> std::io::Resu
     disable_raw_mode().ok();
     execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
     terminal.show_cursor().ok();
+    if let Some(tx) = &tui.save_tx {
+        let _ = tx.send(None);
+    }
     result
 }
 

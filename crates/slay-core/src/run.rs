@@ -10,7 +10,7 @@ use crate::rng::Rng;
 use crate::status::StatusMap;
 use crate::types::{Block, Energy, Hp};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Scenario {
     Main,
     Simple,
@@ -68,7 +68,7 @@ impl std::fmt::Display for CommandError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum MapNode {
     Combat(Vec<EnemyKind>),
     RestSite,
@@ -78,7 +78,7 @@ pub enum MapNode {
     Event,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EventKind {
     Ssssserpent,
     BigFish,
@@ -99,7 +99,7 @@ impl EventKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EventRoomState {
     pub player: Player,
     pub floor: usize,
@@ -108,13 +108,13 @@ pub struct EventRoomState {
     pub event: EventKind,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MapGraph {
     pub rows: Vec<Vec<MapNode>>,
     pub edges: Vec<Vec<Vec<usize>>>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MapState {
     pub player: Player,
     pub floor: usize,
@@ -124,7 +124,7 @@ pub struct MapState {
     pub scenario: Scenario,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RestSiteState {
     pub player: Player,
     pub floor: usize,
@@ -132,7 +132,7 @@ pub struct RestSiteState {
     pub available_cols: Vec<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TreasureRoomState {
     pub player: Player,
     pub floor: usize,
@@ -141,7 +141,7 @@ pub struct TreasureRoomState {
     pub relic: Relic,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CardRewardState {
     pub player: Player,
     pub floor: usize,
@@ -151,7 +151,7 @@ pub struct CardRewardState {
     pub available_cols: Vec<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ShopState {
     pub player: Player,
     pub floor: usize,
@@ -166,7 +166,7 @@ pub const CARD_PRICE: i32 = 75;
 pub const RELIC_PRICE: i32 = 150;
 pub const POTION_PRICE: i32 = 50;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum GameState {
     Map(MapState),
     Combat { state: CombatState, floor: usize, is_boss: bool, graph: MapGraph, next_floor_cols: Vec<usize>, scenario: Scenario },

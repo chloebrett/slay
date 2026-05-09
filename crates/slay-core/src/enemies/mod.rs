@@ -14,6 +14,7 @@ mod medium_acid_slime;
 mod medium_spike_slime;
 mod red_louse;
 mod red_slaver;
+mod sentry;
 mod shield_gremlin;
 mod small_acid_slime;
 mod small_spike_slime;
@@ -25,7 +26,7 @@ use crate::rng::Rng;
 use crate::status::{StatusEffect, StatusMap};
 use crate::types::Hp;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum EnemyKind {
     Fungibeast,
     Cultist,
@@ -44,13 +45,14 @@ pub enum EnemyKind {
     FatGremlin,
     GremlinWizard,
     ShieldGremlin,
+    Sentry,
     LargeSpike,
     MediumSpike,
     LargeAcid,
     MediumAcid,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Move {
     // Louse
     LouseBite,
@@ -127,6 +129,9 @@ pub enum Move {
     // Shield Gremlin
     ShieldProtect,
     ShieldBash,
+    // Sentry
+    SentryBeam,
+    SentryBolt,
 }
 
 #[derive(Debug, Clone)]
@@ -201,6 +206,8 @@ impl Move {
             Move::WizardUltimateBlast => MoveDef { name: "Ultimate Blast", effects: vec![Effect::DealDamage(25)] },
             Move::ShieldProtect      => MoveDef { name: "Protect",        effects: vec![Effect::GiveAllyBlock(7)] },
             Move::ShieldBash         => MoveDef { name: "Shield Bash",    effects: vec![Effect::DealDamage(6)] },
+            Move::SentryBeam         => MoveDef { name: "Beam",           effects: vec![Effect::DealDamage(9)] },
+            Move::SentryBolt         => MoveDef { name: "Bolt",           effects: vec![Effect::AddToDiscard(Card::Dazed), Effect::AddToDiscard(Card::Dazed), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
         }
     }
 
@@ -270,6 +277,7 @@ impl EnemyKind {
             EnemyKind::FatGremlin      => fat_gremlin::DEF,
             EnemyKind::GremlinWizard   => gremlin_wizard::DEF,
             EnemyKind::ShieldGremlin   => shield_gremlin::DEF,
+            EnemyKind::Sentry          => sentry::DEF,
             EnemyKind::LargeSpike      => large_spike_slime::DEF,
             EnemyKind::MediumSpike     => medium_spike_slime::DEF,
             EnemyKind::LargeAcid       => large_acid_slime::DEF,
@@ -299,6 +307,7 @@ impl EnemyKind {
             EnemyKind::FatGremlin      => "fat-gremlin",
             EnemyKind::GremlinWizard   => "gremlin-wizard",
             EnemyKind::ShieldGremlin   => "shield-gremlin",
+            EnemyKind::Sentry          => "sentry",
             EnemyKind::LargeSpike      => "large-spike-slime",
             EnemyKind::MediumSpike     => "medium-spike-slime",
             EnemyKind::LargeAcid       => "large-acid-slime",
@@ -325,6 +334,7 @@ impl EnemyKind {
             "fat-gremlin"        => Some(EnemyKind::FatGremlin),
             "gremlin-wizard"     => Some(EnemyKind::GremlinWizard),
             "shield-gremlin"     => Some(EnemyKind::ShieldGremlin),
+            "sentry"             => Some(EnemyKind::Sentry),
             "large-spike-slime"  => Some(EnemyKind::LargeSpike),
             "medium-spike-slime" => Some(EnemyKind::MediumSpike),
             "large-acid-slime"   => Some(EnemyKind::LargeAcid),
@@ -361,7 +371,7 @@ pub fn on_player_attack_damage(
     }
 }
 
-pub fn shield_gremlin_next_move(history: &[Move], allies_alive: usize) -> Move {
+pub fn shield_gremlin_next_move(_history: &[Move], allies_alive: usize) -> Move {
     shield_gremlin::next_move(allies_alive)
 }
 
@@ -385,6 +395,7 @@ pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: 
         EnemyKind::FatGremlin      => fat_gremlin::next_move(),
         EnemyKind::GremlinWizard   => gremlin_wizard::next_move(history),
         EnemyKind::ShieldGremlin   => shield_gremlin::next_move(1), // default: assume allies present
+        EnemyKind::Sentry          => sentry::next_move(last),
         EnemyKind::LargeSpike      => large_spike_slime::next_move(history, rng),
         EnemyKind::MediumSpike     => medium_spike_slime::next_move(history, rng),
         EnemyKind::LargeAcid       => large_acid_slime::next_move(history, rng),
@@ -1399,5 +1410,68 @@ mod tests {
     #[test]
     fn shield_bash_intent_is_attack_6() {
         assert_eq!(Move::ShieldBash.intent(), Intent::Attack(6));
+    }
+
+    // --- Sentry ---
+
+    #[test]
+    fn sentry_has_38_hp() {
+        assert_eq!(EnemyKind::Sentry.max_hp(), Hp(38));
+    }
+
+    #[test]
+    fn sentry_is_named_correctly() {
+        assert_eq!(EnemyKind::Sentry.name(), "Sentry");
+    }
+
+    #[test]
+    fn sentry_id_round_trips() {
+        assert_eq!(EnemyKind::Sentry.id(), "sentry");
+        assert_eq!(EnemyKind::from_id("sentry"), Some(EnemyKind::Sentry));
+    }
+
+    #[test]
+    fn sentry_first_move_is_beam() {
+        assert_eq!(next_move(&EnemyKind::Sentry, &[], &StatusMap::new(), &mut rng()), Move::SentryBeam);
+    }
+
+    #[test]
+    fn sentry_alternates_beam_bolt() {
+        let m1 = next_move(&EnemyKind::Sentry, &[], &StatusMap::new(), &mut rng());
+        assert_eq!(m1, Move::SentryBeam);
+        let m2 = next_move(&EnemyKind::Sentry, &[Move::SentryBeam], &StatusMap::new(), &mut rng());
+        assert_eq!(m2, Move::SentryBolt);
+        let m3 = next_move(&EnemyKind::Sentry, &[Move::SentryBeam, Move::SentryBolt], &StatusMap::new(), &mut rng());
+        assert_eq!(m3, Move::SentryBeam);
+        let m4 = next_move(&EnemyKind::Sentry, &[Move::SentryBeam, Move::SentryBolt, Move::SentryBeam], &StatusMap::new(), &mut rng());
+        assert_eq!(m4, Move::SentryBolt);
+    }
+
+    #[test]
+    fn sentry_beam_deals_9_damage() {
+        let def = Move::SentryBeam.def();
+        let dmg: i32 = def.effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).sum();
+        assert_eq!(dmg, 9);
+    }
+
+    #[test]
+    fn sentry_bolt_adds_2_dazed_and_applies_2_vulnerable() {
+        let def = Move::SentryBolt.def();
+        let dazed_count = def.effects.iter().filter(|e| matches!(e, Effect::AddToDiscard(Card::Dazed))).count();
+        let vuln: i32 = def.effects.iter().filter_map(|e| {
+            if let Effect::ApplyStatus(StatusEffect::Vulnerable, n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(dazed_count, 2);
+        assert_eq!(vuln, 2);
+    }
+
+    #[test]
+    fn sentry_beam_intent_is_attack_9() {
+        assert_eq!(Move::SentryBeam.intent(), Intent::Attack(9));
+    }
+
+    #[test]
+    fn sentry_bolt_intent_is_debuff() {
+        assert_eq!(Move::SentryBolt.intent(), Intent::Debuff);
     }
 }

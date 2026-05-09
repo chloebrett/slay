@@ -798,6 +798,357 @@
     "implemented": true
   },
   {
+    "id": "bandage-up",
+    "name": "Bandage Up",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "blind",
+    "name": "Blind",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "dark-shackles",
+    "name": "Dark Shackles",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "deep-breath",
+    "name": "Deep Breath",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "finesse",
+    "name": "Finesse",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "flash-of-steel",
+    "name": "Flash of Steel",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "good-instincts",
+    "name": "Good Instincts",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "impatience",
+    "name": "Impatience",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "jack-of-all-trades",
+    "name": "Jack of All Trades",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "madness",
+    "name": "Madness",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "panacea",
+    "name": "Panacea",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "panic-button",
+    "name": "Panic Button",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "purity",
+    "name": "Purity",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "swift-strike",
+    "name": "Swift Strike",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "thinking-ahead",
+    "name": "Thinking Ahead",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "transmutation",
+    "name": "Transmutation",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": "X",
+    "implemented": false
+  },
+  {
+    "id": "violence",
+    "name": "Violence",
+    "class": "neutral",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "discovery",
+    "name": "Discovery",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "dramatic-entrance",
+    "name": "Dramatic Entrance",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "enlightenment",
+    "name": "Enlightenment",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "forethought",
+    "name": "Forethought",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "hand-of-greed",
+    "name": "Hand of Greed",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "mind-blast",
+    "name": "Mind Blast",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "panache",
+    "name": "Panache",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "sadistic-nature",
+    "name": "Sadistic Nature",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "the-bomb",
+    "name": "The Bomb",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "trip",
+    "name": "Trip",
+    "class": "neutral",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "apotheosis",
+    "name": "Apotheosis",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "chrysalis",
+    "name": "Chrysalis",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "master-of-strategy",
+    "name": "Master of Strategy",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "mayhem",
+    "name": "Mayhem",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Power",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "metamorphosis",
+    "name": "Metamorphosis",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "ritual-dagger",
+    "name": "Ritual Dagger",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "secret-technique",
+    "name": "Secret Technique",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "secret-weapon",
+    "name": "Secret Weapon",
+    "class": "neutral",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "normality",
+    "name": "Normality",
+    "class": "neutral",
+    "rarity": "curse",
+    "type": "Curse",
+    "cost": null,
+    "implemented": false
+  },
+  {
+    "id": "pain",
+    "name": "Pain",
+    "class": "neutral",
+    "rarity": "curse",
+    "type": "Curse",
+    "cost": null,
+    "implemented": false
+  },
+  {
+    "id": "void",
+    "name": "Void",
+    "class": "neutral",
+    "rarity": "status",
+    "type": "Status",
+    "cost": null,
+    "implemented": false
+  },
+  {
+    "id": "writhe",
+    "name": "Writhe",
+    "class": "neutral",
+    "rarity": "curse",
+    "type": "Curse",
+    "cost": null,
+    "implemented": false
+  },
+  {
     "id": "neutralize",
     "name": "Neutralize",
     "class": "silent",

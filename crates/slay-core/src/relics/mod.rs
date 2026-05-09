@@ -47,7 +47,7 @@ pub struct RelicDef {
     pub description: &'static str,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Relic {
     // Tier 1 — pickup effects only
     Strawberry,
