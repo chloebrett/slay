@@ -28,6 +28,7 @@ pub enum StatusEffect {
     Evolve,
     FireBreathing,
     StrengthDown,
+    DexterityDown,
     Shackled,
     StonePlating,
     Enrage,
@@ -100,6 +101,13 @@ pub fn tick_strength_modifiers(statuses: &mut StatusMap) -> i32 {
     let down = statuses.remove(&StatusEffect::StrengthDown).unwrap_or(0);
     let shackled = statuses.remove(&StatusEffect::Shackled).unwrap_or(0);
     shackled - down
+}
+
+/// Removes DexterityDown at end of turn.
+/// Returns net Dexterity modifier: negative = net loss (DexterityDown).
+pub fn tick_dexterity_modifiers(statuses: &mut StatusMap) -> i32 {
+    let down = statuses.remove(&StatusEffect::DexterityDown).unwrap_or(0);
+    -down
 }
 
 /// Ticks regen: heals `stacks` HP (capped at max_hp), decrements stacks by 1, removes when 0.
@@ -309,5 +317,26 @@ mod tests {
         let mut statuses = map_with(StatusEffect::Metallicize, 8);
         tick_statuses(&mut statuses);
         assert_eq!(get_stacks(&statuses, StatusEffect::Metallicize), 8);
+    }
+
+    // --- tick_dexterity_modifiers ---
+
+    #[test]
+    fn dexterity_down_returns_negative_modifier() {
+        let mut statuses = map_with(StatusEffect::DexterityDown, 3);
+        assert_eq!(tick_dexterity_modifiers(&mut statuses), -3);
+    }
+
+    #[test]
+    fn dexterity_down_clears_after_tick() {
+        let mut statuses = map_with(StatusEffect::DexterityDown, 3);
+        tick_dexterity_modifiers(&mut statuses);
+        assert!(!statuses.contains_key(&StatusEffect::DexterityDown));
+    }
+
+    #[test]
+    fn no_dexterity_down_returns_zero() {
+        let mut statuses = empty();
+        assert_eq!(tick_dexterity_modifiers(&mut statuses), 0);
     }
 }

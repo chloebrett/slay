@@ -4,7 +4,7 @@ use crate::potions::Potion;
 use crate::relics::{apply_card_play_relics, apply_enemy_died_relics, Relic};
 use crate::rng::Rng;
 use crate::run::{Command, CommandError};
-use crate::status::{StatusEffect, StatusMap, drain_poison, get_stacks, resolve_damage, tick_ritual, tick_statuses, tick_strength_modifiers};
+use crate::status::{StatusEffect, StatusMap, drain_poison, get_stacks, resolve_damage, tick_dexterity_modifiers, tick_ritual, tick_statuses, tick_strength_modifiers};
 use crate::types::{Block, Energy, Hp};
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -85,6 +85,8 @@ pub struct CombatState {
     pub extra_draws_next_turn: u32,
     pub hand_cost_max: Option<Energy>,
     pub hand_cost_max_expires: bool,
+    pub block_locked_turns: u32,
+    pub pending_bombs: Vec<(i32, u32)>,
 }
 
 impl CombatState {
@@ -157,7 +159,7 @@ impl CombatState {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 }
@@ -438,6 +440,10 @@ pub(crate) fn apply_combat_command(
             if strength_delta != 0 {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, strength_delta, &mut events);
             }
+            let dexterity_delta = tick_dexterity_modifiers(&mut state.player.statuses);
+            if dexterity_delta != 0 {
+                apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Dexterity, dexterity_delta, &mut events);
+            }
             if apply_end_of_turn_card_hooks(&hooks, &mut state, &mut events) {
                 return Ok((state, events));
             }
@@ -473,6 +479,20 @@ pub(crate) fn apply_combat_command(
             let regen_heal = crate::status::tick_regen(&mut state.player.statuses, &mut state.player.hp.0, state.player.max_hp.0);
             if regen_heal > 0 {
                 events.push(Event::Healed { amount: regen_heal });
+            }
+            // Process pending bombs: decrement counters, fire when reached 0
+            let mut fired_bombs: Vec<i32> = Vec::new();
+            for bomb in &mut state.pending_bombs {
+                bomb.1 = bomb.1.saturating_sub(1);
+                if bomb.1 == 0 { fired_bombs.push(bomb.0); }
+            }
+            state.pending_bombs.retain(|&(_, turns)| turns > 0);
+            for damage in fired_bombs {
+                damage_all_enemies(&mut state.enemies, &mut events, damage);
+                if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                    state.phase = CombatPhase::Victory;
+                    return Ok((state, events));
+                }
             }
             state.phase = CombatPhase::EnemyTurn;
         }
@@ -728,9 +748,12 @@ pub(crate) fn apply_combat_command(
                 state.hand_cost_max = None;
                 state.hand_cost_max_expires = false;
             }
+            if state.block_locked_turns > 0 {
+                state.block_locked_turns -= 1;
+            }
             // Start-of-turn power effects
             let metallicize = get_stacks(&state.player.statuses, StatusEffect::Metallicize);
-            if metallicize > 0 {
+            if metallicize > 0 && state.block_locked_turns == 0 {
                 state.player.block.0 += metallicize;
                 events.push(Event::PlayerBlocked { amount: metallicize });
             }
@@ -831,6 +854,7 @@ pub(crate) fn exhaust_card(card: crate::cards::Card, state: &mut CombatState, ev
 /// Gains block for the player: adds amount, emits PlayerBlocked, fires on-block-gain power hooks.
 pub(crate) fn gain_player_block(state: &mut CombatState, events: &mut Vec<Event>, amount: i32, rng: &mut impl Rng) {
     if amount <= 0 { return; }
+    if state.block_locked_turns > 0 { return; }
     state.player.block.0 += amount;
     events.push(Event::PlayerBlocked { amount });
     let juggernaut = get_stacks(&state.player.statuses, StatusEffect::Juggernaut);
@@ -942,7 +966,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
     }
 }
 
@@ -999,7 +1023,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
     }
 }
 
@@ -2039,6 +2063,64 @@ mod tests {
         assert!(!Potion::HeartOfIron.is_targeted());
     }
 
+    // --- Steroid Potion (Flex Potion) ---
+
+    #[test]
+    fn steroid_potion_grants_5_strength() {
+        let state = combat_with_potion(Potion::SteroidPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Strength), 5);
+    }
+
+    #[test]
+    fn steroid_potion_grants_5_strength_down() {
+        let state = combat_with_potion(Potion::SteroidPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::StrengthDown), 5);
+    }
+
+    #[test]
+    fn steroid_potion_strength_reverts_at_end_of_turn() {
+        let state = combat_with_potion(Potion::SteroidPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Strength), 0);
+    }
+
+    #[test]
+    fn steroid_potion_is_not_targeted() {
+        assert!(!Potion::SteroidPotion.is_targeted());
+    }
+
+    // --- Speed Potion ---
+
+    #[test]
+    fn speed_potion_grants_5_dexterity() {
+        let state = combat_with_potion(Potion::SpeedPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Dexterity), 5);
+    }
+
+    #[test]
+    fn speed_potion_grants_5_dexterity_down() {
+        let state = combat_with_potion(Potion::SpeedPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::DexterityDown), 5);
+    }
+
+    #[test]
+    fn speed_potion_dexterity_reverts_at_end_of_turn() {
+        let state = combat_with_potion(Potion::SpeedPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Dexterity), 0);
+    }
+
+    #[test]
+    fn speed_potion_is_not_targeted() {
+        assert!(!Potion::SpeedPotion.is_targeted());
+    }
+
     // --- The Guardian: Sharp Hide ---
 
     fn guardian_combat(hand: Vec<Card>) -> CombatState {
@@ -2077,7 +2159,7 @@ mod tests {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 
@@ -2466,7 +2548,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 
@@ -2560,7 +2642,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 
@@ -2653,7 +2735,7 @@ mod tests {
             turn: 1, phase: CombatPhase::PlayerTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 
@@ -2705,7 +2787,7 @@ mod tests {
             turn: 1, phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         }
     }
 

@@ -55,7 +55,7 @@ These appear as combat rewards and in shops regardless of character.
 | Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | ✅ |
 | Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
 | Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | ✅ |
-| Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | |
+| Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | ✅ |
 | Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | ✅ |
 | Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
 | Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | ✅ |
@@ -74,7 +74,7 @@ These appear as combat rewards and in shops regardless of character.
 | Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
 | Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | ✅ |
 | Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. | ✅ |
-| The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. | |
+| The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. | ✅ |
 | Trip | Skill | 0 | Apply 2 Vulnerable to ALL enemies. | ✅ |
 
 ### Rare
@@ -124,9 +124,7 @@ New mechanics required for remaining cards:
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 
 ### Major — significant new architecture
-- **The Bomb** — deal 40 damage to ALL enemies after a 3-turn countdown; needs a delayed-effect system (a list of pending triggers with turn counters) that fires at end of player turn.
 - **Mayhem** — at the start of each turn, automatically play the top card of the draw pile; needs an auto-play step in `StartPlayerTurn` that runs a full play-card cycle including targeting.
-- **Panic Button** — gain 30 block but block gain is suppressed for the next 2 turns; needs a "block gain locked" flag with a turn countdown that intercepts `gain_player_block`.
 - **Chrysalis / Metamorphosis** — add 3 random Skills (or Attacks) from any class that cost 0 to hand; needs temporary 0-cost card instances and a broad cross-class card pool to sample from.
 - **Ritual Dagger** — deal 15 damage; if this kills, permanently increase its own damage by 3; needs mutable per-card-instance stats that persist across combats (run-level card data).
 - **Transmutation** — X-cost: create X random colorless cards in hand; needs the X-cost mechanism (only Whirlwind uses it now) extended to Skills, plus a colorless card pool.

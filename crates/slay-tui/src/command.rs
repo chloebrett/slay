@@ -311,6 +311,8 @@ mod tests {
                 extra_draws_next_turn: 0,
                 hand_cost_max: None,
                 hand_cost_max_expires: false,
+                block_locked_turns: 0,
+                pending_bombs: vec![],
             },
             floor: 0,
             is_boss: false,

@@ -4,30 +4,25 @@ Extracted via: `plans/extract_potions.py` → `plans/potions.json`
 
 31 potions total (17 Common, 8 Uncommon, 6 Rare) — ironclad + shared pools only.
 
-## Already Implemented (9)
+## Already Implemented (15)
 
-| Code enum       | JAR class id    | Effect                                     |
-| --------------- | --------------- | ------------------------------------------ |
-| FirePotion      | FirePotion      | Deal 20 damage to one enemy                |
-| ExplosivePotion | ExplosivePotion | Deal 10 damage to ALL enemies              |
-| BlockPotion     | BlockPotion     | Gain 12 Block                              |
-| StrengthPotion  | StrengthPotion  | Gain 2 Strength                            |
-| SwiftPotion     | SwiftPotion     | Draw 3 cards                               |
-| FearPotion      | FearPotion      | Apply 3 Vulnerable to one enemy (targeted) |
-| WeakPotion      | WeakenPotion    | Apply 3 Weak to one enemy (targeted)       |
-| BloodPotion     | BloodPotion     | Heal 20% of Max HP (Ironclad pool)         |
-| EnergyPotion    | EnergyPotion    | Gain 2 Energy                              |
-
----
-
-## Tier 1 — Simple Additions
-
-No new status effects or engine mechanics needed. Each is a single match arm in `potions.rs::apply`.
-
-| JAR class id    | Name             | Effect                                              | Targeted |
-| --------------- | ---------------- | --------------------------------------------------- | -------- |
-| DexterityPotion | Dexterity Potion | Gain 2 Dexterity (`StatusEffect::Dexterity` exists) | No       |
-| FruitJuice      | Fruit Juice      | Gain 5 Max HP (and 5 current HP if in combat)       | No       |
+| Code enum       | JAR class id    | Effect                                                   |
+| --------------- | --------------- | -------------------------------------------------------- |
+| FirePotion      | FirePotion      | Deal 20 damage to one enemy                              |
+| ExplosivePotion | ExplosivePotion | Deal 10 damage to ALL enemies                            |
+| BlockPotion     | BlockPotion     | Gain 12 Block                                            |
+| StrengthPotion  | StrengthPotion  | Gain 2 Strength                                          |
+| SwiftPotion     | SwiftPotion     | Draw 3 cards                                             |
+| FearPotion      | FearPotion      | Apply 3 Vulnerable to one enemy (targeted)               |
+| WeakPotion      | WeakenPotion    | Apply 3 Weak to one enemy (targeted)                     |
+| BloodPotion     | BloodPotion     | Heal 20% of Max HP (Ironclad pool)                       |
+| EnergyPotion    | EnergyPotion    | Gain 2 Energy                                            |
+| DexterityPotion | DexterityPotion | Gain 2 Dexterity                                         |
+| FruitJuice      | FruitJuice      | Gain 5 Max HP (and 5 current HP)                         |
+| RegenPotion     | RegenPotion     | Gain 5 Regen (heals n HP at start of each player turn)   |
+| LiquidBronze    | LiquidBronze    | Gain 3 Thorns (reflect damage when hit)                  |
+| EssenceOfSteel  | EssenceOfSteel  | Gain 2 Metallicize (gain 2 Block at start of each turn)  |
+| HeartOfIron     | HeartOfIron     | Gain 3 Metallicize (Ironclad pool)                       |
 
 ---
 
@@ -35,18 +30,14 @@ No new status effects or engine mechanics needed. Each is a single match arm in 
 
 Each needs a new `StatusEffect` variant and tick logic in `combat.rs`.
 
-| JAR class id   | Name             | Effect                                                   | New status              |
-| -------------- | ---------------- | -------------------------------------------------------- | ----------------------- |
-| RegenPotion    | Regen Potion     | Gain 5 Regen (heal n HP at end of each player turn)      | `Regen(n)`              |
-| LiquidBronze   | Liquid Bronze    | Gain 3 Thorns (reflect damage when hit)                  | `Thorns(n)`             |
-| EssenceOfSteel | Essence of Steel | Gain 2 Plated Armor (gain n Block at start of each turn) | `PlatedArmor(n)`        |
-| HeartOfIron    | Heart of Iron    | Gain 3 Metallicize (same as Plated Armor, Ironclad pool) | `PlatedArmor(n)` (same) |
-| AncientPotion  | Ancient Potion   | Gain 1 Artifact (negate next debuff)                     | `Artifact(n)`           |
-| SteroidPotion  | Flex Potion      | Gain 5 Strength, lose 5 at end of turn                   | `StrengthDown(n)`       |
-| SpeedPotion    | Speed Potion     | Gain 5 Dexterity, lose 5 at end of turn                  | `DexterityDown(n)`      |
+| JAR class id  | Name          | Effect                                        | New status        |
+| ------------- | ------------- | --------------------------------------------- | ----------------- |
+| AncientPotion | Ancient Potion | Gain 1 Artifact (negate next debuff)          | `Artifact` exists |
+| SteroidPotion | Flex Potion   | Gain 5 Strength, lose 5 at end of turn        | `StrengthDown` exists |
+| SpeedPotion   | Speed Potion  | Gain 5 Dexterity, lose 5 at end of turn       | `DexterityDown` (new) |
 
-> HeartOfIron and EssenceOfSteel both give Plated Armor / Metallicize — same status, different names in-game.  
-> `StrengthDown` / `DexterityDown` also unlock end-of-turn expiry for the card Flex.
+> `StrengthDown` is already consumed by `tick_strength_modifiers()` in status.rs. `DexterityDown` needs the same treatment.  
+> `Artifact` status exists in status.rs but the negate-debuff mechanic in `apply_status()` is not yet wired.
 
 ---
 
@@ -88,12 +79,12 @@ Requires a full card-choice UI flow mid-combat — similar complexity to Neow or
 
 ## Recommended Order
 
-1. **DexterityPotion** — simple, unlocks Dexterity status (important for many relics/cards)
-2. **FruitJuice** — simple max HP gain, no new logic
-3. **RegenPotion** — common Uncommon drop, Regen tick is straightforward
-4. **LiquidBronze** + **EssenceOfSteel/HeartOfIron** — Thorns + Plated Armor status pair
-5. **SteroidPotion/SpeedPotion** — StrengthDown/DexterityDown (also needed for Flex card)
-6. **AncientPotion** — Artifact (negate debuff mechanic)
+1. ~~**DexterityPotion**~~ ✅
+2. ~~**FruitJuice**~~ ✅
+3. ~~**RegenPotion**~~ ✅
+4. ~~**LiquidBronze** + **EssenceOfSteel/HeartOfIron**~~ ✅
+5. **SteroidPotion/SpeedPotion** — StrengthDown exists; SpeedPotion needs DexterityDown
+6. **AncientPotion** — Artifact status exists; need negate-debuff logic in `apply_status()`
 7. **Tier 3** items individually as features
 
 ---

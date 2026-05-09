@@ -127,6 +127,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Evolve            => ("🧬", "Evolve"),
         StatusEffect::FireBreathing     => ("🐉", "Fire Breathing"),
         StatusEffect::StrengthDown      => ("📉", "Strength Down"),
+        StatusEffect::DexterityDown     => ("📉", "Dexterity Down"),
         StatusEffect::Shackled          => ("⛓️", "Shackled"),
         StatusEffect::StonePlating      => ("🪨", "Stone Plating"),
         StatusEffect::Enrage            => ("😤", "Enrage"),
@@ -137,6 +138,8 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Panache           => ("✨", "Panache"),
         StatusEffect::Regen             => ("💚", "Regen"),
         StatusEffect::Thorns            => ("🌵", "Thorns"),
+        StatusEffect::Artifact          => ("🏺", "Artifact"),
+        StatusEffect::SadisticNature    => ("😈", "Sadistic Nature"),
     }
 }
 

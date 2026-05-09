@@ -1101,7 +1101,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let graph = test_graph();
         let next_floor_cols = all_cols(&graph, floor + 1);
@@ -1132,7 +1132,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         GameState::Combat { state: cs, floor: 9, is_boss: true, is_elite: false, graph: test_graph(), next_floor_cols: vec![], scenario: Scenario::Main }
     }
@@ -1469,7 +1469,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (after_end, _) =
@@ -1643,7 +1643,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -1751,7 +1751,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -2331,7 +2331,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         wrap_combat(cs, floor)
     }
@@ -2463,7 +2463,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         wrap_combat(cs, floor)
     }
@@ -2503,7 +2503,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -2537,7 +2537,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -3029,7 +3029,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         wrap_combat(cs, 0)
     }
@@ -3093,7 +3093,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -3149,7 +3149,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let state = wrap_combat(cs, 0);
         // Play 1 card (≤3), end turn
@@ -3190,7 +3190,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
         };
         let mut state = wrap_combat(cs, 0);
         // Play 4 cards (>3 threshold), end turn

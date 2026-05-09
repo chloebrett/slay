@@ -4031,3 +4031,113 @@
         assert_eq!(Card::from_id("sadistic-nature"),      Some(Card::SadisticNature(Grade::Base)));
         assert_eq!(Card::from_id("sadistic-nature-plus"), Some(Card::SadisticNature(Grade::Plus)));
     }
+
+    // --- Panic Button ---
+
+    #[test]
+    fn panic_button_costs_0() {
+        assert_eq!(Card::PanicButton(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn panic_button_is_a_skill() {
+        assert_eq!(Card::PanicButton(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn panic_button_exhausts() {
+        assert!(Card::PanicButton(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn panic_button_grants_30_block() {
+        let state = combat_with_hand(vec![Card::PanicButton(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(30));
+    }
+
+    #[test]
+    fn panic_button_prevents_block_gain_next_turn() {
+        let mut state = combat_with_hand(vec![Card::PanicButton(Grade::Base), Card::Defend(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // PanicButton
+        let state = full_turn(state); // new turn starts, lock active
+        // playing Defend should gain 0 block (locked)
+        let block_before = state.player.block;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, block_before); // no change
+    }
+
+    #[test]
+    fn panic_button_lock_expires_after_2_turns() {
+        let mut state = combat_with_hand(vec![Card::PanicButton(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let state = full_turn(state); // turn 2: locked
+        let mut state = full_turn(state); // turn 3: lock expires
+        state.player.hand.push(Card::Defend(Grade::Base));
+        let block_before = state.player.block;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.block > block_before); // block gained again
+    }
+
+    #[test]
+    fn panic_button_plus_grants_30_block() {
+        let state = combat_with_hand(vec![Card::PanicButton(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(30));
+    }
+
+    #[test]
+    fn panic_button_id_round_trips() {
+        assert_eq!(Card::from_id("panic-button"),      Some(Card::PanicButton(Grade::Base)));
+        assert_eq!(Card::from_id("panic-button-plus"), Some(Card::PanicButton(Grade::Plus)));
+    }
+
+    // --- The Bomb ---
+
+    #[test]
+    fn the_bomb_costs_2() {
+        assert_eq!(Card::TheBomb(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn the_bomb_is_a_skill() {
+        assert_eq!(Card::TheBomb(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn the_bomb_deals_40_damage_after_3_turns() {
+        let mut state = combat_with_hand(vec![Card::TheBomb(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_after_play = state.enemies[0].hp;
+        let state = full_turn(state); // turn 2
+        assert_eq!(state.enemies[0].hp, hp_after_play); // no damage yet
+        let state = full_turn(state); // turn 3
+        assert_eq!(state.enemies[0].hp, hp_after_play); // still no damage
+        let state = full_turn(state); // turn 4: bomb fires at end of turn 3
+        assert_eq!(state.enemies[0].hp.0, hp_after_play.0 - 40);
+    }
+
+    #[test]
+    fn the_bomb_plus_deals_50_damage_after_3_turns() {
+        let mut state = combat_with_hand(vec![Card::TheBomb(Grade::Plus)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_after_play = state.enemies[0].hp;
+        let state = full_turn(state);
+        let state = full_turn(state);
+        let state = full_turn(state);
+        assert_eq!(state.enemies[0].hp.0, hp_after_play.0 - 50);
+    }
+
+    #[test]
+    fn the_bomb_id_round_trips() {
+        assert_eq!(Card::from_id("the-bomb"),      Some(Card::TheBomb(Grade::Base)));
+        assert_eq!(Card::from_id("the-bomb-plus"), Some(Card::TheBomb(Grade::Plus)));
+    }
