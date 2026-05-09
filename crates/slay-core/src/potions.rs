@@ -20,6 +20,8 @@ pub enum Potion {
     FruitJuice,
     RegenPotion,
     LiquidBronze,
+    EssenceOfSteel,
+    HeartOfIron,
 }
 
 pub struct PotionDef {
@@ -34,6 +36,7 @@ pub fn random_potions(rng: &mut impl Rng, count: usize) -> Vec<Potion> {
         Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
         Potion::DexterityPotion, Potion::FruitJuice,
         Potion::RegenPotion, Potion::LiquidBronze,
+        Potion::EssenceOfSteel, Potion::HeartOfIron,
     ];
     rng.shuffle(&mut pool);
     pool.into_iter().take(count).collect()
@@ -55,6 +58,8 @@ impl Potion {
             Potion::FruitJuice       => PotionDef { name: "Fruit Juice",       targeted: false },
             Potion::RegenPotion      => PotionDef { name: "Regen Potion",      targeted: false },
             Potion::LiquidBronze     => PotionDef { name: "Liquid Bronze",     targeted: false },
+            Potion::EssenceOfSteel   => PotionDef { name: "Essence of Steel",  targeted: false },
+            Potion::HeartOfIron      => PotionDef { name: "Heart of Iron",     targeted: false },
         }
     }
 
@@ -76,6 +81,8 @@ impl Potion {
             Potion::FruitJuice       => "fruit-juice",
             Potion::RegenPotion      => "regen-potion",
             Potion::LiquidBronze     => "liquid-bronze",
+            Potion::EssenceOfSteel   => "essence-of-steel",
+            Potion::HeartOfIron      => "heart-of-iron",
         }
     }
 
@@ -86,6 +93,7 @@ impl Potion {
             Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
             Potion::DexterityPotion, Potion::FruitJuice,
             Potion::RegenPotion, Potion::LiquidBronze,
+            Potion::EssenceOfSteel, Potion::HeartOfIron,
         ]
     }
 
@@ -104,6 +112,8 @@ impl Potion {
             "fruit-juice"       => Some(Potion::FruitJuice),
             "regen-potion"      => Some(Potion::RegenPotion),
             "liquid-bronze"     => Some(Potion::LiquidBronze),
+            "essence-of-steel"  => Some(Potion::EssenceOfSteel),
+            "heart-of-iron"     => Some(Potion::HeartOfIron),
             _                   => None,
         }
     }
@@ -167,6 +177,12 @@ pub(crate) fn apply(potion: Potion, target_idx: usize, state: &mut CombatState, 
         Potion::LiquidBronze => {
             apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Thorns, 3, events);
         }
+        Potion::EssenceOfSteel => {
+            apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Metallicize, 2, events);
+        }
+        Potion::HeartOfIron => {
+            apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Metallicize, 3, events);
+        }
     }
     if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
         state.phase = CombatPhase::Victory;
@@ -220,6 +236,7 @@ mod tests {
             Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
             Potion::DexterityPotion, Potion::FruitJuice,
             Potion::RegenPotion, Potion::LiquidBronze,
+            Potion::EssenceOfSteel, Potion::HeartOfIron,
         ];
         for p in potions {
             assert_eq!(Potion::from_id(p.id()), Some(p), "round-trip failed for {:?}", p);

@@ -1,12 +1,12 @@
 use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
-use crate::combat::{CombatState, Event, Target, apply_status};
+use crate::combat::{CombatState, Event, apply_enemy_debuff};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade) {
     let vuln = GradeValues { base: 2, plus: 2 }.get(grade);
     for i in 0..state.enemies.len() {
-        apply_status(&mut state.enemies[i].statuses, Target::Enemy, StatusEffect::Vulnerable, vuln, events);
+        apply_enemy_debuff(state, i, StatusEffect::Vulnerable, vuln, events);
     }
 }
 

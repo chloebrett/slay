@@ -1,5 +1,5 @@
 use super::{CardDef, CardDescription, CardType, Grade};
-use crate::combat::{CombatState, Event, Target, apply_status, deal_damage};
+use crate::combat::{CombatState, Event, apply_enemy_debuff, deal_damage};
 use crate::status::{StatusEffect, resolve_damage};
 use crate::types::Energy;
 
@@ -9,8 +9,8 @@ pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, tar
     let raw = resolve_damage(damage, &state.player.statuses, &state.enemies[target].statuses);
     let dealt = { let e = &mut state.enemies[target]; deal_damage(raw, &mut e.hp, &mut e.block) };
     events.push(Event::PlayerAttacked { raw, damage: dealt });
-    apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Weak, weak, events);
-    apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Vulnerable, vuln, events);
+    apply_enemy_debuff(state, target, StatusEffect::Weak, weak, events);
+    apply_enemy_debuff(state, target, StatusEffect::Vulnerable, vuln, events);
 }
 
 pub(super) fn def(grade: Grade) -> CardDef {

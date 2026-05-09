@@ -3901,3 +3901,133 @@
         assert_eq!(Card::from_id("panache"),      Some(Card::Panache(Grade::Base)));
         assert_eq!(Card::from_id("panache-plus"), Some(Card::Panache(Grade::Plus)));
     }
+
+    // --- Panacea ---
+
+    #[test]
+    fn panacea_costs_0() {
+        assert_eq!(Card::Panacea(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn panacea_is_a_skill() {
+        assert_eq!(Card::Panacea(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn panacea_exhausts() {
+        assert!(Card::Panacea(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn panacea_grants_2_artifact_to_player() {
+        let state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Artifact), 2);
+    }
+
+    #[test]
+    fn panacea_plus_grants_3_artifact() {
+        let state = combat_with_hand(vec![Card::Panacea(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Artifact), 3);
+    }
+
+    #[test]
+    fn artifact_blocks_debuff_applied_to_player() {
+        use crate::combat::{apply_status, Target};
+        let mut state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
+        let (mut state, mut events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Artifact = 2; apply a debuff to the player — it should be blocked
+        let applied = apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Vulnerable, 2, &mut events);
+        assert!(!applied);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Vulnerable), 0);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Artifact), 1);
+    }
+
+    #[test]
+    fn artifact_does_not_block_buffs() {
+        use crate::combat::{apply_status, Target};
+        let mut state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
+        let (mut state, mut events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let applied = apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 2, &mut events);
+        assert!(applied);
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Strength), 2);
+    }
+
+    #[test]
+    fn panacea_id_round_trips() {
+        assert_eq!(Card::from_id("panacea"),      Some(Card::Panacea(Grade::Base)));
+        assert_eq!(Card::from_id("panacea-plus"), Some(Card::Panacea(Grade::Plus)));
+    }
+
+    // --- Sadistic Nature ---
+
+    #[test]
+    fn sadistic_nature_costs_0() {
+        assert_eq!(Card::SadisticNature(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn sadistic_nature_is_a_power() {
+        assert_eq!(Card::SadisticNature(Grade::Base).card_type(), CardType::Power);
+    }
+
+    #[test]
+    fn sadistic_nature_deals_5_damage_when_enemy_gets_debuff() {
+        let mut state = combat_with_hand(vec![Card::SadisticNature(Grade::Base), Card::Bash(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // SadisticNature
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Bash: 8 dmg + 2 Vulnerable
+        // Bash deals 8 damage, then Sadistic Nature fires for Vulnerable debuff: +5
+        assert_eq!(state.enemies[0].hp.0, hp_before.0 - 8 - 5);
+    }
+
+    #[test]
+    fn sadistic_nature_plus_deals_7_damage_per_debuff() {
+        let mut state = combat_with_hand(vec![Card::SadisticNature(Grade::Plus), Card::Bash(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp.0, hp_before.0 - 8 - 7);
+    }
+
+    #[test]
+    fn sadistic_nature_fires_per_debuff_not_per_card() {
+        // Uppercut applies Weak + Vulnerable = 2 debuffs = 10 Sadistic Nature damage
+        let mut state = combat_with_hand(vec![Card::SadisticNature(Grade::Base), Card::Uppercut(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Uppercut: 13 damage + 2 Sadistic Nature procs (Weak + Vulnerable) = 13 + 5 + 5 = 23
+        assert_eq!(state.enemies[0].hp.0, hp_before.0 - 13 - 10);
+    }
+
+    #[test]
+    fn sadistic_nature_does_not_fire_for_strength_reduction() {
+        // Disarm applies -2 Strength which is not a debuff in our classification
+        let mut state = combat_with_hand(vec![Card::SadisticNature(Grade::Base), Card::Disarm]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Disarm: no damage, Strength -2, no Sadistic Nature proc
+        assert_eq!(state.enemies[0].hp.0, hp_before.0);
+    }
+
+    #[test]
+    fn sadistic_nature_id_round_trips() {
+        assert_eq!(Card::from_id("sadistic-nature"),      Some(Card::SadisticNature(Grade::Base)));
+        assert_eq!(Card::from_id("sadistic-nature-plus"), Some(Card::SadisticNature(Grade::Plus)));
+    }

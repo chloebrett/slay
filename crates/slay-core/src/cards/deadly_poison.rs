@@ -1,11 +1,11 @@
 use super::{CardDef, CardDescription, CardType, Grade, GradeValues};
-use crate::combat::{CombatState, Event, Target, apply_status};
+use crate::combat::{CombatState, Event, apply_enemy_debuff};
 use crate::status::StatusEffect;
 use crate::types::Energy;
 
 pub fn apply(state: &mut CombatState, events: &mut Vec<Event>, grade: Grade, target: usize) {
     let poison = GradeValues { base: 5, plus: 7 }.get(grade);
-    apply_status(&mut state.enemies[target].statuses, Target::Enemy, StatusEffect::Poison, poison, events);
+    apply_enemy_debuff(state, target, StatusEffect::Poison, poison, events);
 }
 
 pub(super) fn def(grade: Grade) -> CardDef {

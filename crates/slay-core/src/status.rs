@@ -38,11 +38,17 @@ pub enum StatusEffect {
     Panache,
     Regen,
     Thorns,
+    Artifact,
+    SadisticNature,
 }
 
 impl StatusEffect {
     fn ticks_at_end_of_turn(self) -> bool {
         matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Entangle | StatusEffect::Frail | StatusEffect::Stunned | StatusEffect::Sleep)
+    }
+
+    pub fn is_debuff(self) -> bool {
+        matches!(self, StatusEffect::Vulnerable | StatusEffect::Weak | StatusEffect::Frail | StatusEffect::Poison | StatusEffect::Entangle | StatusEffect::Stunned | StatusEffect::Sleep)
     }
 }
 

@@ -729,6 +729,11 @@ pub(crate) fn apply_combat_command(
                 state.hand_cost_max_expires = false;
             }
             // Start-of-turn power effects
+            let metallicize = get_stacks(&state.player.statuses, StatusEffect::Metallicize);
+            if metallicize > 0 {
+                state.player.block.0 += metallicize;
+                events.push(Event::PlayerBlocked { amount: metallicize });
+            }
             let demon_form = get_stacks(&state.player.statuses, StatusEffect::DemonForm);
             if demon_form > 0 {
                 apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, demon_form, &mut events);
@@ -757,15 +762,46 @@ pub(crate) fn apply_combat_command(
     Ok((state, events))
 }
 
+/// Apply a status effect; returns false if blocked by Artifact (debuffs only).
 pub(crate) fn apply_status(
     statuses: &mut StatusMap,
     target: Target,
     effect: StatusEffect,
     stacks: i32,
     events: &mut Vec<Event>,
-) {
+) -> bool {
+    if effect.is_debuff() {
+        let artifact = get_stacks(statuses, StatusEffect::Artifact);
+        if artifact > 0 {
+            if artifact == 1 { statuses.remove(&StatusEffect::Artifact); }
+            else { *statuses.get_mut(&StatusEffect::Artifact).unwrap() -= 1; }
+            return false;
+        }
+    }
     *statuses.entry(effect).or_insert(0) += stacks;
     events.push(Event::StatusApplied { target, status: effect, stacks });
+    true
+}
+
+/// Apply a debuff to an enemy; handles Artifact blocking and fires Sadistic Nature.
+pub(crate) fn apply_enemy_debuff(
+    state: &mut CombatState,
+    enemy_idx: usize,
+    effect: StatusEffect,
+    stacks: i32,
+    events: &mut Vec<Event>,
+) {
+    let applied = apply_status(&mut state.enemies[enemy_idx].statuses, Target::Enemy, effect, stacks, events);
+    if applied && effect.is_debuff() {
+        let sadistic = get_stacks(&state.player.statuses, StatusEffect::SadisticNature);
+        if sadistic > 0 {
+            let enemy = &mut state.enemies[enemy_idx];
+            if enemy.hp > Hp(0) {
+                let dealt = deal_damage(sadistic, &mut enemy.hp, &mut enemy.block);
+                events.push(Event::PlayerAttacked { raw: sadistic, damage: dealt });
+            }
+        }
+    }
 }
 
 /// Exhausts a card: pushes to exhaust_pile, emits CardExhausted, fires on-exhaust power hooks.
@@ -1955,6 +1991,52 @@ mod tests {
     #[test]
     fn liquid_bronze_is_not_targeted() {
         assert!(!Potion::LiquidBronze.is_targeted());
+    }
+
+    // --- Essence of Steel / Heart of Iron (Metallicize for player) ---
+
+    #[test]
+    fn essence_of_steel_grants_2_metallicize() {
+        let state = combat_with_potion(Potion::EssenceOfSteel);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Metallicize), 2);
+    }
+
+    #[test]
+    fn heart_of_iron_grants_3_metallicize() {
+        let state = combat_with_potion(Potion::HeartOfIron);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Metallicize), 3);
+    }
+
+    #[test]
+    fn player_metallicize_gains_block_at_start_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Metallicize, 3);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(3));
+    }
+
+    #[test]
+    fn player_metallicize_does_not_decrement() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Metallicize, 3);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::StartPlayerTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Metallicize), 3);
+    }
+
+    #[test]
+    fn essence_of_steel_is_not_targeted() {
+        assert!(!Potion::EssenceOfSteel.is_targeted());
+    }
+
+    #[test]
+    fn heart_of_iron_is_not_targeted() {
+        assert!(!Potion::HeartOfIron.is_targeted());
     }
 
     // --- The Guardian: Sharp Hide ---
