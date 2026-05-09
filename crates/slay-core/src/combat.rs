@@ -117,11 +117,16 @@ impl CombatState {
             ..player
         };
         draw_cards(&mut p, 5usize.saturating_sub(innate_count), rng);
+        let allies_at_start = enemy_kinds.len().saturating_sub(1);
         let enemies = enemy_kinds
             .iter()
             .map(|kind| {
                 let max_hp = kind.max_hp();
-                let first_move = enemies::next_move(kind, &[], &crate::status::StatusMap::new(), rng);
+                let first_move = if *kind == EnemyKind::ShieldGremlin {
+                    enemies::shield_gremlin_next_move(&[], allies_at_start)
+                } else {
+                    enemies::next_move(kind, &[], &crate::status::StatusMap::new(), rng)
+                };
                 Enemy {
                     kind: kind.clone(),
                     hp: max_hp,
@@ -485,10 +490,14 @@ pub(crate) fn apply_combat_command(
             if state.phase != CombatPhase::EnemyTurn {
                 return Err(CommandError::InvalidPhase);
             }
+            for enemy in &mut state.enemies {
+                if enemy.hp > Hp(0) {
+                    enemy.block = Block(0);
+                }
+            }
             let mut i = 0;
             while i < state.enemies.len() {
                 if state.enemies[i].hp <= Hp(0) { i += 1; continue; }
-                state.enemies[i].block = Block(0);
                 tick_ritual(&mut state.enemies[i].statuses);
                 let is_incapacitated = get_stacks(&state.enemies[i].statuses, StatusEffect::Stunned) > 0
                     || get_stacks(&state.enemies[i].statuses, StatusEffect::Sleep) > 0;
@@ -544,6 +553,15 @@ pub(crate) fn apply_combat_command(
                             Effect::ClearSelfStatus(status) => {
                                 state.enemies[i].statuses.remove(&status);
                             }
+                            Effect::GiveAllyBlock(n) => {
+                                let alive_others: Vec<usize> = (0..state.enemies.len())
+                                    .filter(|&j| j != i && state.enemies[j].hp > Hp(0))
+                                    .collect();
+                                if let Some(&target) = alive_others.first() {
+                                    state.enemies[target].block.0 += n;
+                                    events.push(Event::EnemyDefended { amount: n });
+                                }
+                            }
                         }
                     }
                 }
@@ -581,9 +599,15 @@ pub(crate) fn apply_combat_command(
             }
             state.player.energy = state.player.max_energy;
             state.turn += 1;
+            let alive_count = state.enemies.iter().filter(|e| e.hp > Hp(0)).count();
             for enemy in state.enemies.iter_mut() {
                 if enemy.hp > Hp(0) {
-                    enemy.move_ = enemies::next_move(&enemy.kind, &enemy.move_history, &enemy.statuses, rng);
+                    enemy.move_ = if enemy.kind == EnemyKind::ShieldGremlin {
+                        let allies_alive = alive_count.saturating_sub(1);
+                        enemies::shield_gremlin_next_move(&enemy.move_history, allies_alive)
+                    } else {
+                        enemies::next_move(&enemy.kind, &enemy.move_history, &enemy.statuses, rng)
+                    };
                     events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
                 }
             }
@@ -2182,5 +2206,97 @@ mod tests {
         let (s, _) = apply_command(s, Command::PlayCard(0, 1), &mut rng()).unwrap();
         // Both should be dead (HP=1 each, Strike deals 6)
         assert_eq!(s.phase, CombatPhase::Victory);
+    }
+
+    // --- Mad Gremlin (Angry passive) ---
+
+    fn mad_gremlin_combat(hand: Vec<Card>) -> CombatState {
+        CombatState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand, draw_pile: Vec::new(),
+                discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+                statuses: StatusMap::new(), deck: Vec::new(),
+                gold: 0, relics: Vec::new(), potions: Vec::new(),
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::MadGremlin,
+                hp: Hp(20), max_hp: Hp(20),
+                block: Block(0),
+                move_: Move::GremlinScratch,
+                move_history: vec![],
+                statuses: StatusMap::new(),
+            }],
+            turn: 1, phase: CombatPhase::PlayerTurn,
+            attacks_this_turn: 0, skills_this_turn: 0,
+            attacks_this_combat: 0, skills_this_combat: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+        }
+    }
+
+    #[test]
+    fn attacking_mad_gremlin_gives_it_1_strength() {
+        let state = mad_gremlin_combat(vec![Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 1);
+    }
+
+    #[test]
+    fn attacking_mad_gremlin_emits_strength_applied_event() {
+        let state = mad_gremlin_combat(vec![Card::Strike(Grade::Base)]);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::StatusApplied { target: Target::Enemy, status: StatusEffect::Strength, stacks: 1 }));
+    }
+
+    // --- Shield Gremlin (Protect gives ally block) ---
+
+    fn two_enemy_combat_shield_protect() -> CombatState {
+        CombatState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: Vec::new(), draw_pile: Vec::new(),
+                discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+                statuses: StatusMap::new(), deck: Vec::new(),
+                gold: 0, relics: Vec::new(), potions: Vec::new(),
+            },
+            enemies: vec![
+                Enemy {
+                    kind: EnemyKind::ShieldGremlin,
+                    hp: Hp(12), max_hp: Hp(12),
+                    block: Block(0),
+                    move_: Move::ShieldProtect,
+                    move_history: vec![],
+                    statuses: StatusMap::new(),
+                },
+                Enemy {
+                    kind: EnemyKind::MadGremlin,
+                    hp: Hp(20), max_hp: Hp(20),
+                    block: Block(0),
+                    move_: Move::GremlinScratch,
+                    move_history: vec![],
+                    statuses: StatusMap::new(),
+                },
+            ],
+            turn: 1, phase: CombatPhase::EnemyTurn,
+            attacks_this_turn: 0, skills_this_turn: 0,
+            attacks_this_combat: 0, skills_this_combat: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+        }
+    }
+
+    #[test]
+    fn shield_gremlin_protect_gives_block_to_ally() {
+        let state = two_enemy_combat_shield_protect();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies[1].block > Block(0), "ally should have gained block");
+    }
+
+    #[test]
+    fn shield_gremlin_protect_gives_7_block_to_ally() {
+        let state = two_enemy_combat_shield_protect();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies[1].block.0, 7);
     }
 }

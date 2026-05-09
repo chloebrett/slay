@@ -1,18 +1,23 @@
 mod blue_slaver;
 mod cultist;
+mod fat_gremlin;
 mod fungibeast;
 mod green_louse;
 mod gremlin_nob;
+mod gremlin_wizard;
 mod jaw_worm;
 mod lagavulin;
 mod large_acid_slime;
 mod large_spike_slime;
+mod mad_gremlin;
 mod medium_acid_slime;
 mod medium_spike_slime;
 mod red_louse;
 mod red_slaver;
+mod shield_gremlin;
 mod small_acid_slime;
 mod small_spike_slime;
+mod sneaky_gremlin;
 mod the_guardian;
 
 use crate::cards::Card;
@@ -34,6 +39,11 @@ pub enum EnemyKind {
     TheGuardian,
     GremlinNob,
     Lagavulin,
+    MadGremlin,
+    SneakyGremlin,
+    FatGremlin,
+    GremlinWizard,
+    ShieldGremlin,
     LargeSpike,
     MediumSpike,
     LargeAcid,
@@ -105,6 +115,18 @@ pub enum Move {
     MediumAcidCorrosiveSpit,
     MediumAcidLick,
     MediumAcidTackle,
+    // Mad Gremlin
+    GremlinScratch,
+    // Sneaky Gremlin
+    GremlinPuncture,
+    // Fat Gremlin
+    GremlinSmash,
+    // Gremlin Wizard
+    WizardCharging,
+    WizardUltimateBlast,
+    // Shield Gremlin
+    ShieldProtect,
+    ShieldBash,
 }
 
 #[derive(Debug, Clone)]
@@ -115,6 +137,7 @@ pub enum Effect {
     ApplyStatus(StatusEffect, i32),     // applies to player
     AddToDiscard(Card),                 // adds a card to the player's discard pile
     ClearSelfStatus(StatusEffect),      // removes all stacks of a status from self
+    GiveAllyBlock(i32),                 // gives block to a random other alive enemy
 }
 
 pub struct MoveDef {
@@ -171,12 +194,25 @@ impl Move {
             Move::MediumAcidCorrosiveSpit => MoveDef { name: "Corrosive Spit", effects: vec![Effect::DealDamage(7), Effect::AddToDiscard(Card::Slimed)] },
             Move::MediumAcidLick          => MoveDef { name: "Lick",           effects: vec![Effect::ApplyStatus(StatusEffect::Weak, 1)] },
             Move::MediumAcidTackle        => MoveDef { name: "Tackle",         effects: vec![Effect::DealDamage(10)] },
+            Move::GremlinScratch     => MoveDef { name: "Scratch",        effects: vec![Effect::DealDamage(4)] },
+            Move::GremlinPuncture    => MoveDef { name: "Puncture",       effects: vec![Effect::DealDamage(9)] },
+            Move::GremlinSmash       => MoveDef { name: "Smash",          effects: vec![Effect::DealDamage(4), Effect::ApplyStatus(StatusEffect::Weak, 1)] },
+            Move::WizardCharging     => MoveDef { name: "Charging",       effects: vec![] },
+            Move::WizardUltimateBlast => MoveDef { name: "Ultimate Blast", effects: vec![Effect::DealDamage(25)] },
+            Move::ShieldProtect      => MoveDef { name: "Protect",        effects: vec![Effect::GiveAllyBlock(7)] },
+            Move::ShieldBash         => MoveDef { name: "Shield Bash",    effects: vec![Effect::DealDamage(6)] },
         }
     }
 
     pub fn intent(self) -> Intent {
         if matches!(self, Move::LargeSpikeSplit | Move::LargeAcidSplit) {
             return Intent::Split;
+        }
+        if matches!(self, Move::WizardCharging) {
+            return Intent::Buff;
+        }
+        if matches!(self, Move::ShieldProtect) {
+            return Intent::Defend(7);
         }
         let effects = self.def().effects;
         let damage: i32 = effects.iter().filter_map(|e| {
@@ -229,6 +265,11 @@ impl EnemyKind {
             EnemyKind::TheGuardian     => the_guardian::DEF,
             EnemyKind::GremlinNob      => gremlin_nob::DEF,
             EnemyKind::Lagavulin       => lagavulin::DEF,
+            EnemyKind::MadGremlin      => mad_gremlin::DEF,
+            EnemyKind::SneakyGremlin   => sneaky_gremlin::DEF,
+            EnemyKind::FatGremlin      => fat_gremlin::DEF,
+            EnemyKind::GremlinWizard   => gremlin_wizard::DEF,
+            EnemyKind::ShieldGremlin   => shield_gremlin::DEF,
             EnemyKind::LargeSpike      => large_spike_slime::DEF,
             EnemyKind::MediumSpike     => medium_spike_slime::DEF,
             EnemyKind::LargeAcid       => large_acid_slime::DEF,
@@ -253,6 +294,11 @@ impl EnemyKind {
             EnemyKind::TheGuardian     => "the-guardian",
             EnemyKind::GremlinNob      => "gremlin-nob",
             EnemyKind::Lagavulin       => "lagavulin",
+            EnemyKind::MadGremlin      => "mad-gremlin",
+            EnemyKind::SneakyGremlin   => "sneaky-gremlin",
+            EnemyKind::FatGremlin      => "fat-gremlin",
+            EnemyKind::GremlinWizard   => "gremlin-wizard",
+            EnemyKind::ShieldGremlin   => "shield-gremlin",
             EnemyKind::LargeSpike      => "large-spike-slime",
             EnemyKind::MediumSpike     => "medium-spike-slime",
             EnemyKind::LargeAcid       => "large-acid-slime",
@@ -274,6 +320,11 @@ impl EnemyKind {
             "the-guardian"      => Some(EnemyKind::TheGuardian),
             "gremlin-nob"        => Some(EnemyKind::GremlinNob),
             "lagavulin"          => Some(EnemyKind::Lagavulin),
+            "mad-gremlin"        => Some(EnemyKind::MadGremlin),
+            "sneaky-gremlin"     => Some(EnemyKind::SneakyGremlin),
+            "fat-gremlin"        => Some(EnemyKind::FatGremlin),
+            "gremlin-wizard"     => Some(EnemyKind::GremlinWizard),
+            "shield-gremlin"     => Some(EnemyKind::ShieldGremlin),
             "large-spike-slime"  => Some(EnemyKind::LargeSpike),
             "medium-spike-slime" => Some(EnemyKind::MediumSpike),
             "large-acid-slime"   => Some(EnemyKind::LargeAcid),
@@ -305,8 +356,13 @@ pub fn on_player_attack_damage(
         EnemyKind::TheGuardian => the_guardian::on_player_attack_damage(statuses, hp_lost),
         EnemyKind::LargeSpike  => large_spike_slime::on_player_attack_damage(current_hp, max_hp),
         EnemyKind::LargeAcid   => large_acid_slime::on_player_attack_damage(current_hp, max_hp),
+        EnemyKind::MadGremlin  => mad_gremlin::on_player_attack_damage(statuses, hp_lost, current_hp, max_hp),
         _ => None,
     }
+}
+
+pub fn shield_gremlin_next_move(history: &[Move], allies_alive: usize) -> Move {
+    shield_gremlin::next_move(allies_alive)
 }
 
 pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: &mut impl Rng) -> Move {
@@ -324,6 +380,11 @@ pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: 
         EnemyKind::TheGuardian     => the_guardian::next_move(last),
         EnemyKind::GremlinNob      => gremlin_nob::next_move(last, rng),
         EnemyKind::Lagavulin       => lagavulin::next_move(history, statuses),
+        EnemyKind::MadGremlin      => mad_gremlin::next_move(),
+        EnemyKind::SneakyGremlin   => sneaky_gremlin::next_move(),
+        EnemyKind::FatGremlin      => fat_gremlin::next_move(),
+        EnemyKind::GremlinWizard   => gremlin_wizard::next_move(history),
+        EnemyKind::ShieldGremlin   => shield_gremlin::next_move(1), // default: assume allies present
         EnemyKind::LargeSpike      => large_spike_slime::next_move(history, rng),
         EnemyKind::MediumSpike     => medium_spike_slime::next_move(history, rng),
         EnemyKind::LargeAcid       => large_acid_slime::next_move(history, rng),
@@ -1138,5 +1199,205 @@ mod tests {
         let def = Move::MediumAcidTackle.def();
         let damage: i32 = def.effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).sum();
         assert_eq!(damage, 10);
+    }
+
+    // --- Mad Gremlin ---
+
+    #[test]
+    fn mad_gremlin_has_20_hp() {
+        assert_eq!(EnemyKind::MadGremlin.max_hp(), Hp(20));
+    }
+
+    #[test]
+    fn mad_gremlin_is_named_correctly() {
+        assert_eq!(EnemyKind::MadGremlin.name(), "Mad Gremlin");
+    }
+
+    #[test]
+    fn mad_gremlin_id_round_trips() {
+        assert_eq!(EnemyKind::MadGremlin.id(), "mad-gremlin");
+        assert_eq!(EnemyKind::from_id("mad-gremlin"), Some(EnemyKind::MadGremlin));
+    }
+
+    #[test]
+    fn mad_gremlin_always_scratches() {
+        let mv = next_move(&EnemyKind::MadGremlin, &[], &StatusMap::new(), &mut rng());
+        assert_eq!(mv, Move::GremlinScratch);
+        let mv2 = next_move(&EnemyKind::MadGremlin, &[Move::GremlinScratch], &StatusMap::new(), &mut rng());
+        assert_eq!(mv2, Move::GremlinScratch);
+    }
+
+    #[test]
+    fn mad_gremlin_gains_1_strength_when_hit() {
+        let reaction = on_player_attack_damage(&EnemyKind::MadGremlin, &StatusMap::new(), 5, Hp(15), Hp(20));
+        let reaction = reaction.unwrap();
+        let str_gain: i32 = reaction.status_events.iter()
+            .filter_map(|&(s, n)| if s == StatusEffect::Strength { Some(n) } else { None })
+            .sum();
+        assert_eq!(str_gain, 1);
+    }
+
+    #[test]
+    fn mad_gremlin_scratch_intent_is_attack_4() {
+        assert_eq!(Move::GremlinScratch.intent(), Intent::Attack(4));
+    }
+
+    // --- Sneaky Gremlin ---
+
+    #[test]
+    fn sneaky_gremlin_has_10_hp() {
+        assert_eq!(EnemyKind::SneakyGremlin.max_hp(), Hp(10));
+    }
+
+    #[test]
+    fn sneaky_gremlin_is_named_correctly() {
+        assert_eq!(EnemyKind::SneakyGremlin.name(), "Sneaky Gremlin");
+    }
+
+    #[test]
+    fn sneaky_gremlin_id_round_trips() {
+        assert_eq!(EnemyKind::SneakyGremlin.id(), "sneaky-gremlin");
+        assert_eq!(EnemyKind::from_id("sneaky-gremlin"), Some(EnemyKind::SneakyGremlin));
+    }
+
+    #[test]
+    fn sneaky_gremlin_always_punctures() {
+        let mv = next_move(&EnemyKind::SneakyGremlin, &[], &StatusMap::new(), &mut rng());
+        assert_eq!(mv, Move::GremlinPuncture);
+        let mv2 = next_move(&EnemyKind::SneakyGremlin, &[Move::GremlinPuncture], &StatusMap::new(), &mut rng());
+        assert_eq!(mv2, Move::GremlinPuncture);
+    }
+
+    #[test]
+    fn sneaky_gremlin_puncture_intent_is_attack_9() {
+        assert_eq!(Move::GremlinPuncture.intent(), Intent::Attack(9));
+    }
+
+    // --- Fat Gremlin ---
+
+    #[test]
+    fn fat_gremlin_has_13_hp() {
+        assert_eq!(EnemyKind::FatGremlin.max_hp(), Hp(13));
+    }
+
+    #[test]
+    fn fat_gremlin_is_named_correctly() {
+        assert_eq!(EnemyKind::FatGremlin.name(), "Fat Gremlin");
+    }
+
+    #[test]
+    fn fat_gremlin_id_round_trips() {
+        assert_eq!(EnemyKind::FatGremlin.id(), "fat-gremlin");
+        assert_eq!(EnemyKind::from_id("fat-gremlin"), Some(EnemyKind::FatGremlin));
+    }
+
+    #[test]
+    fn fat_gremlin_always_smashes() {
+        let mv = next_move(&EnemyKind::FatGremlin, &[], &StatusMap::new(), &mut rng());
+        assert_eq!(mv, Move::GremlinSmash);
+    }
+
+    #[test]
+    fn gremlin_smash_deals_4_dmg_and_applies_1_weak() {
+        let def = Move::GremlinSmash.def();
+        let dmg: i32 = def.effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).sum();
+        let weak: i32 = def.effects.iter().filter_map(|e| if let Effect::ApplyStatus(StatusEffect::Weak, n) = e { Some(*n) } else { None }).sum();
+        assert_eq!(dmg, 4);
+        assert_eq!(weak, 1);
+    }
+
+    // --- Gremlin Wizard ---
+
+    #[test]
+    fn gremlin_wizard_has_21_hp() {
+        assert_eq!(EnemyKind::GremlinWizard.max_hp(), Hp(21));
+    }
+
+    #[test]
+    fn gremlin_wizard_is_named_correctly() {
+        assert_eq!(EnemyKind::GremlinWizard.name(), "Gremlin Wizard");
+    }
+
+    #[test]
+    fn gremlin_wizard_id_round_trips() {
+        assert_eq!(EnemyKind::GremlinWizard.id(), "gremlin-wizard");
+        assert_eq!(EnemyKind::from_id("gremlin-wizard"), Some(EnemyKind::GremlinWizard));
+    }
+
+    #[test]
+    fn gremlin_wizard_first_two_moves_are_charging() {
+        let m1 = next_move(&EnemyKind::GremlinWizard, &[], &StatusMap::new(), &mut rng());
+        assert_eq!(m1, Move::WizardCharging);
+        let m2 = next_move(&EnemyKind::GremlinWizard, &[Move::WizardCharging], &StatusMap::new(), &mut rng());
+        assert_eq!(m2, Move::WizardCharging);
+    }
+
+    #[test]
+    fn gremlin_wizard_blasts_after_two_chargings() {
+        let m3 = next_move(&EnemyKind::GremlinWizard, &[Move::WizardCharging, Move::WizardCharging], &StatusMap::new(), &mut rng());
+        assert_eq!(m3, Move::WizardUltimateBlast);
+    }
+
+    #[test]
+    fn gremlin_wizard_charges_three_times_before_second_blast() {
+        let history = vec![Move::WizardCharging, Move::WizardCharging, Move::WizardUltimateBlast];
+        let m4 = next_move(&EnemyKind::GremlinWizard, &history, &StatusMap::new(), &mut rng());
+        assert_eq!(m4, Move::WizardCharging);
+        let m5 = next_move(&EnemyKind::GremlinWizard, &[&history[..], &[Move::WizardCharging]].concat(), &StatusMap::new(), &mut rng());
+        assert_eq!(m5, Move::WizardCharging);
+        let m6 = next_move(&EnemyKind::GremlinWizard, &[&history[..], &[Move::WizardCharging, Move::WizardCharging]].concat(), &StatusMap::new(), &mut rng());
+        assert_eq!(m6, Move::WizardCharging);
+        let m7 = next_move(&EnemyKind::GremlinWizard, &[&history[..], &[Move::WizardCharging, Move::WizardCharging, Move::WizardCharging]].concat(), &StatusMap::new(), &mut rng());
+        assert_eq!(m7, Move::WizardUltimateBlast);
+    }
+
+    #[test]
+    fn wizard_charging_intent_is_buff() {
+        assert_eq!(Move::WizardCharging.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn wizard_ultimate_blast_intent_is_attack_25() {
+        assert_eq!(Move::WizardUltimateBlast.intent(), Intent::Attack(25));
+    }
+
+    // --- Shield Gremlin ---
+
+    #[test]
+    fn shield_gremlin_has_12_hp() {
+        assert_eq!(EnemyKind::ShieldGremlin.max_hp(), Hp(12));
+    }
+
+    #[test]
+    fn shield_gremlin_is_named_correctly() {
+        assert_eq!(EnemyKind::ShieldGremlin.name(), "Shield Gremlin");
+    }
+
+    #[test]
+    fn shield_gremlin_id_round_trips() {
+        assert_eq!(EnemyKind::ShieldGremlin.id(), "shield-gremlin");
+        assert_eq!(EnemyKind::from_id("shield-gremlin"), Some(EnemyKind::ShieldGremlin));
+    }
+
+    #[test]
+    fn shield_gremlin_protects_when_allies_alive() {
+        assert_eq!(shield_gremlin_next_move(&[], 1), Move::ShieldProtect);
+        assert_eq!(shield_gremlin_next_move(&[Move::ShieldProtect], 2), Move::ShieldProtect);
+    }
+
+    #[test]
+    fn shield_gremlin_bashes_when_alone() {
+        assert_eq!(shield_gremlin_next_move(&[], 0), Move::ShieldBash);
+        assert_eq!(shield_gremlin_next_move(&[Move::ShieldProtect], 0), Move::ShieldBash);
+    }
+
+    #[test]
+    fn shield_protect_intent_is_defend_7() {
+        assert_eq!(Move::ShieldProtect.intent(), Intent::Defend(7));
+    }
+
+    #[test]
+    fn shield_bash_intent_is_attack_6() {
+        assert_eq!(Move::ShieldBash.intent(), Intent::Attack(6));
     }
 }
