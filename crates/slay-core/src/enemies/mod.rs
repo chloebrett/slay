@@ -1167,7 +1167,7 @@ mod tests {
     #[test]
     fn large_spike_split_at_or_below_half_hp() {
         let reaction = on_player_attack_damage(&EnemyKind::LargeSpike, &StatusMap::new(), 1, Hp(33), Hp(67));
-        assert_eq!(reaction.map(|r| r.force_move).flatten(), Some(Move::LargeSpikeSplit));
+        assert_eq!(reaction.and_then(|r| r.force_move), Some(Move::LargeSpikeSplit));
     }
 
     #[test]
@@ -1243,7 +1243,7 @@ mod tests {
     #[test]
     fn large_acid_split_at_or_below_half_hp() {
         let reaction = on_player_attack_damage(&EnemyKind::LargeAcid, &StatusMap::new(), 1, Hp(33), Hp(67));
-        assert_eq!(reaction.map(|r| r.force_move).flatten(), Some(Move::LargeAcidSplit));
+        assert_eq!(reaction.and_then(|r| r.force_move), Some(Move::LargeAcidSplit));
     }
 
     #[test]

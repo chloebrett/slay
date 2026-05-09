@@ -219,9 +219,9 @@ fn phase_banner(before: &GameState, after: &GameState) -> Option<String> {
         return None;
     }
     let banner = match after {
-        GameState::Combat { state: cs, floor, is_boss, .. } => {
+        GameState::Combat { state: cs, floor, is_boss, is_elite, .. } => {
             let enemies: Vec<&str> = cs.enemies.iter().map(|e| e.name()).collect();
-            let label = if *is_boss { "Boss" } else { "Combat" };
+            let label = if *is_boss { "Boss" } else if *is_elite { "Elite" } else { "Combat" };
             format!("══ ⚔️  Floor {} — {label}: {} ══", floor + 1, enemies.join(", "))
         }
         GameState::RestSite(rs) => format!("══ 🏕️  Floor {} — Rest Site ══", rs.floor + 1),
@@ -945,12 +945,12 @@ fn wipe_title_lines(state: &GameState) -> Vec<Line<'static>> {
         Style::default().fg(Color::DarkGray),
     );
     match state {
-        GameState::Combat { floor, is_boss, state: cs, .. } => {
+        GameState::Combat { floor, is_boss, is_elite, state: cs, .. } => {
             let floor_line = Line::styled(
                 format!("Floor {}", floor + 1),
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
             );
-            let label = if *is_boss { "BOSS BATTLE" } else { "COMBAT" };
+            let label = if *is_boss { "BOSS BATTLE" } else if *is_elite { "ELITE" } else { "COMBAT" };
             let room_line = Line::styled(label, Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
             let enemies: String = cs.enemies.iter().map(|e| e.name()).collect::<Vec<_>>().join("  ·  ");
             let enemy_line = Line::styled(enemies, Style::default().fg(Color::Gray));

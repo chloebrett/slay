@@ -80,6 +80,7 @@ pub fn describe_event(event: &Event) -> String {
         Event::EnemyFled => "🏃 Enemy fled!".into(),
         Event::GoldStolen { amount } => format!("💰 Enemy stole {amount} gold!"),
         Event::GoldReturned { amount } => format!("💰 Returned {amount} gold."),
+        Event::RelicObtained { relic } => format!("✨ You obtain {}.", relic.name()),
     }
 }
 
@@ -194,6 +195,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
 pub fn map_node_icon(node: &MapNode) -> &'static str {
     match node {
         MapNode::Combat(_) => "⚔️",
+        MapNode::Elite(_)  => "⚡",
         MapNode::RestSite  => "🔥",
         MapNode::Boss(_)   => "💀",
         MapNode::Merchant  => "🛒",
@@ -205,6 +207,7 @@ pub fn map_node_icon(node: &MapNode) -> &'static str {
 pub fn map_node_name(node: &MapNode) -> &'static str {
     match node {
         MapNode::Combat(_) => "Combat",
+        MapNode::Elite(_)  => "Elite",
         MapNode::RestSite  => "Rest Site",
         MapNode::Boss(_)   => "Boss",
         MapNode::Merchant  => "Shop",

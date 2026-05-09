@@ -21,7 +21,7 @@ fn snapshot_all_simple_scripts() {
     let mut entries: Vec<_> = fs::read_dir(&dir)
         .unwrap_or_else(|e| panic!("scripts/simple directory not found: {e}"))
         .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().map_or(false, |x| x == "slay"))
+        .filter(|e| e.path().extension().is_some_and(|x| x == "slay"))
         .collect();
     entries.sort_by_key(|e| e.file_name());
 
