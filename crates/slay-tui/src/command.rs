@@ -313,6 +313,8 @@ mod tests {
                 hand_cost_max_expires: false,
                 block_locked_turns: 0,
                 pending_bombs: vec![],
+                duplication_pending: false,
+                zero_cost_cards: vec![],
             },
             floor: 0,
             is_boss: false,

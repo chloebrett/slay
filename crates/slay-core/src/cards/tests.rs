@@ -4141,3 +4141,110 @@
         assert_eq!(Card::from_id("the-bomb"),      Some(Card::TheBomb(Grade::Base)));
         assert_eq!(Card::from_id("the-bomb-plus"), Some(Card::TheBomb(Grade::Plus)));
     }
+
+    // --- Madness ---
+
+    #[test]
+    fn madness_costs_1() {
+        assert_eq!(Card::Madness(Grade::Base).energy_cost(), Energy(1));
+    }
+
+    #[test]
+    fn madness_is_a_skill() {
+        assert_eq!(Card::Madness(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn madness_exhausts() {
+        assert!(Card::Madness(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn madness_makes_card_cost_0_this_combat() {
+        // Hand: [Madness, Strike]. NoOpRng picks index 0 (Strike after Madness is removed).
+        // After playing Madness the hand has [Strike], which should now cost 0.
+        let mut state = combat_with_hand(vec![Card::Madness(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Strike is now in zero_cost_cards — playing it should cost 0, so energy only drops by strike's natural cost (0 because zero cost)
+        let energy_before = state.player.energy;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, energy_before); // no energy spent on Strike
+    }
+
+    #[test]
+    fn madness_zero_cost_persists_after_reshuffle() {
+        // The zero-cost effect should survive into the next turn
+        let mut state = combat_with_hand(vec![Card::Madness(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // play Madness
+        // End turn and start new turn
+        let state = full_turn(state);
+        // Strike should be back in hand (draw pile has only Strike after Madness exhausted)
+        let strike_idx = state.player.hand.iter().position(|c| matches!(c, Card::Strike(_))).expect("Strike in hand");
+        let energy_before = state.player.energy;
+        let (state, _) = apply_command(state, Command::PlayCard(strike_idx, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, energy_before); // still free
+    }
+
+    #[test]
+    fn madness_id_round_trips() {
+        assert_eq!(Card::from_id("madness"),      Some(Card::Madness(Grade::Base)));
+        assert_eq!(Card::from_id("madness-plus"), Some(Card::Madness(Grade::Plus)));
+    }
+
+    // --- Transmutation ---
+
+    #[test]
+    fn transmutation_costs_x() {
+        assert_eq!(Card::Transmutation(Grade::Base).card_cost(), CardCost::X);
+    }
+
+    #[test]
+    fn transmutation_is_a_skill() {
+        assert_eq!(Card::Transmutation(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn transmutation_exhausts() {
+        assert!(Card::Transmutation(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn transmutation_base_creates_x_colorless_cards() {
+        // With energy=3, X=3, hand should gain 3 colorless cards
+        let mut state = combat_with_hand(vec![Card::Transmutation(Grade::Base)]);
+        state.player.energy = Energy(3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+        for card in &state.player.hand {
+            assert!(crate::cards::colorless_reward_pool().contains(card), "card {:?} not in colorless pool", card);
+        }
+    }
+
+    #[test]
+    fn transmutation_plus_creates_x_zero_cost_colorless_cards() {
+        let mut state = combat_with_hand(vec![Card::Transmutation(Grade::Plus)]);
+        state.player.energy = Energy(2);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        // All created cards should cost 0 (be in zero_cost_cards)
+        for card in &state.player.hand {
+            assert!(state.zero_cost_cards.contains(card), "card {:?} not in zero_cost_cards", card);
+        }
+    }
+
+    #[test]
+    fn transmutation_x0_creates_no_cards() {
+        // With energy=0, X=0, no cards should be created
+        let mut state = combat_with_hand(vec![Card::Transmutation(Grade::Base)]);
+        state.player.energy = Energy(0);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 0);
+    }
+
+    #[test]
+    fn transmutation_id_round_trips() {
+        assert_eq!(Card::from_id("transmutation"),      Some(Card::Transmutation(Grade::Base)));
+        assert_eq!(Card::from_id("transmutation-plus"), Some(Card::Transmutation(Grade::Plus)));
+    }

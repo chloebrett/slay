@@ -87,6 +87,8 @@ pub struct CombatState {
     pub hand_cost_max_expires: bool,
     pub block_locked_turns: u32,
     pub pending_bombs: Vec<(i32, u32)>,
+    pub duplication_pending: bool,
+    pub zero_cost_cards: Vec<Card>,
 }
 
 impl CombatState {
@@ -159,7 +161,7 @@ impl CombatState {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 }
@@ -287,9 +289,13 @@ fn apply_play_card(
             return Err(CommandError::InvalidCard);
         }
     }
-    let effective_cost = match (card.card_cost(), state.hand_cost_max) {
-        (CardCost::Fixed(cost), Some(cap)) => CardCost::Fixed(Energy(cost.0.min(cap.0))),
-        (cost, _) => cost,
+    let effective_cost = if state.zero_cost_cards.contains(&card) {
+        CardCost::Fixed(Energy(0))
+    } else {
+        match (card.card_cost(), state.hand_cost_max) {
+            (CardCost::Fixed(cost), Some(cap)) => CardCost::Fixed(Energy(cost.0.min(cap.0))),
+            (cost, _) => cost,
+        }
     };
     if !effective_cost.is_affordable(state.player.energy) {
         return Err(CommandError::NotEnoughEnergy);
@@ -310,7 +316,14 @@ fn apply_play_card(
     };
     events.push(Event::CardPlayed { card: card.clone() });
     let hp_before_card = state.enemies[actual_target].hp;
+    let duplicating = state.duplication_pending;
+    if duplicating { state.duplication_pending = false; }
     crate::cards::apply(&card, &mut state, &mut events, actual_target, rng, x_value);
+    if duplicating && state.enemies.iter().any(|e| e.hp > Hp(0)) {
+        let dup_target = if state.enemies[actual_target].hp > Hp(0) { actual_target }
+            else { state.enemies.iter().position(|e| e.hp > Hp(0)).unwrap_or(actual_target) };
+        crate::cards::apply(&card, &mut state, &mut events, dup_target, rng, x_value);
+    }
     if card.card_type() == CardType::Attack {
         let sharp_hide = get_stacks(&state.enemies[actual_target].statuses, StatusEffect::SharpHide);
         if sharp_hide > 0 {
@@ -966,7 +979,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
     }
 }
 
@@ -1023,7 +1036,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
     }
 }
 
@@ -2063,6 +2076,63 @@ mod tests {
         assert!(!Potion::HeartOfIron.is_targeted());
     }
 
+    // --- Ancient Potion ---
+
+    #[test]
+    fn ancient_potion_grants_1_artifact() {
+        let state = combat_with_potion(Potion::AncientPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Artifact), 1);
+    }
+
+    #[test]
+    fn ancient_potion_artifact_blocks_next_debuff() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Artifact, 1);
+        apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Vulnerable, 2, &mut vec![]);
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Vulnerable));
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Artifact));
+    }
+
+    #[test]
+    fn ancient_potion_is_not_targeted() {
+        assert!(!Potion::AncientPotion.is_targeted());
+    }
+
+    // --- Duplication Potion ---
+
+    #[test]
+    fn duplication_potion_causes_next_card_to_deal_damage_twice() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.player.potions = vec![Potion::DuplicationPotion];
+        state.enemies[0].hp = Hp(80);
+        state.enemies[0].max_hp = Hp(80);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let damage_dealt = hp_before.0 - state.enemies[0].hp.0;
+        assert!(damage_dealt >= 12, "expected at least 12 damage (6 * 2), got {damage_dealt}");
+    }
+
+    #[test]
+    fn duplication_potion_only_duplicates_the_next_card() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.potions = vec![Potion::DuplicationPotion];
+        state.enemies[0].hp = Hp(80);
+        state.enemies[0].max_hp = Hp(80);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let hp_after_first = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let damage_second_card = hp_after_first.0 - state.enemies[0].hp.0;
+        assert_eq!(damage_second_card, 6, "second card should deal normal damage (6), not doubled");
+    }
+
+    #[test]
+    fn duplication_potion_is_not_targeted() {
+        assert!(!Potion::DuplicationPotion.is_targeted());
+    }
+
     // --- Steroid Potion (Flex Potion) ---
 
     #[test]
@@ -2159,7 +2229,7 @@ mod tests {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 
@@ -2548,7 +2618,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 
@@ -2642,7 +2712,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 
@@ -2735,7 +2805,7 @@ mod tests {
             turn: 1, phase: CombatPhase::PlayerTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 
@@ -2787,7 +2857,7 @@ mod tests {
             turn: 1, phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(),
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
         }
     }
 
