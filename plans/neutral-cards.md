@@ -156,10 +156,9 @@ New mechanics required before implementing colorless reward cards:
 - **Void (status)** — when drawn, immediately lose 1 energy; needs an on-draw hook that runs as cards enter hand.
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
+- **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.
 
 ### Major — significant new architecture
-
-- **Apotheosis** — upgrade every card in the player's deck for the duration of this combat; needs a "combat-scope upgrade" layer that promotes each card and reverts them all after combat ends.
 - **The Bomb** — deal 40 damage to ALL enemies after a 3-turn countdown; needs a delayed-effect system (a list of pending triggers with turn counters) that fires at end of player turn.
 - **Mayhem** — at the start of each turn, automatically play the top card of the draw pile; needs an auto-play step in `StartPlayerTurn` that runs a full play-card cycle including targeting.
 - **Panic Button** — gain 30 block but block gain is suppressed for the next 2 turns; needs a "block gain locked" flag with a turn countdown that intercepts `gain_player_block`.

@@ -117,6 +117,7 @@ These mechanisms don't yet exist in slay-core and must be added before implement
 - **Discard trigger** — events fired when a card is discarded (Tactician, Sneaky Strike)
 - **Draw trigger** — events on draw (Escape Plan)
 - **Energy carry-forward** — "next turn gain N energy" (Flying Knee, Outmaneuver)
+- **NoDraw status** — player status that suppresses the draw phase; needed by Bullet Time and potentially others
 - **Weak application to player** — already exists via Weak status; Piercing Wail applies to enemies only
 - **Repeating Poison on death** — Corpse Explosion
 - **Per-use state** — Glass Knife decreases damage each time it's played in a combat
@@ -137,6 +138,7 @@ These mechanisms don't yet exist in slay-core and must be added before implement
 - **Dash** — gain 10 block and deal 10 damage; same dual-effect structure as IronWave.
 - **Die Die Die** — deal 13 damage to ALL enemies and exhaust; AoE and exhaust both exist (Cleave, Impervious).
 - **Adrenaline** — gain 1 energy, draw 2, exhaust; all three exist (SeeingRed for energy, BurningPact for draw 2).
+- **Alchemize** — obtain a random Potion and exhaust; potion system is already implemented, just needs a random potion added to the player's potion slots.
 
 ### Minor — one new mechanism required
 
@@ -172,6 +174,7 @@ These mechanisms don't yet exist in slay-core and must be added before implement
 - **Masterful Stab** — deal 12 damage but costs 1 more energy per card in the discard pile; needs dynamic cost that re-evaluates at display/play time based on `discard_pile.len()`.
 - **Grand Finale** — deal 50 damage to ALL if the draw pile is empty; needs a playability guard that checks `draw_pile.is_empty()` and blocks play otherwise.
 - **Envenom** — whenever an Attack deals unblocked damage, apply 1 Poison to that enemy; needs an on-unblocked-damage event hook fired from the damage application path.
+- **Corpse Explosion** — apply 6 Poison and a new `CorpseExplosion` status to the enemy; when an enemy with that status dies, deal 8 damage to ALL other enemies; the on-death check lives in the status system, same pattern as Poison ticking.
 
 ### Major — significant new architecture
 
@@ -181,13 +184,11 @@ These mechanisms don't yet exist in slay-core and must be added before implement
 - **Setup** — exhaust a chosen card in hand and permanently set its cost to 0 for this combat; needs per-card-instance cost mutation stored alongside the card in the deck data structure.
 - **Accuracy** — Shivs deal 4 more damage; needs a per-card-type damage modifier applied during `resolve_damage`, looking up whether the card being played is a Shiv.
 - **Choke** — deal 12 damage; whenever the enemy plays a card this turn, it loses 3 HP; needs an "enemy card played" event hook that fires during `apply_combat_command` for enemy moves.
-- **Corpse Explosion** — apply 6 Poison; when the target dies, deal 8 damage to ALL other enemies; needs an on-kill trigger in the damage application path that fires additional AoE damage.
 - **Glass Knife** — deal 8 damage twice; damage decreases by 4 each time this card is played this combat; needs mutable per-card-instance state (a damage counter) stored with the card.
 - **Burst** — your next Skill is played twice this turn; needs a "pending double-play" flag on `CombatState` that the play-card path checks and clears after consuming it.
 - **Phantasmal Killer** — your next Attack deals double damage this turn; same pending-modifier pattern as Burst.
 - **Doppelganger** — X-cost; next turn draw X extra and gain X energy; needs X-cost on a Skill (only Whirlwind uses it on an Attack today) and two carry-forward values keyed on the X spent.
 - **Malaise** — X-cost; apply X Weak and X Poison to target; needs X-cost on a Skill and X used as the status amount.
 - **Nightmare** — choose a card; next turn add 3 copies of it to hand; needs a card-selection prompt, storage of the chosen card across the turn boundary, and card-spawning at `StartPlayerTurn`.
-- **Bullet Time** — don't draw cards this turn; reduce cost of all cards currently in hand to 0; needs a "draw suppressed" flag for `EndPlayerTurn`/draw phase and a temporary per-card cost override for every card in hand.
+- **Bullet Time** — don't draw cards this turn; reduce cost of all cards currently in hand to 0; the no-draw effect can be a `NoDraw` player status (also needed by other cards) checked in the draw phase, but the hand-wide cost-to-zero override still needs a per-card cost layer.
 - **Distraction** — add a random Silent Skill to hand; needs a Silent card pool filtered to `CardType::Skill`, which requires the class-tagging system on `Card`.
-- **Alchemize** — obtain a random Potion; requires the potion system to be implemented.
