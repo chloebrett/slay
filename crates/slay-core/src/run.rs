@@ -1950,8 +1950,8 @@ mod tests {
         let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Shop(shop) = next else { panic!("expected Shop") };
         assert!(shop.cards.iter().all(|(_, purchased)| !purchased));
-        assert!(shop.relic.as_ref().map_or(true, |(_, p)| !p));
-        assert!(shop.potion.as_ref().map_or(true, |(_, p)| !p));
+        assert!(shop.relic.as_ref().is_none_or(|(_, p)| !p));
+        assert!(shop.potion.as_ref().is_none_or(|(_, p)| !p));
     }
 
     #[test]

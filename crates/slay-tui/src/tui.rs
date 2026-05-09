@@ -1687,7 +1687,7 @@ mod tests {
         let tui = make_combat_tui();
         let lines = help_lines(&tui.game);
         for (key, _view, desc) in PILE_KEYS {
-            let expected = format!("{key}");
+            let expected = key.to_string();
             assert!(
                 lines.iter().any(|l| l.starts_with(&expected) && l.contains(desc)),
                 "help_lines should contain entry for key '{key}' with desc '{desc}'"
@@ -1809,7 +1809,7 @@ mod tests {
         tui.input_buf = "1".to_string();
         tui.handle_enter(&mut r);
         assert!(
-            tui.enemy_flashes.get(0).copied().flatten().is_some(),
+            tui.enemy_flashes.first().copied().flatten().is_some(),
             "enemy flash should be set after Strike deals damage"
         );
     }

@@ -54,6 +54,7 @@ mod apotheosis;
 mod deep_breath;
 mod enlightenment;
 mod finesse;
+mod hand_of_greed;
 mod flash_of_steel;
 mod forethought;
 mod master_of_strategy;
@@ -64,6 +65,7 @@ mod swift_strike;
 mod trip;
 mod normality;
 mod pain;
+mod purity;
 mod secret_technique;
 mod secret_weapon;
 mod thinking_ahead;
@@ -121,6 +123,7 @@ pub enum Card {
     FlashOfSteel(Grade),
     Forethought(Grade),
     GoodInstincts(Grade),
+    HandOfGreed(Grade),
     Impatience(Grade),
     MasterOfStrategy(Grade),
     MindBlast(Grade),
@@ -128,6 +131,7 @@ pub enum Card {
     Trip(Grade),
     Normality,
     Pain,
+    Purity(Grade),
     SecretTechnique(Grade),
     SecretWeapon(Grade),
     ThinkingAhead(Grade),
@@ -299,6 +303,7 @@ impl Card {
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
             Card::Forethought(g)   => forethought::def(*g),
             Card::GoodInstincts(g) => good_instincts::def(*g),
+            Card::HandOfGreed(g)   => hand_of_greed::def(*g),
             Card::Impatience(g)    => impatience::def(*g),
             Card::MasterOfStrategy(g) => master_of_strategy::def(*g),
             Card::MindBlast(g)     => mind_blast::def(*g),
@@ -308,6 +313,7 @@ impl Card {
             Card::Trip(g)          => trip::def(*g),
             Card::Normality        => normality::def(),
             Card::Pain             => pain::def(),
+            Card::Purity(g)        => purity::def(*g),
             Card::SecretTechnique(g) => secret_technique::def(*g),
             Card::SecretWeapon(g)    => secret_weapon::def(*g),
             Card::ThinkingAhead(g)   => thinking_ahead::def(*g),
@@ -427,7 +433,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_))
+        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_) | Card::Purity(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -448,8 +454,8 @@ impl Card {
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
             | Card::Apotheosis(g)
-            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::Forethought(g) | Card::GoodInstincts(g) | Card::Impatience(g) | Card::MasterOfStrategy(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
-            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Enlightenment(g) | Card::Trip(g)
+            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::Forethought(g) | Card::GoodInstincts(g) | Card::HandOfGreed(g) | Card::Impatience(g) | Card::MasterOfStrategy(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
+            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Enlightenment(g) | Card::Purity(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g) | Card::DeepBreath(g)
             | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g) => Some(*g),
             Card::SearingBlow(_) |
@@ -528,6 +534,7 @@ impl Card {
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::Forethought(_)   => Card::Forethought(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
+            Card::HandOfGreed(_)   => Card::HandOfGreed(g),
             Card::Impatience(_)    => Card::Impatience(g),
             Card::MasterOfStrategy(_) => Card::MasterOfStrategy(g),
             Card::MindBlast(_)     => Card::MindBlast(g),
@@ -535,6 +542,7 @@ impl Card {
             Card::BandageUp(_)       => Card::BandageUp(g),
             Card::Blind(_)           => Card::Blind(g),
             Card::DarkShackles(_)    => Card::DarkShackles(g),
+            Card::Purity(_)          => Card::Purity(g),
             Card::SecretTechnique(_) => Card::SecretTechnique(g),
             Card::SecretWeapon(_)    => Card::SecretWeapon(g),
             Card::ThinkingAhead(_)   => Card::ThinkingAhead(g),
@@ -608,6 +616,7 @@ impl Card {
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
             Card::Forethought(g)   => forethought::id(*g),
             Card::GoodInstincts(g) => good_instincts::id(*g),
+            Card::HandOfGreed(g)   => hand_of_greed::id(*g),
             Card::Impatience(g)    => impatience::id(*g),
             Card::MasterOfStrategy(g) => master_of_strategy::id(*g),
             Card::MindBlast(g)     => mind_blast::id(*g),
@@ -617,6 +626,7 @@ impl Card {
             Card::Trip(g)          => trip::id(*g),
             Card::Normality          => normality::id(),
             Card::Pain               => pain::id(),
+            Card::Purity(g)          => purity::id(*g),
             Card::SecretTechnique(g) => secret_technique::id(*g),
             Card::SecretWeapon(g)    => secret_weapon::id(*g),
             Card::ThinkingAhead(g)   => thinking_ahead::id(*g),
@@ -714,6 +724,7 @@ impl Card {
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
             Card::Forethought(Base),   Card::Forethought(Plus),
             Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
+            Card::HandOfGreed(Base),   Card::HandOfGreed(Plus),
             Card::Impatience(Base),    Card::Impatience(Plus),
             Card::MasterOfStrategy(Base), Card::MasterOfStrategy(Plus),
             Card::MindBlast(Base),     Card::MindBlast(Plus),
@@ -723,6 +734,7 @@ impl Card {
             Card::Trip(Base),          Card::Trip(Plus),
             Card::Normality,
             Card::Pain,
+            Card::Purity(Base),          Card::Purity(Plus),
             Card::SecretTechnique(Base), Card::SecretTechnique(Plus),
             Card::SecretWeapon(Base),    Card::SecretWeapon(Plus),
             Card::ThinkingAhead(Base),   Card::ThinkingAhead(Plus),
@@ -828,9 +840,11 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Forethought(g)   => forethought::apply(state, events, *g),
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),
         Card::GoodInstincts(g) => good_instincts::apply(state, events, *g, rng),
+        Card::HandOfGreed(g)   => hand_of_greed::apply(state, events, *g, target),
         Card::Impatience(g)    => impatience::apply(state, events, *g, rng),
         Card::MasterOfStrategy(g) => master_of_strategy::apply(state, events, *g, rng),
         Card::MindBlast(_)     => mind_blast::apply(state, events, target),
+        Card::Purity(g)        => purity::apply(state, events, *g),
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
         Card::Blind(g)         => blind::apply(state, events, *g, target),
         Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),

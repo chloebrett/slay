@@ -842,14 +842,14 @@ mod tests {
     fn red_louse_starts_combat_with_curl_up_status() {
         let statuses = initial_statuses(&EnemyKind::RedLouse, &mut rng());
         let curl_up = statuses.get(&StatusEffect::CurlUp).copied().unwrap_or(0);
-        assert!(curl_up >= 3 && curl_up <= 7, "expected 3-7, got {curl_up}");
+        assert!((3..=7).contains(&curl_up), "expected 3-7, got {curl_up}");
     }
 
     #[test]
     fn green_louse_starts_combat_with_curl_up_status() {
         let statuses = initial_statuses(&EnemyKind::GreenLouse, &mut rng());
         let curl_up = statuses.get(&StatusEffect::CurlUp).copied().unwrap_or(0);
-        assert!(curl_up >= 3 && curl_up <= 7, "expected 3-7, got {curl_up}");
+        assert!((3..=7).contains(&curl_up), "expected 3-7, got {curl_up}");
     }
 
     #[test]

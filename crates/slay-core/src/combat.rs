@@ -58,6 +58,7 @@ pub enum ChooseCardContext {
     Armaments,
     Forethought,
     ThinkingAhead,
+    Purity { remaining: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -503,6 +504,14 @@ pub(crate) fn apply_combat_command(
                 ChooseCardContext::ThinkingAhead => {
                     let card = state.player.hand.remove(idx);
                     state.player.draw_pile.push(card);
+                }
+                ChooseCardContext::Purity { remaining } => {
+                    let card = state.player.hand.remove(idx);
+                    exhaust_card(card, &mut state, &mut events, rng);
+                    if remaining > 1 && !state.player.hand.is_empty() {
+                        state.phase = CombatPhase::ChooseCard(ChooseCardContext::Purity { remaining: remaining - 1 });
+                        return Ok((state, events));
+                    }
                 }
             }
             state.phase = CombatPhase::PlayerTurn;

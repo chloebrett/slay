@@ -56,7 +56,7 @@ These appear as combat rewards and in shops regardless of character.
 | Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
 | Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | |
 | Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | |
-| Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | |
+| Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | ✅ |
 | Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
 | Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | ✅ |
 | Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | |
@@ -70,7 +70,7 @@ These appear as combat rewards and in shops regardless of character.
 | Dramatic Entrance | Attack | 0 | Innate. Deal 8 damage to ALL enemies. Exhaust. | ✅ |
 | Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | ✅ |
 | Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | ✅ |
-| Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | |
+| Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | ✅ |
 | Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
 | Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | |
 | Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. | |
@@ -121,12 +121,10 @@ New mechanics required for remaining cards:
 
 ### Minor — one new mechanism required
 
-- **Purity** — exhaust up to 3 cards in hand of your choice; `exhaust_card` already exists, needs a multi-card hand-selection prompt.
 - **Jack of All Trades** — add 1 random colorless card to hand; needs a colorless card pool to sample from and an "add to hand" mechanism.
 - **Panacea** — gain 2 Artifact; Artifact is a new status that absorbs the next debuff applied, intercepting `apply_status` for debuffs.
 - **Panache** — deal 10 AoE damage every 5 cards played in a turn; needs a `cards_played_this_turn` counter in `CombatState` and a post-play trigger that checks it.
 - **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.
-- **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 
 ### Major — significant new architecture

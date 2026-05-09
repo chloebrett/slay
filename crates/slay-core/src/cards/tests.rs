@@ -3604,7 +3604,7 @@
 
     #[test]
     fn apotheosis_upgrades_all_cards_in_hand() {
-        let mut state = combat_with_hand(vec![Card::Apotheosis(Grade::Base), Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Apotheosis(Grade::Base), Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(state.player.hand.iter().all(|c| matches!(c, Card::Strike(Grade::Plus) | Card::Defend(Grade::Plus))));
     }
@@ -3638,7 +3638,7 @@
 
     #[test]
     fn enlightenment_reduces_hand_card_costs_to_1_this_turn() {
-        let mut state = combat_with_hand(vec![Card::Enlightenment(Grade::Base), Card::Bash(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Enlightenment(Grade::Base), Card::Bash(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Bash normally costs 2; after Enlightenment it should cost 1
         // With 3 energy and Enlightenment (0 cost) already played, playing Bash for 1 should leave 2 energy
@@ -3655,7 +3655,6 @@
         let state = full_turn(state);
         // Bash is now in hand (drawn at start of turn); its cost should be back to 2
         // With 3 energy, playing Bash (cost 2) should leave 1 energy
-        let mut state = state;
         let bash_idx = state.player.hand.iter().position(|c| matches!(c, Card::Bash(_))).unwrap();
         let (state, _) = apply_command(state, Command::PlayCard(bash_idx, 0), &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(1));
@@ -3669,7 +3668,6 @@
         // Full turn cycle
         let state = full_turn(state);
         // Bash cost is still capped at 1; playing it leaves 2 energy
-        let mut state = state;
         let bash_idx = state.player.hand.iter().position(|c| matches!(c, Card::Bash(_))).unwrap();
         let (state, _) = apply_command(state, Command::PlayCard(bash_idx, 0), &mut rng()).unwrap();
         assert_eq!(state.player.energy, Energy(2));
@@ -3684,4 +3682,122 @@
     fn enlightenment_id_round_trips() {
         assert_eq!(Card::from_id("enlightenment"),      Some(Card::Enlightenment(Grade::Base)));
         assert_eq!(Card::from_id("enlightenment-plus"), Some(Card::Enlightenment(Grade::Plus)));
+    }
+
+    // --- Purity ---
+
+    #[test]
+    fn purity_prompts_to_choose_card_from_hand() {
+        let mut state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(crate::combat::ChooseCardContext::Purity { remaining: 3 })));
+    }
+
+    #[test]
+    fn purity_exhaust_chosen_card_and_returns_to_player_turn_when_done() {
+        let mut state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Choose the one remaining card (Strike)
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+        assert!(state.player.exhaust_pile.contains(&Card::Strike(Grade::Base)));
+        assert!(state.player.hand.is_empty());
+    }
+
+    #[test]
+    fn purity_allows_up_to_3_exhaust_choices() {
+        let mut state = combat_with_hand(vec![
+            Card::Purity(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // remaining: 3 → choose
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(crate::combat::ChooseCardContext::Purity { remaining: 2 })));
+        // remaining: 2 → choose
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(crate::combat::ChooseCardContext::Purity { remaining: 1 })));
+        // remaining: 1 → last choice returns to PlayerTurn
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+        // 3 chosen cards + Purity itself = 4 exhausted
+        assert_eq!(state.player.exhaust_pile.len(), 4);
+        assert_eq!(state.player.hand.len(), 1); // 4 remained, exhausted 3
+    }
+
+    #[test]
+    fn purity_plus_allows_up_to_5_exhaust_choices() {
+        let mut state = combat_with_hand(vec![
+            Card::Purity(Grade::Plus),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(crate::combat::ChooseCardContext::Purity { remaining: 5 })));
+    }
+
+    #[test]
+    fn purity_exhausts() {
+        assert!(Card::Purity(Grade::Base).exhausts());
+        assert!(Card::Purity(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn purity_costs_0() {
+        assert_eq!(Card::Purity(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn purity_id_round_trips() {
+        assert_eq!(Card::from_id("purity"),      Some(Card::Purity(Grade::Base)));
+        assert_eq!(Card::from_id("purity-plus"), Some(Card::Purity(Grade::Plus)));
+    }
+
+    // --- Hand of Greed ---
+
+    #[test]
+    fn hand_of_greed_deals_20_damage() {
+        let state = combat_with_hand(vec![Card::HandOfGreed(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(0));
+    }
+
+    #[test]
+    fn hand_of_greed_gains_20_gold_on_kill() {
+        let state = combat_with_hand(vec![Card::HandOfGreed(Grade::Base)]);
+        let initial_gold = state.player.gold;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.gold, initial_gold + 20);
+    }
+
+    #[test]
+    fn hand_of_greed_no_gold_if_enemy_survives() {
+        let mut state = combat_with_hand(vec![Card::HandOfGreed(Grade::Base)]);
+        state.enemies[0].hp = Hp(30); // 20 damage won't kill
+        let initial_gold = state.player.gold;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.gold, initial_gold);
+    }
+
+    #[test]
+    fn hand_of_greed_plus_deals_25_damage() {
+        let mut state = combat_with_hand(vec![Card::HandOfGreed(Grade::Plus)]);
+        state.enemies[0].hp = Hp(30);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(5));
+    }
+
+    #[test]
+    fn hand_of_greed_costs_2() {
+        assert_eq!(Card::HandOfGreed(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn hand_of_greed_id_round_trips() {
+        assert_eq!(Card::from_id("hand-of-greed"),      Some(Card::HandOfGreed(Grade::Base)));
+        assert_eq!(Card::from_id("hand-of-greed-plus"), Some(Card::HandOfGreed(Grade::Plus)));
     }
