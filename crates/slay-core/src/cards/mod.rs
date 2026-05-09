@@ -43,7 +43,9 @@ mod cleave;
 mod clothesline;
 mod dazed;
 mod slimed;
+mod bandage_up;
 mod blind;
+mod dark_shackles;
 mod deadly_poison;
 mod defend;
 mod disarm;
@@ -95,7 +97,9 @@ pub enum Card {
     Bash(Grade),
     Clothesline(Grade),
     Inflame(Grade),
+    BandageUp(Grade),
     Blind(Grade),
+    DarkShackles(Grade),
     DeadlyPoison(Grade),
     Disarm,
     DramaticEntrance(Grade),
@@ -261,7 +265,9 @@ impl Card {
             Card::Bash(g)         => bash::def(*g),
             Card::Clothesline(g)  => clothesline::def(*g),
             Card::Inflame(g)      => inflame::def(*g),
+            Card::BandageUp(g)     => bandage_up::def(*g),
             Card::DeadlyPoison(g)  => deadly_poison::def(*g),
+            Card::DarkShackles(g)  => dark_shackles::def(*g),
             Card::Disarm           => disarm::def(),
             Card::Finesse(g)       => finesse::def(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
@@ -385,7 +391,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
+        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -406,7 +412,8 @@ impl Card {
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
-            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g) => Some(*g),
+            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g)
+            | Card::BandageUp(g) | Card::DarkShackles(g) => Some(*g),
             Card::SearingBlow(_) |
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
@@ -480,7 +487,9 @@ impl Card {
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
             Card::SwiftStrike(_)   => Card::SwiftStrike(g),
+            Card::BandageUp(_)     => Card::BandageUp(g),
             Card::Blind(_)         => Card::Blind(g),
+            Card::DarkShackles(_)  => Card::DarkShackles(g),
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
@@ -539,7 +548,9 @@ impl Card {
             Card::Bash(g)         => bash::id(*g),
             Card::Clothesline(g)  => clothesline::id(*g),
             Card::Inflame(g)      => inflame::id(*g),
+            Card::BandageUp(g)     => bandage_up::id(*g),
             Card::DeadlyPoison(g)  => deadly_poison::id(*g),
+            Card::DarkShackles(g)  => dark_shackles::id(*g),
             Card::Disarm           => disarm::id(),
             Card::Finesse(g)       => finesse::id(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
@@ -631,7 +642,9 @@ impl Card {
             Card::Bash(Base),         Card::Bash(Plus),
             Card::Clothesline(Base),  Card::Clothesline(Plus),
             Card::Inflame(Base),      Card::Inflame(Plus),
+            Card::BandageUp(Base),     Card::BandageUp(Plus),
             Card::DeadlyPoison(Base), Card::DeadlyPoison(Plus),
+            Card::DarkShackles(Base),  Card::DarkShackles(Plus),
             Card::Disarm,
             Card::Finesse(Base),       Card::Finesse(Plus),
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
@@ -731,7 +744,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Bash(g)         => bash::apply(state, events, *g, target),
         Card::Clothesline(g)  => clothesline::apply(state, events, *g, target),
         Card::Inflame(g)      => inflame::apply(state, events, *g, target),
+        Card::BandageUp(g)     => bandage_up::apply(state, events, *g),
         Card::DeadlyPoison(g)  => deadly_poison::apply(state, events, *g, target),
+        Card::DarkShackles(g)  => dark_shackles::apply(state, events, target, *g),
         Card::Disarm           => disarm::apply(state, events, target),
         Card::Finesse(g)       => finesse::apply(state, events, *g, rng),
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),

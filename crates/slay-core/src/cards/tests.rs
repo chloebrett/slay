@@ -3021,3 +3021,103 @@
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.enemies[0].hp, Hp(10));
     }
+
+    // --- Bandage Up ---
+
+    #[test]
+    fn bandage_up_heals_4_hp() {
+        let mut state = combat_with_hand(vec![Card::BandageUp(Grade::Base)]);
+        state.player.hp = Hp(70);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(74));
+    }
+
+    #[test]
+    fn bandage_up_does_not_exceed_max_hp() {
+        let mut state = combat_with_hand(vec![Card::BandageUp(Grade::Base)]);
+        state.player.hp = Hp(78);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn bandage_up_plus_heals_6_hp() {
+        let mut state = combat_with_hand(vec![Card::BandageUp(Grade::Plus)]);
+        state.player.hp = Hp(70);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(76));
+    }
+
+    #[test]
+    fn bandage_up_exhausts() {
+        let state = combat_with_hand(vec![Card::BandageUp(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::BandageUp(Grade::Base)));
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn bandage_up_costs_0_energy() {
+        assert_eq!(Card::BandageUp(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn bandage_up_emits_healed_event() {
+        let mut state = combat_with_hand(vec![Card::BandageUp(Grade::Base)]);
+        state.player.hp = Hp(70);
+        let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(events.contains(&Event::Healed { amount: 4 }));
+    }
+
+    #[test]
+    fn bandage_up_id_round_trips() {
+        assert_eq!(Card::from_id("bandage-up"),      Some(Card::BandageUp(Grade::Base)));
+        assert_eq!(Card::from_id("bandage-up-plus"), Some(Card::BandageUp(Grade::Plus)));
+    }
+
+    // --- Dark Shackles ---
+
+    #[test]
+    fn dark_shackles_reduces_enemy_strength_by_9() {
+        let mut state = combat_with_hand(vec![Card::DarkShackles(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::Strength, 10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 1);
+    }
+
+    #[test]
+    fn dark_shackles_strength_restored_at_end_of_enemy_turn() {
+        let mut state = combat_with_hand(vec![Card::DarkShackles(Grade::Base)]);
+        state.enemies[0].statuses.insert(StatusEffect::Strength, 10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 10);
+    }
+
+    #[test]
+    fn dark_shackles_plus_reduces_enemy_strength_by_15() {
+        let mut state = combat_with_hand(vec![Card::DarkShackles(Grade::Plus)]);
+        state.enemies[0].statuses.insert(StatusEffect::Strength, 20);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.enemies[0].statuses, StatusEffect::Strength), 5);
+    }
+
+    #[test]
+    fn dark_shackles_exhausts() {
+        let state = combat_with_hand(vec![Card::DarkShackles(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::DarkShackles(Grade::Base)));
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn dark_shackles_costs_0_energy() {
+        assert_eq!(Card::DarkShackles(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn dark_shackles_id_round_trips() {
+        assert_eq!(Card::from_id("dark-shackles"),      Some(Card::DarkShackles(Grade::Base)));
+        assert_eq!(Card::from_id("dark-shackles-plus"), Some(Card::DarkShackles(Grade::Plus)));
+    }

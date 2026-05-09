@@ -529,22 +529,24 @@ pub(crate) fn apply_combat_command(
                     || get_stacks(&state.enemies[i].statuses, StatusEffect::Sleep) > 0;
                 if !is_incapacitated {
                     let current_move = state.enemies[i].move_;
-                    if matches!(current_move, Move::LargeSpikeSplit | Move::LargeAcidSplit) {
+                    if matches!(current_move, Move::LargeSpikeSplit | Move::LargeAcidSplit | Move::SlimeBossSplit) {
                         let current_hp = state.enemies[i].hp;
                         let spawn_kinds: [EnemyKind; 2] = match state.enemies[i].kind {
                             EnemyKind::LargeSpike => [EnemyKind::MediumSpike, EnemyKind::MediumSpike],
                             EnemyKind::LargeAcid  => [EnemyKind::MediumAcid,  EnemyKind::MediumAcid],
+                            EnemyKind::SlimeBoss  => [EnemyKind::LargeAcid,   EnemyKind::LargeSpike],
                             _ => unreachable!(),
                         };
                         state.enemies.remove(i);
                         for (offset, kind) in spawn_kinds.into_iter().enumerate() {
                             let spawn_max_hp = kind.max_hp();
+                            let first_move = enemies::next_move(&kind, &[], &StatusMap::new(), rng);
                             state.enemies.insert(i + offset, Enemy {
                                 kind,
                                 hp: current_hp,
                                 max_hp: spawn_max_hp,
                                 block: Block(0),
-                                move_: Move::MediumSpikeLick,
+                                move_: first_move,
                                 move_history: vec![], stolen_gold: 0,
                                 statuses: StatusMap::new(),
                             });
@@ -2255,6 +2257,101 @@ mod tests {
         let (s, _) = apply_command(s, Command::PlayCard(0, 1), &mut rng()).unwrap();
         // Both should be dead (HP=1 each, Strike deals 6)
         assert_eq!(s.phase, CombatPhase::Victory);
+    }
+
+    // --- Slime Boss ---
+
+    fn slime_boss_with_split() -> CombatState {
+        CombatState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: Vec::new(), draw_pile: Vec::new(),
+                discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+                statuses: StatusMap::new(), deck: Vec::new(),
+                gold: 0, relics: Vec::new(), potions: Vec::new(),
+                neow_lament_combats_remaining: 0, reached_boss: false,
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::SlimeBoss,
+                hp: Hp(30),
+                max_hp: Hp(140),
+                block: Block(0),
+                move_: Move::SlimeBossSplit,
+                move_history: vec![], stolen_gold: 0,
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::EnemyTurn,
+            attacks_this_turn: 0, skills_this_turn: 0,
+            attacks_this_combat: 0, skills_this_combat: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+        }
+    }
+
+    #[test]
+    fn slime_boss_split_spawns_two_large_slimes() {
+        let state = slime_boss_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies.len(), 2);
+    }
+
+    #[test]
+    fn slime_boss_split_spawns_one_large_acid_and_one_large_spike() {
+        let state = slime_boss_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies.iter().any(|e| e.kind == EnemyKind::LargeAcid));
+        assert!(state.enemies.iter().any(|e| e.kind == EnemyKind::LargeSpike));
+    }
+
+    #[test]
+    fn slime_boss_split_spawned_slimes_inherit_hp() {
+        let state = slime_boss_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies.iter().all(|e| e.hp == Hp(30)));
+    }
+
+    #[test]
+    fn slime_boss_split_emits_enemy_split_event() {
+        let state = slime_boss_with_split();
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemySplit));
+    }
+
+    #[test]
+    fn slime_boss_split_triggered_when_hp_at_half() {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::SlimeBoss,
+            hp: Hp(71),
+            max_hp: Hp(140),
+            block: Block(0),
+            move_: Move::SlimeBossGoopSpray,
+            move_history: vec![], stolen_gold: 0,
+            statuses: StatusMap::new(),
+        }];
+        // Strike deals 6; 71 - 6 = 65 < 70 (50% of 140), so split triggers
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].move_, Move::SlimeBossSplit);
+    }
+
+    #[test]
+    fn slime_boss_split_not_triggered_above_half_hp() {
+        use crate::enemies::EnemyKind;
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
+        state.enemies = vec![Enemy {
+            kind: EnemyKind::SlimeBoss,
+            hp: Hp(80),
+            max_hp: Hp(140),
+            block: Block(0),
+            move_: Move::SlimeBossGoopSpray,
+            move_history: vec![], stolen_gold: 0,
+            statuses: StatusMap::new(),
+        }];
+        // Strike deals 6; 80 - 6 = 74 > 70, no split
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].move_, Move::SlimeBossGoopSpray);
     }
 
     // --- Mad Gremlin (Angry passive) ---

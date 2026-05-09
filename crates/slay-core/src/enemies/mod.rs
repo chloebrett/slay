@@ -1,6 +1,7 @@
 mod blue_slaver;
 mod looter;
 mod mugger;
+mod slime_boss;
 mod cultist;
 mod fat_gremlin;
 mod fungibeast;
@@ -48,6 +49,7 @@ pub enum EnemyKind {
     GremlinWizard,
     ShieldGremlin,
     Sentry,
+    SlimeBoss,
     Looter,
     Mugger,
     LargeSpike,
@@ -136,6 +138,11 @@ pub enum Move {
     // Sentry
     SentryBeam,
     SentryBolt,
+    // Slime Boss
+    SlimeBossGoopSpray,
+    SlimeBossPreparing,
+    SlimeBossSlam,
+    SlimeBossSplit,
     // Looter
     LooterMug,
     LooterLunge,
@@ -223,6 +230,10 @@ impl Move {
             Move::ShieldBash         => MoveDef { name: "Shield Bash",    effects: vec![Effect::DealDamage(6)] },
             Move::SentryBeam         => MoveDef { name: "Beam",           effects: vec![Effect::DealDamage(9)] },
             Move::SentryBolt         => MoveDef { name: "Bolt",           effects: vec![Effect::AddToDiscard(Card::Dazed), Effect::AddToDiscard(Card::Dazed), Effect::ApplyStatus(StatusEffect::Vulnerable, 2)] },
+            Move::SlimeBossGoopSpray => MoveDef { name: "Goop Spray",     effects: vec![Effect::AddToDiscard(Card::Slimed), Effect::AddToDiscard(Card::Slimed), Effect::AddToDiscard(Card::Slimed)] },
+            Move::SlimeBossPreparing => MoveDef { name: "Preparing",      effects: vec![] },
+            Move::SlimeBossSlam      => MoveDef { name: "Slam",           effects: vec![Effect::DealDamage(35)] },
+            Move::SlimeBossSplit     => MoveDef { name: "Split",          effects: vec![] },
             Move::LooterMug          => MoveDef { name: "Mug",            effects: vec![Effect::DealDamage(10)] },
             Move::LooterLunge        => MoveDef { name: "Lunge",          effects: vec![Effect::DealDamage(12)] },
             Move::LooterSmokeBomb    => MoveDef { name: "Smoke Bomb",     effects: vec![Effect::GainBlock(6)] },
@@ -243,7 +254,7 @@ impl Move {
     }
 
     pub fn intent(self) -> Intent {
-        if matches!(self, Move::LargeSpikeSplit | Move::LargeAcidSplit) {
+        if matches!(self, Move::LargeSpikeSplit | Move::LargeAcidSplit | Move::SlimeBossSplit) {
             return Intent::Split;
         }
         if matches!(self, Move::WizardCharging) {
@@ -326,6 +337,7 @@ impl EnemyKind {
             EnemyKind::GremlinWizard   => gremlin_wizard::DEF,
             EnemyKind::ShieldGremlin   => shield_gremlin::DEF,
             EnemyKind::Sentry          => sentry::DEF,
+            EnemyKind::SlimeBoss       => slime_boss::DEF,
             EnemyKind::Looter          => looter::DEF,
             EnemyKind::Mugger          => mugger::DEF,
             EnemyKind::LargeSpike      => large_spike_slime::DEF,
@@ -358,6 +370,7 @@ impl EnemyKind {
             EnemyKind::GremlinWizard   => "gremlin-wizard",
             EnemyKind::ShieldGremlin   => "shield-gremlin",
             EnemyKind::Sentry          => "sentry",
+            EnemyKind::SlimeBoss       => "slime-boss",
             EnemyKind::Looter          => "looter",
             EnemyKind::Mugger          => "mugger",
             EnemyKind::LargeSpike      => "large-spike-slime",
@@ -387,6 +400,7 @@ impl EnemyKind {
             "gremlin-wizard"     => Some(EnemyKind::GremlinWizard),
             "shield-gremlin"     => Some(EnemyKind::ShieldGremlin),
             "sentry"             => Some(EnemyKind::Sentry),
+            "slime-boss"         => Some(EnemyKind::SlimeBoss),
             "looter"             => Some(EnemyKind::Looter),
             "mugger"             => Some(EnemyKind::Mugger),
             "large-spike-slime"  => Some(EnemyKind::LargeSpike),
@@ -420,6 +434,7 @@ pub fn on_player_attack_damage(
         EnemyKind::TheGuardian => the_guardian::on_player_attack_damage(statuses, hp_lost),
         EnemyKind::LargeSpike  => large_spike_slime::on_player_attack_damage(current_hp, max_hp),
         EnemyKind::LargeAcid   => large_acid_slime::on_player_attack_damage(current_hp, max_hp),
+        EnemyKind::SlimeBoss   => slime_boss::on_player_attack_damage(current_hp, max_hp),
         EnemyKind::MadGremlin  => mad_gremlin::on_player_attack_damage(statuses, hp_lost, current_hp, max_hp),
         EnemyKind::RedLouse    => red_louse::on_player_attack_damage(statuses),
         EnemyKind::GreenLouse  => green_louse::on_player_attack_damage(statuses),
@@ -464,6 +479,7 @@ pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: 
         EnemyKind::GremlinWizard   => gremlin_wizard::next_move(history),
         EnemyKind::ShieldGremlin   => shield_gremlin::next_move(1), // default: assume allies present
         EnemyKind::Sentry          => sentry::next_move(last),
+        EnemyKind::SlimeBoss       => slime_boss::next_move(history),
         EnemyKind::Looter          => looter::next_move(history),
         EnemyKind::Mugger          => mugger::next_move(history),
         EnemyKind::LargeSpike      => large_spike_slime::next_move(history, rng),
@@ -1811,5 +1827,92 @@ mod tests {
     #[test]
     fn mugger_mug_steals_16_gold() {
         assert_eq!(Move::MuggerMug.mug_steal_amount(), Some(16));
+    }
+
+    // --- Slime Boss ---
+
+    #[test]
+    fn slime_boss_has_140_hp() {
+        assert_eq!(EnemyKind::SlimeBoss.max_hp(), Hp(140));
+    }
+
+    #[test]
+    fn slime_boss_is_named_correctly() {
+        assert_eq!(EnemyKind::SlimeBoss.name(), "Slime Boss");
+    }
+
+    #[test]
+    fn slime_boss_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("slime-boss"), Some(EnemyKind::SlimeBoss));
+    }
+
+    #[test]
+    fn slime_boss_first_move_is_goop_spray() {
+        assert_eq!(next_move(&EnemyKind::SlimeBoss, &[], &StatusMap::new(), &mut rng()), Move::SlimeBossGoopSpray);
+    }
+
+    #[test]
+    fn slime_boss_second_move_is_preparing() {
+        assert_eq!(
+            next_move(&EnemyKind::SlimeBoss, &[Move::SlimeBossGoopSpray], &StatusMap::new(), &mut rng()),
+            Move::SlimeBossPreparing
+        );
+    }
+
+    #[test]
+    fn slime_boss_third_move_is_slam() {
+        assert_eq!(
+            next_move(&EnemyKind::SlimeBoss, &[Move::SlimeBossGoopSpray, Move::SlimeBossPreparing], &StatusMap::new(), &mut rng()),
+            Move::SlimeBossSlam
+        );
+    }
+
+    #[test]
+    fn slime_boss_cycle_repeats() {
+        assert_eq!(
+            next_move(&EnemyKind::SlimeBoss, &[Move::SlimeBossGoopSpray, Move::SlimeBossPreparing, Move::SlimeBossSlam], &StatusMap::new(), &mut rng()),
+            Move::SlimeBossGoopSpray
+        );
+    }
+
+    #[test]
+    fn slime_boss_goop_spray_adds_3_slimed() {
+        let count = Move::SlimeBossGoopSpray.def().effects.iter()
+            .filter(|e| matches!(e, Effect::AddToDiscard(crate::cards::Card::Slimed)))
+            .count();
+        assert_eq!(count, 3);
+    }
+
+    #[test]
+    fn slime_boss_slam_deals_35_damage() {
+        let dmg: i32 = Move::SlimeBossSlam.def().effects.iter()
+            .filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None })
+            .sum();
+        assert_eq!(dmg, 35);
+    }
+
+    #[test]
+    fn slime_boss_preparing_has_no_effects() {
+        assert!(Move::SlimeBossPreparing.def().effects.is_empty());
+    }
+
+    #[test]
+    fn slime_boss_goop_spray_intent_is_debuff() {
+        assert_eq!(Move::SlimeBossGoopSpray.intent(), Intent::Debuff);
+    }
+
+    #[test]
+    fn slime_boss_preparing_intent_is_buff() {
+        assert_eq!(Move::SlimeBossPreparing.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn slime_boss_slam_intent_is_attack_35() {
+        assert_eq!(Move::SlimeBossSlam.intent(), Intent::Attack(35));
+    }
+
+    #[test]
+    fn slime_boss_split_intent_is_split() {
+        assert_eq!(Move::SlimeBossSplit.intent(), Intent::Split);
     }
 }
