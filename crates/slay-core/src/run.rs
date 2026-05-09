@@ -54,6 +54,7 @@ pub enum CommandError {
     NotEnoughGold,
     InvalidPhase,
     Entangled,
+    Normality,
 }
 
 impl std::fmt::Display for CommandError {
@@ -65,6 +66,7 @@ impl std::fmt::Display for CommandError {
             CommandError::InvalidPhase    => "Can't do that right now.",
             CommandError::CombatOver      => "Combat is already over.",
             CommandError::Entangled       => "Entangled — cannot play Attack cards.",
+            CommandError::Normality       => "Normality — cannot play more than 3 cards this turn.",
         };
         f.write_str(msg)
     }

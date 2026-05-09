@@ -2728,6 +2728,50 @@
         assert!(Card::DramaticEntrance(Grade::Plus).is_innate());
     }
 
+    // --- Normality ---
+
+    #[test]
+    fn normality_is_not_playable() {
+        assert!(!Card::Normality.is_playable());
+    }
+
+    #[test]
+    fn normality_is_a_curse() {
+        assert_eq!(Card::Normality.card_type(), CardType::Curse);
+    }
+
+    #[test]
+    fn normality_id_round_trips() {
+        assert_eq!(Card::from_id("normality"), Some(Card::Normality));
+    }
+
+    #[test]
+    fn normality_allows_playing_3_cards() {
+        let mut state = combat_with_hand(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Normality,
+        ]);
+        state.player.energy = Energy(9);
+        apply_command(state.clone(), Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn normality_blocks_4th_card() {
+        let mut state = combat_with_hand(vec![
+            Card::Strike(Grade::Base), Card::Strike(Grade::Base), Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base), Card::Normality,
+        ]);
+        state.player.energy = Energy(9);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let result = apply_command(state, Command::PlayCard(0, 0), &mut rng());
+        assert_eq!(result, Err(CommandError::Normality));
+    }
+
     // --- Void ---
 
     #[test]

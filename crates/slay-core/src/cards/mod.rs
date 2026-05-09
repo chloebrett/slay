@@ -53,6 +53,7 @@ mod flash_of_steel;
 mod good_instincts;
 mod swift_strike;
 mod trip;
+mod normality;
 mod void;
 mod writhe;
 mod entrench;
@@ -102,6 +103,7 @@ pub enum Card {
     GoodInstincts(Grade),
     SwiftStrike(Grade),
     Trip(Grade),
+    Normality,
     Void,
     Writhe,
     Cleave(Grade),
@@ -266,6 +268,7 @@ impl Card {
             Card::Blind(g)         => blind::def(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::def(*g),
             Card::Trip(g)          => trip::def(*g),
+            Card::Normality        => normality::def(),
             Card::Void             => void::def(),
             Card::Writhe           => writhe::def(),
             Card::Cleave(g)       => cleave::def(*g),
@@ -342,7 +345,7 @@ impl Card {
     pub fn is_playable(&self) -> bool {
         !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void)
+            Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void | Card::Normality)
     }
 
     pub fn is_ethereal(&self) -> bool {
@@ -402,7 +405,7 @@ impl Card {
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g) => Some(*g),
             Card::SearingBlow(_) |
-            Card::Disarm | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Normality | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
@@ -478,7 +481,7 @@ impl Card {
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
-            Card::Disarm | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Normality | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
@@ -542,6 +545,7 @@ impl Card {
             Card::Blind(g)         => blind::id(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::id(*g),
             Card::Trip(g)          => trip::id(*g),
+            Card::Normality        => normality::id(),
             Card::Void             => void::id(),
             Card::Writhe           => writhe::id(),
             Card::Cleave(g)       => cleave::id(*g),
@@ -632,6 +636,7 @@ impl Card {
             Card::Blind(Base),         Card::Blind(Plus),
             Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
             Card::Trip(Base),          Card::Trip(Plus),
+            Card::Normality,
             Card::Void,
             Card::Writhe,
             Card::Cleave(Base),       Card::Cleave(Plus),
@@ -788,7 +793,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Slimed => {} // playable, but no effect — just exhausts
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
-        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void => {} // unplayable
+        Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void | Card::Normality => {} // unplayable
     }
 }
 

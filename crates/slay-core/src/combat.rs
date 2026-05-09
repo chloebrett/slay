@@ -286,6 +286,9 @@ fn apply_play_card(
     if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
         return Err(CommandError::Entangled);
     }
+    if state.cards_played_this_turn >= 3 && state.player.hand.iter().any(|c| matches!(c, Card::Normality)) {
+        return Err(CommandError::Normality);
+    }
     let actual_target = resolve_target(&state.enemies, target_idx)?;
     let mut events = Vec::new();
     state.player.hand.remove(index);
