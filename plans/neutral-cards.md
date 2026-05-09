@@ -52,7 +52,7 @@ These appear as combat rewards and in shops regardless of character.
 | Flash of Steel | Attack | 0 | Deal 3 damage. Draw 1. | ✅ |
 | Good Instincts | Skill | 0 | Gain 6 Block. | ✅ |
 | Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. | ✅ |
-| Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | |
+| Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | ✅ |
 | Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
 | Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | |
 | Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | |
@@ -72,7 +72,7 @@ These appear as combat rewards and in shops regardless of character.
 | Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | ✅ |
 | Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | ✅ |
 | Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
-| Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | |
+| Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | ✅ |
 | Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. | |
 | The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. | |
 | Trip | Skill | 0 | Apply 2 Vulnerable to ALL enemies. | ✅ |
@@ -121,9 +121,7 @@ New mechanics required for remaining cards:
 
 ### Minor — one new mechanism required
 
-- **Jack of All Trades** — add 1 random colorless card to hand; needs a colorless card pool to sample from and an "add to hand" mechanism.
 - **Panacea** — gain 2 Artifact; Artifact is a new status that absorbs the next debuff applied, intercepting `apply_status` for debuffs.
-- **Panache** — deal 10 AoE damage every 5 cards played in a turn; needs a `cards_played_this_turn` counter in `CombatState` and a post-play trigger that checks it.
 - **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 
@@ -135,4 +133,4 @@ New mechanics required for remaining cards:
 - **Ritual Dagger** — deal 15 damage; if this kills, permanently increase its own damage by 3; needs mutable per-card-instance stats that persist across combats (run-level card data).
 - **Transmutation** — X-cost: create X random colorless cards in hand; needs the X-cost mechanism (only Whirlwind uses it now) extended to Skills, plus a colorless card pool.
 - **Discovery** — choose 1 of 3 random cards from your class; needs a class-specific card pool and a three-option choice UI.
-- **Panache / Sadistic Nature** — power cards that trigger mid-turn; need event hook infrastructure.
+- **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.

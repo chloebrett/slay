@@ -134,6 +134,9 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Stunned           => ("💫", "Stunned"),
         StatusEffect::Sleep             => ("💤", "Sleep"),
         StatusEffect::CurlUp           => ("🛡️", "Curl Up"),
+        StatusEffect::Panache           => ("✨", "Panache"),
+        StatusEffect::Regen             => ("💚", "Regen"),
+        StatusEffect::Thorns            => ("🌵", "Thorns"),
     }
 }
 

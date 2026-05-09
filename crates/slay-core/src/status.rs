@@ -35,6 +35,9 @@ pub enum StatusEffect {
     Stunned,
     Sleep,
     CurlUp,
+    Panache,
+    Regen,
+    Thorns,
 }
 
 impl StatusEffect {
@@ -91,6 +94,23 @@ pub fn tick_strength_modifiers(statuses: &mut StatusMap) -> i32 {
     let down = statuses.remove(&StatusEffect::StrengthDown).unwrap_or(0);
     let shackled = statuses.remove(&StatusEffect::Shackled).unwrap_or(0);
     shackled - down
+}
+
+/// Ticks regen: heals `stacks` HP (capped at max_hp), decrements stacks by 1, removes when 0.
+/// Returns amount healed.
+pub fn tick_regen(statuses: &mut StatusMap, hp: &mut i32, max_hp: i32) -> i32 {
+    let stacks = get_stacks(statuses, StatusEffect::Regen);
+    if stacks == 0 {
+        return 0;
+    }
+    let healed = stacks.min(max_hp - *hp).max(0);
+    *hp = (*hp + healed).min(max_hp);
+    if stacks == 1 {
+        statuses.remove(&StatusEffect::Regen);
+    } else {
+        *statuses.get_mut(&StatusEffect::Regen).unwrap() -= 1;
+    }
+    healed
 }
 
 /// Drains poison: returns damage dealt and decrements the stack.

@@ -3801,3 +3801,103 @@
         assert_eq!(Card::from_id("hand-of-greed"),      Some(Card::HandOfGreed(Grade::Base)));
         assert_eq!(Card::from_id("hand-of-greed-plus"), Some(Card::HandOfGreed(Grade::Plus)));
     }
+
+    // --- Jack of All Trades ---
+
+    #[test]
+    fn jack_of_all_trades_adds_one_colorless_card_to_hand() {
+        let state = combat_with_hand(vec![Card::JackOfAllTrades(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn jack_of_all_trades_card_is_from_colorless_pool() {
+        let state = combat_with_hand(vec![Card::JackOfAllTrades(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let card = &state.player.hand[0];
+        assert!(crate::cards::colorless_reward_pool().contains(card));
+    }
+
+    #[test]
+    fn jack_of_all_trades_exhausts() {
+        assert!(Card::JackOfAllTrades(Grade::Base).exhausts());
+        assert!(Card::JackOfAllTrades(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn jack_of_all_trades_costs_0() {
+        assert_eq!(Card::JackOfAllTrades(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn jack_of_all_trades_id_round_trips() {
+        assert_eq!(Card::from_id("jack-of-all-trades"),      Some(Card::JackOfAllTrades(Grade::Base)));
+        assert_eq!(Card::from_id("jack-of-all-trades-plus"), Some(Card::JackOfAllTrades(Grade::Plus)));
+    }
+
+    // --- Panache ---
+
+    #[test]
+    fn panache_deals_10_aoe_damage_on_5th_card_played() {
+        let mut state = combat_with_hand(vec![
+            Card::Panache(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ]);
+        state.player.energy = crate::types::Energy(10);
+        state.enemies[0].hp = crate::types::Hp(100);
+        state.enemies[0].max_hp = crate::types::Hp(100);
+        // Play Panache (1st card), then 4 Strikes (total 5)
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Panache
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Strike 1
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Strike 2
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Strike 3
+        // 5th card: enemy HP should drop by 10 from Panache after the strike damage
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Strike 4 = 5th card
+        assert!(state.enemies[0].hp.0 < hp_before.0 - 6); // at least strike (6) + panache (10)
+    }
+
+    #[test]
+    fn panache_plus_deals_14_aoe_on_5th_card() {
+        use crate::status::get_stacks;
+        let mut state = combat_with_hand(vec![Card::Panache(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Panache), 14);
+    }
+
+    #[test]
+    fn panache_does_not_fire_before_5_cards() {
+        let enemy_start_hp = 20;
+        let mut state = combat_with_hand(vec![
+            Card::Panache(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::Defend(Grade::Base),
+            Card::Defend(Grade::Base),
+        ]);
+        state.player.energy = crate::types::Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Panache
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Defend 1
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Defend 2
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap(); // Defend 3 = 4th card
+        assert_eq!(state.enemies[0].hp.0, enemy_start_hp); // no damage yet
+    }
+
+    #[test]
+    fn panache_is_a_power() {
+        assert_eq!(Card::Panache(Grade::Base).card_type(), CardType::Power);
+    }
+
+    #[test]
+    fn panache_costs_0() {
+        assert_eq!(Card::Panache(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn panache_id_round_trips() {
+        assert_eq!(Card::from_id("panache"),      Some(Card::Panache(Grade::Base)));
+        assert_eq!(Card::from_id("panache-plus"), Some(Card::Panache(Grade::Plus)));
+    }

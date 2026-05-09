@@ -55,6 +55,7 @@ mod deep_breath;
 mod enlightenment;
 mod finesse;
 mod hand_of_greed;
+mod jack_of_all_trades;
 mod flash_of_steel;
 mod forethought;
 mod master_of_strategy;
@@ -65,6 +66,7 @@ mod swift_strike;
 mod trip;
 mod normality;
 mod pain;
+mod panache;
 mod purity;
 mod secret_technique;
 mod secret_weapon;
@@ -125,12 +127,14 @@ pub enum Card {
     GoodInstincts(Grade),
     HandOfGreed(Grade),
     Impatience(Grade),
+    JackOfAllTrades(Grade),
     MasterOfStrategy(Grade),
     MindBlast(Grade),
     SwiftStrike(Grade),
     Trip(Grade),
     Normality,
     Pain,
+    Panache(Grade),
     Purity(Grade),
     SecretTechnique(Grade),
     SecretWeapon(Grade),
@@ -305,6 +309,7 @@ impl Card {
             Card::GoodInstincts(g) => good_instincts::def(*g),
             Card::HandOfGreed(g)   => hand_of_greed::def(*g),
             Card::Impatience(g)    => impatience::def(*g),
+            Card::JackOfAllTrades(g) => jack_of_all_trades::def(*g),
             Card::MasterOfStrategy(g) => master_of_strategy::def(*g),
             Card::MindBlast(g)     => mind_blast::def(*g),
             Card::SwiftStrike(g)   => swift_strike::def(*g),
@@ -313,6 +318,7 @@ impl Card {
             Card::Trip(g)          => trip::def(*g),
             Card::Normality        => normality::def(),
             Card::Pain             => pain::def(),
+            Card::Panache(g)       => panache::def(*g),
             Card::Purity(g)        => purity::def(*g),
             Card::SecretTechnique(g) => secret_technique::def(*g),
             Card::SecretWeapon(g)    => secret_weapon::def(*g),
@@ -433,7 +439,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_) | Card::Purity(_))
+        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_) | Card::Purity(_) | Card::JackOfAllTrades(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -457,7 +463,8 @@ impl Card {
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::Forethought(g) | Card::GoodInstincts(g) | Card::HandOfGreed(g) | Card::Impatience(g) | Card::MasterOfStrategy(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Enlightenment(g) | Card::Purity(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g) | Card::DeepBreath(g)
-            | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g) => Some(*g),
+            | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g)
+            | Card::JackOfAllTrades(g) | Card::Panache(g) => Some(*g),
             Card::SearingBlow(_) |
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
@@ -549,6 +556,8 @@ impl Card {
             Card::Violence(_)        => Card::Violence(g),
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
+            Card::JackOfAllTrades(_) => Card::JackOfAllTrades(g),
+            Card::Panache(_)         => Card::Panache(g),
             Card::SearingBlow(_) => unreachable!(),
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
@@ -627,6 +636,8 @@ impl Card {
             Card::Normality          => normality::id(),
             Card::Pain               => pain::id(),
             Card::Purity(g)          => purity::id(*g),
+            Card::JackOfAllTrades(g) => jack_of_all_trades::id(*g),
+            Card::Panache(g)         => panache::id(*g),
             Card::SecretTechnique(g) => secret_technique::id(*g),
             Card::SecretWeapon(g)    => secret_weapon::id(*g),
             Card::ThinkingAhead(g)   => thinking_ahead::id(*g),
@@ -726,8 +737,10 @@ impl Card {
             Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
             Card::HandOfGreed(Base),   Card::HandOfGreed(Plus),
             Card::Impatience(Base),    Card::Impatience(Plus),
+            Card::JackOfAllTrades(Base), Card::JackOfAllTrades(Plus),
             Card::MasterOfStrategy(Base), Card::MasterOfStrategy(Plus),
             Card::MindBlast(Base),     Card::MindBlast(Plus),
+            Card::Panache(Base),         Card::Panache(Plus),
             Card::SwiftStrike(Base),   Card::SwiftStrike(Plus),
             Card::Blind(Base),         Card::Blind(Plus),
             Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
@@ -844,7 +857,9 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Impatience(g)    => impatience::apply(state, events, *g, rng),
         Card::MasterOfStrategy(g) => master_of_strategy::apply(state, events, *g, rng),
         Card::MindBlast(_)     => mind_blast::apply(state, events, target),
-        Card::Purity(g)        => purity::apply(state, events, *g),
+        Card::Purity(g)          => purity::apply(state, events, *g),
+        Card::JackOfAllTrades(g) => jack_of_all_trades::apply(state, events, *g, rng),
+        Card::Panache(g)         => panache::apply(state, events, *g),
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
         Card::Blind(g)         => blind::apply(state, events, *g, target),
         Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),
@@ -952,6 +967,35 @@ pub fn starter_deck() -> Vec<Card> {
     deck
 }
 
+pub fn colorless_reward_pool() -> Vec<Card> {
+    use Grade::{Base, Plus};
+    vec![
+        Card::Apotheosis(Base), Card::Apotheosis(Plus),
+        Card::BandageUp(Base), Card::BandageUp(Plus),
+        Card::Blind(Base), Card::Blind(Plus),
+        Card::DarkShackles(Base), Card::DarkShackles(Plus),
+        Card::DeepBreath(Base), Card::DeepBreath(Plus),
+        Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
+        Card::Enlightenment(Base), Card::Enlightenment(Plus),
+        Card::Finesse(Base), Card::Finesse(Plus),
+        Card::FlashOfSteel(Base), Card::FlashOfSteel(Plus),
+        Card::Forethought(Base), Card::Forethought(Plus),
+        Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
+        Card::HandOfGreed(Base), Card::HandOfGreed(Plus),
+        Card::Impatience(Base), Card::Impatience(Plus),
+        Card::JackOfAllTrades(Base), Card::JackOfAllTrades(Plus),
+        Card::MasterOfStrategy(Base), Card::MasterOfStrategy(Plus),
+        Card::MindBlast(Base), Card::MindBlast(Plus),
+        Card::Panache(Base), Card::Panache(Plus),
+        Card::Purity(Base), Card::Purity(Plus),
+        Card::SecretTechnique(Base), Card::SecretTechnique(Plus),
+        Card::SecretWeapon(Base), Card::SecretWeapon(Plus),
+        Card::SwiftStrike(Base), Card::SwiftStrike(Plus),
+        Card::ThinkingAhead(Base), Card::ThinkingAhead(Plus),
+        Card::Trip(Base), Card::Trip(Plus),
+        Card::Violence(Base), Card::Violence(Plus),
+    ]
+}
 
 #[cfg(test)]
 mod tests;

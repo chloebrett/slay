@@ -373,6 +373,16 @@ fn apply_play_card(
         CardType::Power | CardType::Curse | CardType::Status => {}
     }
     state.cards_played_this_turn += 1;
+    let panache = get_stacks(&state.player.statuses, StatusEffect::Panache);
+    if panache > 0 && state.cards_played_this_turn % 5 == 0 {
+        for i in 0..state.enemies.len() {
+            if state.enemies[i].hp > Hp(0) {
+                let enemy = &mut state.enemies[i];
+                let dealt = deal_damage(panache, &mut enemy.hp, &mut enemy.block);
+                events.push(Event::PlayerAttacked { raw: panache, damage: dealt });
+            }
+        }
+    }
     if state.player.hand.iter().any(|c| matches!(c, Card::Pain)) {
         damage_player(&mut state, &mut events, 1);
     }
@@ -459,6 +469,10 @@ pub(crate) fn apply_combat_command(
             if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
                 state.phase = CombatPhase::Victory;
                 return Ok((state, events));
+            }
+            let regen_heal = crate::status::tick_regen(&mut state.player.statuses, &mut state.player.hp.0, state.player.max_hp.0);
+            if regen_heal > 0 {
+                events.push(Event::Healed { amount: regen_heal });
             }
             state.phase = CombatPhase::EnemyTurn;
         }
@@ -594,6 +608,15 @@ pub(crate) fn apply_combat_command(
                                 let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
                                 let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
                                 events.push(Event::EnemyAttacked { raw: effective, damage });
+                                let thorns = get_stacks(&state.player.statuses, StatusEffect::Thorns);
+                                if thorns > 0 && damage > 0 {
+                                    let enemy = &mut state.enemies[i];
+                                    let dealt = deal_damage(thorns, &mut enemy.hp, &mut enemy.block);
+                                    events.push(Event::PlayerAttacked { raw: thorns, damage: dealt });
+                                    if enemy.hp <= Hp(0) {
+                                        events.push(Event::EnemyDied);
+                                    }
+                                }
                             }
                             Effect::GainBlock(n) => {
                                 state.enemies[i].block.0 += n;
@@ -1847,6 +1870,91 @@ mod tests {
     #[test]
     fn fruit_juice_is_not_targeted() {
         assert!(!Potion::FruitJuice.is_targeted());
+    }
+
+    // --- Regen Potion ---
+
+    #[test]
+    fn regen_potion_grants_5_regen() {
+        let state = combat_with_potion(Potion::RegenPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Regen), 5);
+    }
+
+    #[test]
+    fn regen_heals_player_at_end_of_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.hp = Hp(50);
+        state.player.max_hp = Hp(80);
+        state.player.statuses.insert(StatusEffect::Regen, 3);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(53));
+    }
+
+    #[test]
+    fn regen_decrements_each_turn() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Regen, 3);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Regen), 2);
+    }
+
+    #[test]
+    fn regen_expires_when_stacks_reach_zero() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Regen, 1);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert!(!state.player.statuses.contains_key(&StatusEffect::Regen));
+    }
+
+    #[test]
+    fn regen_does_not_overheal_above_max_hp() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.hp = Hp(79);
+        state.player.max_hp = Hp(80);
+        state.player.statuses.insert(StatusEffect::Regen, 5);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
+    #[test]
+    fn regen_potion_is_not_targeted() {
+        assert!(!Potion::RegenPotion.is_targeted());
+    }
+
+    // --- Liquid Bronze (Thorns) ---
+
+    #[test]
+    fn liquid_bronze_grants_3_thorns() {
+        let state = combat_with_potion(Potion::LiquidBronze);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Thorns), 3);
+    }
+
+    #[test]
+    fn thorns_deals_damage_to_attacker_when_player_is_hit() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Thorns, 3);
+        state.enemies[0].hp = Hp(20);
+        state.enemies[0].max_hp = Hp(20);
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies[0].hp < hp_before, "enemy should take thorns damage");
+    }
+
+    #[test]
+    fn thorns_does_not_decrement_after_being_hit() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.statuses.insert(StatusEffect::Thorns, 3);
+        let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Thorns), 3);
+    }
+
+    #[test]
+    fn liquid_bronze_is_not_targeted() {
+        assert!(!Potion::LiquidBronze.is_targeted());
     }
 
     // --- The Guardian: Sharp Hide ---
