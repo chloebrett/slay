@@ -1,0 +1,1385 @@
+[
+  {
+    "id": "burn",
+    "file": "burn",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "clumsy",
+    "file": "clumsy",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "dazed",
+    "file": "dazed",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "decay",
+    "file": "decay",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "defend",
+    "file": "defend",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "defend-plus",
+    "file": "defend",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "doubt",
+    "file": "doubt",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "injury",
+    "file": "injury",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "parasite",
+    "file": "parasite",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "regret",
+    "file": "regret",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "shame",
+    "file": "shame",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "slimed",
+    "file": "slimed",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "strike",
+    "file": "strike",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "strike-plus",
+    "file": "strike",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "wound",
+    "file": "wound",
+    "class": "neutral",
+    "implemented": true
+  },
+  {
+    "id": "all-for-one",
+    "file": "all_for_one",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "all-for-one-plus",
+    "file": "all_for_one",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "all-out-attack",
+    "file": "all_out_attack",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "all-out-attack-plus",
+    "file": "all_out_attack",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "anger",
+    "file": "anger",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "anger-plus",
+    "file": "anger",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "armaments",
+    "file": "armaments",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "armaments-plus",
+    "file": "armaments",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "barricade",
+    "file": "barricade",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "barricade-plus",
+    "file": "barricade",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bash",
+    "file": "bash",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bash-plus",
+    "file": "bash",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "berserk",
+    "file": "berserk",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "berserk-plus",
+    "file": "berserk",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bloodletting",
+    "file": "bloodletting",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bloodletting-plus",
+    "file": "bloodletting",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bludgeon",
+    "file": "bludgeon",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "bludgeon-plus",
+    "file": "bludgeon",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "body-slam",
+    "file": "body_slam",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "body-slam-plus",
+    "file": "body_slam",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "brutality",
+    "file": "brutality",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "brutality-plus",
+    "file": "brutality",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "burning-pact",
+    "file": "burning_pact",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "burning-pact-plus",
+    "file": "burning_pact",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "carnage",
+    "file": "carnage",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "carnage-plus",
+    "file": "carnage",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "clash",
+    "file": "clash",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "clash-plus",
+    "file": "clash",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "cleave",
+    "file": "cleave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "cleave-plus",
+    "file": "cleave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "clothesline",
+    "file": "clothesline",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "clothesline-plus",
+    "file": "clothesline",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "combust",
+    "file": "combust",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "combust-plus",
+    "file": "combust",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "dark-embrace",
+    "file": "dark_embrace",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "dark-embrace-plus",
+    "file": "dark_embrace",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "demon-form",
+    "file": "demon_form",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "demon-form-plus",
+    "file": "demon_form",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "disarm",
+    "file": "disarm",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "entrench",
+    "file": "entrench",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "entrench-plus",
+    "file": "entrench",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "evolve",
+    "file": "evolve",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "evolve-plus",
+    "file": "evolve",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "feed",
+    "file": "feed",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "feed-plus",
+    "file": "feed",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "feel-no-pain",
+    "file": "feel_no_pain",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "feel-no-pain-plus",
+    "file": "feel_no_pain",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "fiend-fire",
+    "file": "fiend_fire",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "fiend-fire-plus",
+    "file": "fiend_fire",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "fire-breathing",
+    "file": "fire_breathing",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "fire-breathing-plus",
+    "file": "fire_breathing",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "flex",
+    "file": "flex",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "flex-plus",
+    "file": "flex",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "ghostly-armor",
+    "file": "ghostly_armor",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "ghostly-armor-plus",
+    "file": "ghostly_armor",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "heavy-blade",
+    "file": "heavy_blade",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "heavy-blade-plus",
+    "file": "heavy_blade",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "hemokinesis",
+    "file": "hemokinesis",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "hemokinesis-plus",
+    "file": "hemokinesis",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "immolate",
+    "file": "immolate",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "immolate-plus",
+    "file": "immolate",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "impervious",
+    "file": "impervious",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "impervious-plus",
+    "file": "impervious",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "inflame",
+    "file": "inflame",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "inflame-plus",
+    "file": "inflame",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "intimidate",
+    "file": "intimidate",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "intimidate-plus",
+    "file": "intimidate",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "iron-wave",
+    "file": "iron_wave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "iron-wave-plus",
+    "file": "iron_wave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "juggernaut",
+    "file": "juggernaut",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "juggernaut-plus",
+    "file": "juggernaut",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "limit-break",
+    "file": "limit_break",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "limit-break-plus",
+    "file": "limit_break",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "perfected-strike",
+    "file": "perfected_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "perfected-strike-plus",
+    "file": "perfected_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "pommel-strike",
+    "file": "pommel_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "pommel-strike-plus",
+    "file": "pommel_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "power-through",
+    "file": "power_through",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "power-through-plus",
+    "file": "power_through",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "pummel",
+    "file": "pummel",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "pummel-plus",
+    "file": "pummel",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "reaper",
+    "file": "reaper",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "reaper-plus",
+    "file": "reaper",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "reckless-charge",
+    "file": "reckless_charge",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "reckless-charge-plus",
+    "file": "reckless_charge",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "rupture",
+    "file": "rupture",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "rupture-plus",
+    "file": "rupture",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "searing-blow",
+    "file": "searing_blow",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "second-wind",
+    "file": "second_wind",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "second-wind-plus",
+    "file": "second_wind",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "seeing-red",
+    "file": "seeing_red",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "seeing-red-plus",
+    "file": "seeing_red",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "sentinel",
+    "file": "sentinel",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "sentinel-plus",
+    "file": "sentinel",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "shockwave",
+    "file": "shockwave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "shockwave-plus",
+    "file": "shockwave",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "shrug-it-off",
+    "file": "shrug_it_off",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "shrug-it-off-plus",
+    "file": "shrug_it_off",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "spot-weakness",
+    "file": "spot_weakness",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "spot-weakness-plus",
+    "file": "spot_weakness",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "sword-boomerang",
+    "file": "sword_boomerang",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "sword-boomerang-plus",
+    "file": "sword_boomerang",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "thunderclap",
+    "file": "thunderclap",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "thunderclap-plus",
+    "file": "thunderclap",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "true-grit",
+    "file": "true_grit",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "true-grit-plus",
+    "file": "true_grit",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "twin-strike",
+    "file": "twin_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "twin-strike-plus",
+    "file": "twin_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "uppercut",
+    "file": "uppercut",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "uppercut-plus",
+    "file": "uppercut",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "warcry",
+    "file": "warcry",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "warcry-plus",
+    "file": "warcry",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "whirlwind",
+    "file": "whirlwind",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "whirlwind-plus",
+    "file": "whirlwind",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "wild-strike",
+    "file": "wild_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "wild-strike-plus",
+    "file": "wild_strike",
+    "class": "ironclad",
+    "implemented": true
+  },
+  {
+    "id": "deadly-poison",
+    "file": "deadly_poison",
+    "class": "silent",
+    "implemented": true
+  },
+  {
+    "id": "deadly-poison-plus",
+    "file": "deadly_poison",
+    "class": "silent",
+    "implemented": true
+  },
+  {
+    "id": "neutralize",
+    "name": "Neutralize",
+    "class": "silent",
+    "rarity": "basic",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "survivor",
+    "name": "Survivor",
+    "class": "silent",
+    "rarity": "basic",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "acrobatics",
+    "name": "Acrobatics",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "backflip",
+    "name": "Backflip",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "backstab",
+    "name": "Backstab",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "bane",
+    "name": "Bane",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "blade-dance",
+    "name": "Blade Dance",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "cloak-and-dagger",
+    "name": "Cloak and Dagger",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "dagger-spray",
+    "name": "Dagger Spray",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "dagger-throw",
+    "name": "Dagger Throw",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "deflect",
+    "name": "Deflect",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "dodge-and-roll",
+    "name": "Dodge and Roll",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "endless-agony",
+    "name": "Endless Agony",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "escape-plan",
+    "name": "Escape Plan",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "flying-knee",
+    "name": "Flying Knee",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "outmaneuver",
+    "name": "Outmaneuver",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "piercing-wail",
+    "name": "Piercing Wail",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "poisoned-stab",
+    "name": "Poisoned Stab",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "prepared",
+    "name": "Prepared",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "quick-slash",
+    "name": "Quick Slash",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "slice",
+    "name": "Slice",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "sneaky-strike",
+    "name": "Sneaky Strike",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "sucker-punch",
+    "name": "Sucker Punch",
+    "class": "silent",
+    "rarity": "common",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "accuracy",
+    "name": "Accuracy",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "adrenaline",
+    "name": "Adrenaline",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "after-image",
+    "name": "After Image",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "blur",
+    "name": "Blur",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "bouncing-flask",
+    "name": "Bouncing Flask",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "calculated-gamble",
+    "name": "Calculated Gamble",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "catalyst",
+    "name": "Catalyst",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "choke",
+    "name": "Choke",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "concentrate",
+    "name": "Concentrate",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "corpse-explosion",
+    "name": "Corpse Explosion",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "dash",
+    "name": "Dash",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "die-die-die",
+    "name": "Die Die Die",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "distraction",
+    "name": "Distraction",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "expertise",
+    "name": "Expertise",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "finisher",
+    "name": "Finisher",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "flechettes",
+    "name": "Flechettes",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "footwork",
+    "name": "Footwork",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "glass-knife",
+    "name": "Glass Knife",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "heel-hook",
+    "name": "Heel Hook",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "infinite-blades",
+    "name": "Infinite Blades",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "leg-sweep",
+    "name": "Leg Sweep",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "masterful-stab",
+    "name": "Masterful Stab",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "noxious-fumes",
+    "name": "Noxious Fumes",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "predator",
+    "name": "Predator",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "riddle-with-holes",
+    "name": "Riddle With Holes",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Attack",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "setup",
+    "name": "Setup",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "storm-of-steel",
+    "name": "Storm of Steel",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "tactician",
+    "name": "Tactician",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "terror",
+    "name": "Terror",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "well-laid-plans",
+    "name": "Well-Laid Plans",
+    "class": "silent",
+    "rarity": "uncommon",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "a-thousand-cuts",
+    "name": "A Thousand Cuts",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Power",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "alchemize",
+    "name": "Alchemize",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "bullet-time",
+    "name": "Bullet Time",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 3,
+    "implemented": false
+  },
+  {
+    "id": "burst",
+    "name": "Burst",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "doppelganger",
+    "name": "Doppelganger",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": "X",
+    "implemented": false
+  },
+  {
+    "id": "envenom",
+    "name": "Envenom",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Power",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "grand-finale",
+    "name": "Grand Finale",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Attack",
+    "cost": 0,
+    "implemented": false
+  },
+  {
+    "id": "malaise",
+    "name": "Malaise",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": "X",
+    "implemented": false
+  },
+  {
+    "id": "nightmare",
+    "name": "Nightmare",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 2,
+    "implemented": false
+  },
+  {
+    "id": "phantasmal-killer",
+    "name": "Phantasmal Killer",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Skill",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "tools-of-the-trade",
+    "name": "Tools of the Trade",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Power",
+    "cost": 1,
+    "implemented": false
+  },
+  {
+    "id": "unload",
+    "name": "Unload",
+    "class": "silent",
+    "rarity": "rare",
+    "type": "Attack",
+    "cost": 1,
+    "implemented": false
+  }
+]
