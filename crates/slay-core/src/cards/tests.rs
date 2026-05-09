@@ -1064,6 +1064,40 @@
         assert_eq!(state.player.hp, Hp(80));
     }
 
+    // --- BurnPlus ---
+
+    #[test]
+    fn burn_plus_card_type_is_status() {
+        assert_eq!(Card::BurnPlus.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn burn_plus_is_not_playable() {
+        assert!(!Card::BurnPlus.is_playable());
+    }
+
+    #[test]
+    fn burn_plus_id_is_burn_plus_string() {
+        assert_eq!(Card::BurnPlus.id(), "burn+");
+    }
+
+    #[test]
+    fn burn_plus_in_hand_deals_4_blockable_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let state = combat_with_hand(vec![Card::BurnPlus]);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(76));
+    }
+
+    #[test]
+    fn burn_plus_in_draw_pile_does_not_deal_damage_at_end_of_turn() {
+        use crate::combat::{combat_with_hand, apply_combat_command};
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile.push(Card::BurnPlus);
+        let (state, _) = apply_combat_command(state, Command::EndTurn, &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(80));
+    }
+
     // --- Doubt ---
 
     #[test]
@@ -3299,6 +3333,106 @@
     fn secret_technique_id_round_trips() {
         assert_eq!(Card::from_id("secret-technique"),      Some(Card::SecretTechnique(Grade::Base)));
         assert_eq!(Card::from_id("secret-technique-plus"), Some(Card::SecretTechnique(Grade::Plus)));
+    }
+
+    // --- Forethought ---
+
+    #[test]
+    fn forethought_enters_choose_card_phase() {
+        let state = combat_with_hand(vec![Card::Forethought(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn forethought_puts_chosen_card_at_bottom_of_draw_pile() {
+        let mut state = combat_with_hand(vec![Card::Forethought(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.draw_pile[0], Card::Strike(Grade::Base));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn forethought_removes_card_from_hand() {
+        let state = combat_with_hand(vec![Card::Forethought(Grade::Base), Card::Strike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.hand.is_empty());
+    }
+
+    #[test]
+    fn forethought_plus_is_innate() {
+        assert!(Card::Forethought(Grade::Plus).is_innate());
+    }
+
+    #[test]
+    fn forethought_base_is_not_innate() {
+        assert!(!Card::Forethought(Grade::Base).is_innate());
+    }
+
+    #[test]
+    fn forethought_costs_0() {
+        assert_eq!(Card::Forethought(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn forethought_id_round_trips() {
+        assert_eq!(Card::from_id("forethought"),      Some(Card::Forethought(Grade::Base)));
+        assert_eq!(Card::from_id("forethought-plus"), Some(Card::Forethought(Grade::Plus)));
+    }
+
+    // --- Thinking Ahead ---
+
+    #[test]
+    fn thinking_ahead_draws_2_and_enters_choose_phase() {
+        let mut state = combat_with_hand(vec![Card::ThinkingAhead(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+        assert!(matches!(state.phase, CombatPhase::ChooseCard(_)));
+    }
+
+    #[test]
+    fn thinking_ahead_puts_chosen_card_on_top_of_draw_pile() {
+        let mut state = combat_with_hand(vec![Card::ThinkingAhead(Grade::Base), Card::Bash(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // hand now: Bash + 2 drawn Defends. Choose Bash (index 0).
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert_eq!(state.player.draw_pile.last(), Some(&Card::Bash(Grade::Base)));
+        assert_eq!(state.phase, CombatPhase::PlayerTurn);
+    }
+
+    #[test]
+    fn thinking_ahead_exhausts() {
+        let mut state = combat_with_hand(vec![Card::ThinkingAhead(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::ThinkingAhead(Grade::Base)));
+    }
+
+    #[test]
+    fn thinking_ahead_plus_does_not_exhaust() {
+        let mut state = combat_with_hand(vec![Card::ThinkingAhead(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.iter().all(|c| !matches!(c, Card::ThinkingAhead(_))));
+        assert!(state.player.discard_pile.contains(&Card::ThinkingAhead(Grade::Plus)));
+    }
+
+    #[test]
+    fn thinking_ahead_costs_0() {
+        assert_eq!(Card::ThinkingAhead(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn thinking_ahead_id_round_trips() {
+        assert_eq!(Card::from_id("thinking-ahead"),      Some(Card::ThinkingAhead(Grade::Base)));
+        assert_eq!(Card::from_id("thinking-ahead-plus"), Some(Card::ThinkingAhead(Grade::Plus)));
     }
 
     // --- Mind Blast ---

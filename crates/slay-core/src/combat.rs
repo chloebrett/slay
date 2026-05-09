@@ -56,6 +56,8 @@ pub enum ChooseCardContext {
     BurningPact { draws: usize },
     Warcry,
     Armaments,
+    Forethought,
+    ThinkingAhead,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -488,6 +490,14 @@ pub(crate) fn apply_combat_command(
                         state.player.hand[idx] = upgraded;
                     }
                 }
+                ChooseCardContext::Forethought => {
+                    let card = state.player.hand.remove(idx);
+                    state.player.draw_pile.insert(0, card);
+                }
+                ChooseCardContext::ThinkingAhead => {
+                    let card = state.player.hand.remove(idx);
+                    state.player.draw_pile.push(card);
+                }
             }
             state.phase = CombatPhase::PlayerTurn;
         }
@@ -601,6 +611,21 @@ pub(crate) fn apply_combat_command(
                                 state.enemies.remove(i);
                                 events.push(Event::EnemyFled);
                                 fled = true;
+                            }
+                            Effect::DividerDamage => {
+                                let n = (state.player.hp.0 / 12 + 1) * 6;
+                                let effective = crate::status::resolve_damage(n, &enemy_statuses, &state.player.statuses);
+                                let damage = deal_damage(effective, &mut state.player.hp, &mut state.player.block);
+                                events.push(Event::EnemyAttacked { raw: effective, damage });
+                            }
+                            Effect::UpgradeAllBurns => {
+                                for zone in [&mut state.player.hand, &mut state.player.draw_pile, &mut state.player.discard_pile] {
+                                    for card in zone.iter_mut() {
+                                        if *card == crate::cards::Card::Burn {
+                                            *card = crate::cards::Card::BurnPlus;
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

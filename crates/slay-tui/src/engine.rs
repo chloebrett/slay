@@ -94,6 +94,8 @@ pub fn describe_intent(intent: &Intent) -> String {
         Intent::Split => "🔀 Split".into(),
         Intent::EscapeBlock(n) => format!("🏃 Flee + Defend {n}"),
         Intent::Escape => "🏃 Flee".into(),
+        Intent::AttackUnknown => "⚔️  ?".into(),
+        Intent::BlockAndGainStrength(n) => format!("🛡️{n} + 💪"),
     }
 }
 
@@ -185,6 +187,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
         EnemyKind::MediumAcid      => "🟢",
         EnemyKind::Looter          => "🦹",
         EnemyKind::Mugger          => "🦹",
+        EnemyKind::Hexaghost       => "👻",
     }
 }
 

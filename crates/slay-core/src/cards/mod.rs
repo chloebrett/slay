@@ -52,6 +52,7 @@ mod disarm;
 mod dramatic_entrance;
 mod finesse;
 mod flash_of_steel;
+mod forethought;
 mod good_instincts;
 mod impatience;
 mod mind_blast;
@@ -61,6 +62,7 @@ mod normality;
 mod pain;
 mod secret_technique;
 mod secret_weapon;
+mod thinking_ahead;
 mod violence;
 mod void;
 mod writhe;
@@ -110,6 +112,7 @@ pub enum Card {
     DramaticEntrance(Grade),
     Finesse(Grade),
     FlashOfSteel(Grade),
+    Forethought(Grade),
     GoodInstincts(Grade),
     Impatience(Grade),
     MindBlast(Grade),
@@ -119,6 +122,7 @@ pub enum Card {
     Pain,
     SecretTechnique(Grade),
     SecretWeapon(Grade),
+    ThinkingAhead(Grade),
     Violence(Grade),
     Void,
     Writhe,
@@ -187,6 +191,7 @@ pub enum Card {
     Regret,
     Wound,
     Burn,
+    BurnPlus,
     Doubt,
     Shame,
     Parasite,
@@ -281,6 +286,7 @@ impl Card {
             Card::Disarm           => disarm::def(),
             Card::Finesse(g)       => finesse::def(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
+            Card::Forethought(g)   => forethought::def(*g),
             Card::GoodInstincts(g) => good_instincts::def(*g),
             Card::Impatience(g)    => impatience::def(*g),
             Card::MindBlast(g)     => mind_blast::def(*g),
@@ -291,8 +297,9 @@ impl Card {
             Card::Normality        => normality::def(),
             Card::Pain             => pain::def(),
             Card::SecretTechnique(g) => secret_technique::def(*g),
-            Card::SecretWeapon(g)  => secret_weapon::def(*g),
-            Card::Violence(g)      => violence::def(*g),
+            Card::SecretWeapon(g)    => secret_weapon::def(*g),
+            Card::ThinkingAhead(g)   => thinking_ahead::def(*g),
+            Card::Violence(g)        => violence::def(*g),
             Card::Void             => void::def(),
             Card::Writhe           => writhe::def(),
             Card::Cleave(g)       => cleave::def(*g),
@@ -358,6 +365,7 @@ impl Card {
             Card::Regret          => regret::def(),
             Card::Wound           => wound::def(),
             Card::Burn            => burn::def(),
+            Card::BurnPlus        => burn::plus_def(),
             Card::Doubt           => doubt::def(),
             Card::Shame           => shame::def(),
             Card::Parasite        => parasite::def(),
@@ -368,7 +376,7 @@ impl Card {
 
     pub fn is_playable(&self) -> bool {
         !matches!(self, Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void | Card::Normality | Card::Pain)
     }
 
@@ -377,13 +385,14 @@ impl Card {
     }
 
     pub fn is_innate(&self) -> bool {
-        matches!(self, Card::Brutality(Grade::Plus) | Card::DramaticEntrance(_) | Card::MindBlast(_) | Card::Writhe)
+        matches!(self, Card::Brutality(Grade::Plus) | Card::DramaticEntrance(_) | Card::Forethought(Grade::Plus) | Card::MindBlast(_) | Card::Writhe)
     }
 
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
         match self {
             Card::Decay  => Some(decay::end_of_turn_hook()),
-            Card::Burn   => Some(burn::end_of_turn_hook()),
+            Card::Burn    => Some(burn::end_of_turn_hook()),
+            Card::BurnPlus => Some(burn::plus_end_of_turn_hook()),
             Card::Regret => Some(regret::end_of_turn_hook(hand_size)),
             Card::Doubt  => Some(doubt::end_of_turn_hook()),
             Card::Shame  => Some(shame::end_of_turn_hook()),
@@ -406,7 +415,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base))
+        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -426,13 +435,13 @@ impl Card {
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
-            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::Impatience(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
+            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::Forethought(g) | Card::GoodInstincts(g) | Card::Impatience(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g)
-            | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::Violence(g) => Some(*g),
+            | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g) => Some(*g),
             Card::SearingBlow(_) |
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
     }
@@ -501,6 +510,7 @@ impl Card {
             Card::LimitBreak(_)    => Card::LimitBreak(g),
             Card::Finesse(_)       => Card::Finesse(g),
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
+            Card::Forethought(_)   => Card::Forethought(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
             Card::Impatience(_)    => Card::Impatience(g),
             Card::MindBlast(_)     => Card::MindBlast(g),
@@ -510,12 +520,13 @@ impl Card {
             Card::DarkShackles(_)    => Card::DarkShackles(g),
             Card::SecretTechnique(_) => Card::SecretTechnique(g),
             Card::SecretWeapon(_)    => Card::SecretWeapon(g),
+            Card::ThinkingAhead(_)   => Card::ThinkingAhead(g),
             Card::Violence(_)        => Card::Violence(g),
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-            Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+            Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
     }
@@ -575,6 +586,7 @@ impl Card {
             Card::Disarm           => disarm::id(),
             Card::Finesse(g)       => finesse::id(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
+            Card::Forethought(g)   => forethought::id(*g),
             Card::GoodInstincts(g) => good_instincts::id(*g),
             Card::Impatience(g)    => impatience::id(*g),
             Card::MindBlast(g)     => mind_blast::id(*g),
@@ -586,6 +598,7 @@ impl Card {
             Card::Pain               => pain::id(),
             Card::SecretTechnique(g) => secret_technique::id(*g),
             Card::SecretWeapon(g)    => secret_weapon::id(*g),
+            Card::ThinkingAhead(g)   => thinking_ahead::id(*g),
             Card::Violence(g)        => violence::id(*g),
             Card::Void               => void::id(),
             Card::Writhe           => writhe::id(),
@@ -652,6 +665,7 @@ impl Card {
             Card::Regret          => regret::id(),
             Card::Wound           => wound::id(),
             Card::Burn            => burn::id(),
+            Card::BurnPlus        => burn::plus_id(),
             Card::Doubt           => doubt::id(),
             Card::Shame           => shame::id(),
             Card::Parasite        => parasite::id(),
@@ -674,6 +688,7 @@ impl Card {
             Card::Disarm,
             Card::Finesse(Base),       Card::Finesse(Plus),
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
+            Card::Forethought(Base),   Card::Forethought(Plus),
             Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
             Card::Impatience(Base),    Card::Impatience(Plus),
             Card::MindBlast(Base),     Card::MindBlast(Plus),
@@ -685,6 +700,7 @@ impl Card {
             Card::Pain,
             Card::SecretTechnique(Base), Card::SecretTechnique(Plus),
             Card::SecretWeapon(Base),    Card::SecretWeapon(Plus),
+            Card::ThinkingAhead(Base),   Card::ThinkingAhead(Plus),
             Card::Violence(Base),        Card::Violence(Plus),
             Card::Void,
             Card::Writhe,
@@ -751,6 +767,7 @@ impl Card {
             Card::Regret,
             Card::Wound,
             Card::Burn,
+            Card::BurnPlus,
             Card::Doubt,
             Card::Shame,
             Card::Parasite,
@@ -780,6 +797,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::DarkShackles(g)  => dark_shackles::apply(state, events, target, *g),
         Card::Disarm           => disarm::apply(state, events, target),
         Card::Finesse(g)       => finesse::apply(state, events, *g, rng),
+        Card::Forethought(g)   => forethought::apply(state, events, *g),
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),
         Card::GoodInstincts(g) => good_instincts::apply(state, events, *g, rng),
         Card::Impatience(g)    => impatience::apply(state, events, *g, rng),
@@ -790,6 +808,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Trip(g)            => trip::apply(state, events, *g),
         Card::SecretTechnique(g) => secret_technique::apply(state, events, *g),
         Card::SecretWeapon(g)    => secret_weapon::apply(state, events, *g),
+        Card::ThinkingAhead(g)   => thinking_ahead::apply(state, events, *g, rng),
         Card::Violence(g)        => violence::apply(state, events, *g, rng),
         Card::Cleave(g)        => cleave::apply(state, events, *g),
         Card::IronWave(g)     => iron_wave::apply(state, events, *g, target, rng),
@@ -848,7 +867,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::LimitBreak(g)   => limit_break::apply(state, events, *g, target),
         Card::Slimed => {} // playable, but no effect — just exhausts
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
-        Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
+        Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
         Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane | Card::Writhe | Card::Void | Card::Normality | Card::Pain => {} // unplayable
     }
 }

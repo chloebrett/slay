@@ -38,7 +38,7 @@ Cards available to all characters. ✅ = implemented in Rust.
 
 ## Colorless reward cards (available to all characters in reward pools / shops)
 
-Not yet implemented. These appear as combat rewards and in shops regardless of character.
+These appear as combat rewards and in shops regardless of character.
 
 ### Common
 
@@ -108,29 +108,21 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 
 ## Notes on mechanics needed
 
-New mechanics required before implementing colorless reward cards:
+New mechanics required for remaining cards:
 
 - **Artifact** — prevents next debuff (Panacea)
 - **On-kill trigger** — detect when an attack kills an enemy (Hand of Greed, Ritual Dagger)
 - **Carry-forward Block lock** — cannot gain Block for N turns (Panic Button)
 - **Delayed damage** — countdown before effect fires (The Bomb)
 - **Discard → draw pile shuffle** — reshuffle (Deep Breath)
-- **Innate** — already exists (Brutality+); Dramatic Entrance needs it for all grades
 - **Play-count trigger** — track cards played this turn (Panache)
 - **Per-combat card cost change** — permanent this-combat cost reduction (Madness)
-- **Draw until condition** — draw until no Attacks remain? (Impatience just checks then draws)
-- **Put card on draw pile top** — already needed for Thinking Ahead / Forethought
+- **Put card on draw pile top/bottom** — needed for Thinking Ahead / Forethought
 
 ## Implementation order
 
 ### Minor — one new mechanism required
 
-- **Bandage Up** — heal N HP and exhaust; Feed already restores max HP so HP healing exists, just needs a Skill wrapper.
-- **Dark Shackles** — enemy loses 9 Strength this turn only; needs a "this-turn-only" temporary Strength debuff that resets at end of the enemy's turn, unlike the permanent reduction Disarm applies.
-- **Mind Blast** — deal damage equal to draw pile size; needs to read `draw_pile.len()` as the base damage value at the time of play rather than a fixed constant.
-- **Impatience** — draw 2 only if no Attacks are in hand; needs a hand type-scan before drawing, checking `card.card_type() == CardType::Attack`.
-- **Violence** — move 3 random Attacks from the draw pile to hand; needs a "search draw pile by card type, remove, and add to hand" operation.
-- **Secret Technique / Secret Weapon** — put a Skill or Attack from draw pile into hand; same draw-pile search pattern as Violence but picks one card.
 - **Deep Breath** — shuffle the discard pile back into the draw pile; needs a reshuffle step (move all discard → draw, then re-shuffle).
 - **Forethought** — place a chosen card from hand at the bottom of the draw pile; needs "insert at index 0" into the draw pile and a card-selection prompt.
 - **Thinking Ahead** — draw 2 then place a chosen card on top of the draw pile; needs "insert at tail" into the draw pile and a card-selection prompt.
@@ -143,6 +135,7 @@ New mechanics required before implementing colorless reward cards:
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 - **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.
+- **Master of Strategy** — draw 3 cards. Exhaust. (draw + exhaust, no new mechanism needed)
 
 ### Major — significant new architecture
 - **The Bomb** — deal 40 damage to ALL enemies after a 3-turn countdown; needs a delayed-effect system (a list of pending triggers with turn counters) that fires at end of player turn.
@@ -151,3 +144,5 @@ New mechanics required before implementing colorless reward cards:
 - **Chrysalis / Metamorphosis** — add 3 random Skills (or Attacks) from any class that cost 0 to hand; needs temporary 0-cost card instances and a broad cross-class card pool to sample from.
 - **Ritual Dagger** — deal 15 damage; if this kills, permanently increase its own damage by 3; needs mutable per-card-instance stats that persist across combats (run-level card data).
 - **Transmutation** — X-cost: create X random colorless cards in hand; needs the X-cost mechanism (only Whirlwind uses it now) extended to Skills, plus a colorless card pool.
+- **Discovery** — choose 1 of 3 random cards from your class; needs a class-specific card pool and a three-option choice UI.
+- **Panache / Sadistic Nature** — power cards that trigger mid-turn; need event hook infrastructure.

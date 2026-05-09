@@ -1,4 +1,5 @@
 mod blue_slaver;
+mod hexaghost;
 mod looter;
 mod mugger;
 mod slime_boss;
@@ -56,6 +57,7 @@ pub enum EnemyKind {
     MediumSpike,
     LargeAcid,
     MediumAcid,
+    Hexaghost,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -153,6 +155,14 @@ pub enum Move {
     MuggerLunge,
     MuggerSmokeBomb,
     MuggerFlee,
+    // Hexaghost
+    HexaghostActivate,
+    HexaghostDivider,
+    HexaghostSear,
+    HexaghostSearUpgraded,
+    HexaghostTackle,
+    HexaghostInflame,
+    HexaghostInferno,
 }
 
 #[derive(Debug, Clone)]
@@ -165,6 +175,8 @@ pub enum Effect {
     ClearSelfStatus(StatusEffect),      // removes all stacks of a status from self
     GiveAllyBlock(i32),                 // gives block to a random other alive enemy
     EscapeCombat,                        // enemy flees the battle
+    DividerDamage,                       // damage = (player_hp / 12 + 1) * 6
+    UpgradeAllBurns,                     // replace every Burn in all zones with BurnPlus
 }
 
 pub struct MoveDef {
@@ -242,6 +254,13 @@ impl Move {
             Move::MuggerLunge        => MoveDef { name: "Lunge",          effects: vec![Effect::DealDamage(20)] },
             Move::MuggerSmokeBomb    => MoveDef { name: "Smoke Bomb",     effects: vec![Effect::GainBlock(11)] },
             Move::MuggerFlee         => MoveDef { name: "Flee",           effects: vec![Effect::EscapeCombat] },
+            Move::HexaghostActivate  => MoveDef { name: "Activate",       effects: vec![] },
+            Move::HexaghostDivider   => MoveDef { name: "Divider",        effects: vec![Effect::DividerDamage] },
+            Move::HexaghostSear      => MoveDef { name: "Sear",           effects: vec![Effect::DealDamage(6), Effect::AddToDiscard(Card::Burn)] },
+            Move::HexaghostSearUpgraded => MoveDef { name: "Sear",        effects: vec![Effect::DealDamage(6), Effect::AddToDiscard(Card::BurnPlus)] },
+            Move::HexaghostTackle    => MoveDef { name: "Tackle",         effects: vec![Effect::DealDamage(2), Effect::DealDamage(2), Effect::DealDamage(2), Effect::DealDamage(2), Effect::DealDamage(2)] },
+            Move::HexaghostInflame   => MoveDef { name: "Inflame",        effects: vec![Effect::GainBlock(12), Effect::GainStatus(StatusEffect::Strength, 2)] },
+            Move::HexaghostInferno   => MoveDef { name: "Inferno",        effects: vec![Effect::DealDamage(6), Effect::DealDamage(6), Effect::AddToDiscard(Card::Burn), Effect::AddToDiscard(Card::Burn), Effect::AddToDiscard(Card::Burn), Effect::UpgradeAllBurns] },
         }
     }
 
@@ -278,6 +297,9 @@ impl Move {
             }).sum();
             return Intent::AttackDebuff(dmg);
         }
+        if matches!(self, Move::HexaghostActivate) { return Intent::Buff; }
+        if matches!(self, Move::HexaghostDivider)  { return Intent::AttackUnknown; }
+        if matches!(self, Move::HexaghostInflame)  { return Intent::BlockAndGainStrength(12); }
         let effects = self.def().effects;
         let damage: i32 = effects.iter().filter_map(|e| {
             if let Effect::DealDamage(n) = e { Some(*n) } else { None }
@@ -309,6 +331,8 @@ pub enum Intent {
     Split,
     EscapeBlock(i32),
     Escape,
+    AttackUnknown,
+    BlockAndGainStrength(i32),
 }
 
 pub struct EnemyDef {
@@ -344,6 +368,7 @@ impl EnemyKind {
             EnemyKind::MediumSpike     => medium_spike_slime::DEF,
             EnemyKind::LargeAcid       => large_acid_slime::DEF,
             EnemyKind::MediumAcid      => medium_acid_slime::DEF,
+            EnemyKind::Hexaghost       => hexaghost::DEF,
         }
     }
 
@@ -377,6 +402,7 @@ impl EnemyKind {
             EnemyKind::MediumSpike     => "medium-spike-slime",
             EnemyKind::LargeAcid       => "large-acid-slime",
             EnemyKind::MediumAcid      => "medium-acid-slime",
+            EnemyKind::Hexaghost       => "hexaghost",
         }
     }
 
@@ -407,6 +433,7 @@ impl EnemyKind {
             "medium-spike-slime" => Some(EnemyKind::MediumSpike),
             "large-acid-slime"   => Some(EnemyKind::LargeAcid),
             "medium-acid-slime"  => Some(EnemyKind::MediumAcid),
+            "hexaghost"          => Some(EnemyKind::Hexaghost),
             _                    => None,
         }
     }
@@ -486,6 +513,7 @@ pub fn next_move(kind: &EnemyKind, history: &[Move], statuses: &StatusMap, rng: 
         EnemyKind::MediumSpike     => medium_spike_slime::next_move(history, rng),
         EnemyKind::LargeAcid       => large_acid_slime::next_move(history, rng),
         EnemyKind::MediumAcid      => medium_acid_slime::next_move(history, rng),
+        EnemyKind::Hexaghost       => hexaghost::next_move(history),
     }
 }
 
@@ -1914,5 +1942,148 @@ mod tests {
     #[test]
     fn slime_boss_split_intent_is_split() {
         assert_eq!(Move::SlimeBossSplit.intent(), Intent::Split);
+    }
+
+    // --- Hexaghost ---
+
+    #[test]
+    fn hexaghost_has_250_hp() {
+        assert_eq!(EnemyKind::Hexaghost.max_hp(), Hp(250));
+    }
+
+    #[test]
+    fn hexaghost_is_named_correctly() {
+        assert_eq!(EnemyKind::Hexaghost.name(), "Hexaghost");
+    }
+
+    #[test]
+    fn hexaghost_id_round_trips() {
+        assert_eq!(EnemyKind::from_id("hexaghost"), Some(EnemyKind::Hexaghost));
+    }
+
+    #[test]
+    fn hexaghost_first_move_is_activate() {
+        assert_eq!(next_move(&EnemyKind::Hexaghost, &[], &StatusMap::new(), &mut rng()), Move::HexaghostActivate);
+    }
+
+    #[test]
+    fn hexaghost_second_move_is_divider() {
+        assert_eq!(
+            next_move(&EnemyKind::Hexaghost, &[Move::HexaghostActivate], &StatusMap::new(), &mut rng()),
+            Move::HexaghostDivider
+        );
+    }
+
+    #[test]
+    fn hexaghost_cycle_sear_tackle_sear_inflame_tackle_sear_inferno() {
+        let history = vec![Move::HexaghostActivate, Move::HexaghostDivider];
+        let expected = [
+            Move::HexaghostSear, Move::HexaghostTackle, Move::HexaghostSear,
+            Move::HexaghostInflame, Move::HexaghostTackle, Move::HexaghostSear,
+            Move::HexaghostInferno,
+        ];
+        let mut h = history.clone();
+        for exp in expected {
+            let got = next_move(&EnemyKind::Hexaghost, &h, &StatusMap::new(), &mut rng());
+            assert_eq!(got, exp);
+            h.push(got);
+        }
+    }
+
+    #[test]
+    fn hexaghost_cycle_repeats_after_inferno() {
+        let mut h: Vec<Move> = vec![Move::HexaghostActivate, Move::HexaghostDivider];
+        for _ in 0..7 { h.push(next_move(&EnemyKind::Hexaghost, &h, &StatusMap::new(), &mut rng())); }
+        assert_eq!(next_move(&EnemyKind::Hexaghost, &h, &StatusMap::new(), &mut rng()), Move::HexaghostSearUpgraded);
+    }
+
+    #[test]
+    fn hexaghost_sear_after_inferno_gives_upgraded_sear() {
+        let history = vec![
+            Move::HexaghostActivate, Move::HexaghostDivider,
+            Move::HexaghostSear, Move::HexaghostTackle, Move::HexaghostSear,
+            Move::HexaghostInflame, Move::HexaghostTackle, Move::HexaghostSear,
+            Move::HexaghostInferno,
+        ];
+        let got = next_move(&EnemyKind::Hexaghost, &history, &StatusMap::new(), &mut rng());
+        assert_eq!(got, Move::HexaghostSearUpgraded);
+    }
+
+    #[test]
+    fn hexaghost_activate_has_no_effects() {
+        assert!(Move::HexaghostActivate.def().effects.is_empty());
+    }
+
+    #[test]
+    fn hexaghost_divider_has_divider_damage_effect() {
+        assert!(Move::HexaghostDivider.def().effects.iter().any(|e| matches!(e, Effect::DividerDamage)));
+    }
+
+    #[test]
+    fn hexaghost_sear_deals_6_damage_and_adds_one_burn() {
+        let effects = Move::HexaghostSear.def().effects;
+        let dmg: i32 = effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).sum();
+        let burns = effects.iter().filter(|e| matches!(e, Effect::AddToDiscard(crate::cards::Card::Burn))).count();
+        assert_eq!(dmg, 6);
+        assert_eq!(burns, 1);
+    }
+
+    #[test]
+    fn hexaghost_sear_upgraded_adds_burn_plus() {
+        let effects = Move::HexaghostSearUpgraded.def().effects;
+        assert!(effects.iter().any(|e| matches!(e, Effect::AddToDiscard(crate::cards::Card::BurnPlus))));
+    }
+
+    #[test]
+    fn hexaghost_tackle_is_five_hits_of_2() {
+        let effects = Move::HexaghostTackle.def().effects;
+        let hits: Vec<i32> = effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).collect();
+        assert_eq!(hits, vec![2, 2, 2, 2, 2]);
+    }
+
+    #[test]
+    fn hexaghost_inflame_gains_12_block_and_2_strength() {
+        let effects = Move::HexaghostInflame.def().effects;
+        let block: i32 = effects.iter().filter_map(|e| if let Effect::GainBlock(n) = e { Some(*n) } else { None }).sum();
+        let strength: i32 = effects.iter().filter_map(|e| {
+            if let Effect::GainStatus(StatusEffect::Strength, n) = e { Some(*n) } else { None }
+        }).sum();
+        assert_eq!(block, 12);
+        assert_eq!(strength, 2);
+    }
+
+    #[test]
+    fn hexaghost_inferno_is_two_hits_of_6_and_three_burns_and_upgrade() {
+        let effects = Move::HexaghostInferno.def().effects;
+        let hits: Vec<i32> = effects.iter().filter_map(|e| if let Effect::DealDamage(n) = e { Some(*n) } else { None }).collect();
+        let burns = effects.iter().filter(|e| matches!(e, Effect::AddToDiscard(crate::cards::Card::Burn))).count();
+        assert!(effects.iter().any(|e| matches!(e, Effect::UpgradeAllBurns)));
+        assert_eq!(hits, vec![6, 6]);
+        assert_eq!(burns, 3);
+    }
+
+    #[test]
+    fn hexaghost_activate_intent_is_buff() {
+        assert_eq!(Move::HexaghostActivate.intent(), Intent::Buff);
+    }
+
+    #[test]
+    fn hexaghost_divider_intent_is_attack_unknown() {
+        assert_eq!(Move::HexaghostDivider.intent(), Intent::AttackUnknown);
+    }
+
+    #[test]
+    fn hexaghost_sear_intent_is_attack_debuff_6() {
+        assert_eq!(Move::HexaghostSear.intent(), Intent::AttackDebuff(6));
+    }
+
+    #[test]
+    fn hexaghost_inflame_intent_is_block_and_gain_strength() {
+        assert_eq!(Move::HexaghostInflame.intent(), Intent::BlockAndGainStrength(12));
+    }
+
+    #[test]
+    fn hexaghost_inferno_intent_is_attack_debuff_12() {
+        assert_eq!(Move::HexaghostInferno.intent(), Intent::AttackDebuff(12));
     }
 }
