@@ -3300,3 +3300,90 @@
         assert_eq!(Card::from_id("secret-technique"),      Some(Card::SecretTechnique(Grade::Base)));
         assert_eq!(Card::from_id("secret-technique-plus"), Some(Card::SecretTechnique(Grade::Plus)));
     }
+
+    // --- Mind Blast ---
+
+    #[test]
+    fn mind_blast_deals_damage_equal_to_draw_pile_size() {
+        let mut state = combat_with_hand(vec![Card::MindBlast(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(15));
+    }
+
+    #[test]
+    fn mind_blast_with_empty_draw_pile_deals_no_damage() {
+        let state = combat_with_hand(vec![Card::MindBlast(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(20));
+    }
+
+    #[test]
+    fn mind_blast_respects_strength() {
+        let mut state = combat_with_hand(vec![Card::MindBlast(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
+        state.player.statuses.insert(StatusEffect::Strength, 2);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(13)); // 20 - (5 + 2)
+    }
+
+    #[test]
+    fn mind_blast_is_innate() {
+        assert!(Card::MindBlast(Grade::Base).is_innate());
+        assert!(Card::MindBlast(Grade::Plus).is_innate());
+    }
+
+    #[test]
+    fn mind_blast_plus_costs_1() {
+        assert_eq!(Card::MindBlast(Grade::Plus).energy_cost(), Energy(1));
+    }
+
+    #[test]
+    fn mind_blast_costs_2() {
+        assert_eq!(Card::MindBlast(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn mind_blast_id_round_trips() {
+        assert_eq!(Card::from_id("mind-blast"),      Some(Card::MindBlast(Grade::Base)));
+        assert_eq!(Card::from_id("mind-blast-plus"), Some(Card::MindBlast(Grade::Plus)));
+    }
+
+    // --- Impatience ---
+
+    #[test]
+    fn impatience_draws_2_if_no_attacks_in_hand() {
+        let mut state = combat_with_hand(vec![Card::Impatience(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+    }
+
+    #[test]
+    fn impatience_does_not_draw_if_attack_in_hand() {
+        let mut state = combat_with_hand(vec![Card::Impatience(Grade::Base), Card::Strike(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Only Strike remains in hand (Impatience discarded, no draw)
+        assert_eq!(state.player.hand.len(), 1);
+        assert!(!state.player.hand.contains(&Card::Defend(Grade::Base)));
+    }
+
+    #[test]
+    fn impatience_plus_draws_3_if_no_attacks_in_hand() {
+        let mut state = combat_with_hand(vec![Card::Impatience(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base); 3];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+    }
+
+    #[test]
+    fn impatience_costs_0() {
+        assert_eq!(Card::Impatience(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn impatience_id_round_trips() {
+        assert_eq!(Card::from_id("impatience"),      Some(Card::Impatience(Grade::Base)));
+        assert_eq!(Card::from_id("impatience-plus"), Some(Card::Impatience(Grade::Plus)));
+    }

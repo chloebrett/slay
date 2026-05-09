@@ -97,15 +97,19 @@ HexaghostInferno      — effects: [DealDamage(6), DealDamage(6), AddToDiscard(C
 
 ---
 
-### 6. Intent variants
+### 6. New `Intent` variants
 
 - `Intent::AttackUnknown` — for Divider (damage can't be computed without player HP)
-- `HexaghostActivate` → `Intent::Buff` (does nothing, same as Lagavulin Sleep)
-- `HexaghostInflame` → early return `Intent::AttackDefend` or `Intent::Buff`? It gains block + strength — `Intent::Buff` (since it doesn't attack)
+- `Intent::BlockAndGainStrength(i32)` — for Inflame; carries the block amount
 
-Wait — Inflame gives SELF block + SELF strength. That's `Buff` territory but visually should hint at both. Use existing `Intent::Buff`.
+`HexaghostActivate` → `Intent::Buff` (does nothing, same as Lagavulin Sleep).
 
-Actually, Inflame has GainBlock for self which already falls under existing intent logic (returns `Intent::Defend(12)` because block > 0, buffs_self = true → currently maps to `Intent::Defend` since `(_, b, false, false)` isn't quite right — `buffs_self = true` here). Need to check. Add early return if needed: `if matches!(self, HexaghostInflame) { return Intent::Buff; }` — it signals preparation, not defence.
+Early returns in `intent()`:
+```rust
+if matches!(self, Move::HexaghostActivate) { return Intent::Buff; }
+if matches!(self, Move::HexaghostDivider)  { return Intent::AttackUnknown; }
+if matches!(self, Move::HexaghostInflame)  { return Intent::BlockAndGainStrength(12); }
+```
 
 ---
 
@@ -135,9 +139,10 @@ pub fn next_move(history: &[Move]) -> Move {
 
 ### 8. TUI updates (`engine.rs`)
 
-- `enemy_icon`: `SlimeBoss => "👻"`
-- `describe_intent`: `Intent::AttackUnknown => "⚔️ ?".into()`
-- Divider's unknown damage shows as `"⚔️ ?"` to the player
+- `enemy_icon`: `Hexaghost => "👻"`
+- `describe_intent`:
+  - `Intent::AttackUnknown => "⚔️  ?".into()`
+  - `Intent::BlockAndGainStrength(n) => format!("🛡️{n} + 💪")`
 
 ---
 
@@ -160,8 +165,8 @@ pub fn next_move(history: &[Move]) -> Move {
 1. `Card::BurnPlus` — def, end-of-turn hook (4 dmg), not playable, not in starter deck
 2. `Effect::UpgradeAllBurns` — replaces Burn with BurnPlus in all card zones
 3. `Effect::DividerDamage` — damage = `(player_hp / 12 + 1) * 6`
-4. `Intent::AttackUnknown` for Divider
+4. `Intent::AttackUnknown` for Divider; `Intent::BlockAndGainStrength(i32)` for Inflame
 5. Hexaghost defs, move sequence, move effects
-6. Inflame intent early return
-7. Post-Inferno Sear gives BurnPlus
+6. Inflame and Divider intent early returns
+7. Post-Inferno Sear gives BurnPlus (via history check)
 8. TUI rendering

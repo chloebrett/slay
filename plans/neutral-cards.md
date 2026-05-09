@@ -44,14 +44,14 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 
 | Card | Type | Cost | Effect | Impl |
 |------|------|------|--------|------|
-| Bandage Up | Skill | 0 | Heal 4 HP. Exhaust. | |
+| Bandage Up | Skill | 0 | Heal 4 HP. Exhaust. | ✅ |
 | Blind | Skill | 0 | Apply 2 Weak to enemy. Exhaust. | ✅ |
-| Dark Shackles | Skill | 0 | Enemy loses 9 Strength this turn. Exhaust. | |
+| Dark Shackles | Skill | 0 | Enemy loses 9 Strength this turn. Exhaust. | ✅ |
 | Deep Breath | Skill | 0 | Shuffle your discard pile into your draw pile. Draw 1. | |
 | Finesse | Skill | 0 | Gain 2 Block. Draw 1. | ✅ |
 | Flash of Steel | Attack | 0 | Deal 3 damage. Draw 1. | ✅ |
 | Good Instincts | Skill | 0 | Gain 6 Block. | ✅ |
-| Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. | |
+| Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. | ✅ |
 | Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | |
 | Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
 | Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | |
@@ -60,7 +60,7 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 | Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
 | Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | |
 | Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | |
-| Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. | |
+| Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. | ✅ |
 
 ### Uncommon
 
@@ -71,7 +71,7 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 | Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | |
 | Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | |
 | Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | |
-| Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | |
+| Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
 | Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | |
 | Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. | |
 | The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. | |
@@ -87,8 +87,8 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 | Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
 | Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | |
 | Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | |
-| Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. | |
-| Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. | |
+| Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. | ✅ |
+| Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. | ✅ |
 
 ## Upgrade values (colorless)
 

@@ -53,6 +53,8 @@ mod dramatic_entrance;
 mod finesse;
 mod flash_of_steel;
 mod good_instincts;
+mod impatience;
+mod mind_blast;
 mod swift_strike;
 mod trip;
 mod normality;
@@ -109,6 +111,8 @@ pub enum Card {
     Finesse(Grade),
     FlashOfSteel(Grade),
     GoodInstincts(Grade),
+    Impatience(Grade),
+    MindBlast(Grade),
     SwiftStrike(Grade),
     Trip(Grade),
     Normality,
@@ -278,6 +282,8 @@ impl Card {
             Card::Finesse(g)       => finesse::def(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
             Card::GoodInstincts(g) => good_instincts::def(*g),
+            Card::Impatience(g)    => impatience::def(*g),
+            Card::MindBlast(g)     => mind_blast::def(*g),
             Card::SwiftStrike(g)   => swift_strike::def(*g),
             Card::Blind(g)         => blind::def(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::def(*g),
@@ -371,7 +377,7 @@ impl Card {
     }
 
     pub fn is_innate(&self) -> bool {
-        matches!(self, Card::Brutality(Grade::Plus) | Card::DramaticEntrance(_) | Card::Writhe)
+        matches!(self, Card::Brutality(Grade::Plus) | Card::DramaticEntrance(_) | Card::MindBlast(_) | Card::Writhe)
     }
 
     pub fn end_of_turn_hook(&self, hand_size: i32) -> Option<EndOfTurnHook> {
@@ -420,7 +426,7 @@ impl Card {
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
-            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
+            | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::Impatience(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g)
             | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::Violence(g) => Some(*g),
@@ -496,6 +502,8 @@ impl Card {
             Card::Finesse(_)       => Card::Finesse(g),
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
+            Card::Impatience(_)    => Card::Impatience(g),
+            Card::MindBlast(_)     => Card::MindBlast(g),
             Card::SwiftStrike(_)   => Card::SwiftStrike(g),
             Card::BandageUp(_)       => Card::BandageUp(g),
             Card::Blind(_)           => Card::Blind(g),
@@ -568,6 +576,8 @@ impl Card {
             Card::Finesse(g)       => finesse::id(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
             Card::GoodInstincts(g) => good_instincts::id(*g),
+            Card::Impatience(g)    => impatience::id(*g),
+            Card::MindBlast(g)     => mind_blast::id(*g),
             Card::SwiftStrike(g)   => swift_strike::id(*g),
             Card::Blind(g)         => blind::id(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::id(*g),
@@ -665,6 +675,8 @@ impl Card {
             Card::Finesse(Base),       Card::Finesse(Plus),
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
             Card::GoodInstincts(Base), Card::GoodInstincts(Plus),
+            Card::Impatience(Base),    Card::Impatience(Plus),
+            Card::MindBlast(Base),     Card::MindBlast(Plus),
             Card::SwiftStrike(Base),   Card::SwiftStrike(Plus),
             Card::Blind(Base),         Card::Blind(Plus),
             Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
@@ -770,6 +782,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Finesse(g)       => finesse::apply(state, events, *g, rng),
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),
         Card::GoodInstincts(g) => good_instincts::apply(state, events, *g, rng),
+        Card::Impatience(g)    => impatience::apply(state, events, *g, rng),
+        Card::MindBlast(_)     => mind_blast::apply(state, events, target),
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
         Card::Blind(g)         => blind::apply(state, events, *g, target),
         Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),
