@@ -2771,6 +2771,29 @@
         assert_eq!(Card::from_id("swift-strike-plus"), Some(Card::SwiftStrike(Grade::Plus)));
     }
 
+    #[test]
+    fn blind_id_round_trips() {
+        assert_eq!(Card::from_id("blind"),      Some(Card::Blind(Grade::Base)));
+        assert_eq!(Card::from_id("blind-plus"), Some(Card::Blind(Grade::Plus)));
+    }
+
+    #[test]
+    fn dramatic_entrance_id_round_trips() {
+        assert_eq!(Card::from_id("dramatic-entrance"),      Some(Card::DramaticEntrance(Grade::Base)));
+        assert_eq!(Card::from_id("dramatic-entrance-plus"), Some(Card::DramaticEntrance(Grade::Plus)));
+    }
+
+    #[test]
+    fn trip_id_round_trips() {
+        assert_eq!(Card::from_id("trip"),      Some(Card::Trip(Grade::Base)));
+        assert_eq!(Card::from_id("trip-plus"), Some(Card::Trip(Grade::Plus)));
+    }
+
+    #[test]
+    fn writhe_id_round_trips() {
+        assert_eq!(Card::from_id("writhe"), Some(Card::Writhe));
+    }
+
     // --- Flash of Steel ---
 
     #[test]

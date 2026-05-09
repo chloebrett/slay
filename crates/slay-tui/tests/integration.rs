@@ -447,7 +447,7 @@ fn relic_command_raises_max_hp_via_strawberry() {
     let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default())).debug();
     game.send("relic strawberry").unwrap();
     let GameState::Map(map) = &game.state else { panic!("expected Map") };
-    assert_eq!(map.player.max_hp, Hp(87));
+    assert_eq!(map.player.max_hp, Hp(95)); // 88 (80 + 8 from Neow blessing) + 7 (Strawberry)
 }
 
 #[test]

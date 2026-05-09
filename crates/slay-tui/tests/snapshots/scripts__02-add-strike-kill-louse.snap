@@ -18,14 +18,14 @@ Unknown command.
 > enter
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand: (empty)
 Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add strike
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand:
    [1] ⚔️ Strike (1) — Deal 6 damage.
 Draw: 0  Discard: 0  Exhaust: 0
@@ -33,7 +33,7 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add strike
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand:
    [1] ⚔️ Strike (1) — Deal 6 damage.
    [2] ⚔️ Strike (1) — Deal 6 damage.
@@ -42,7 +42,7 @@ Commands: [1-2] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add strike
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand:
    [1] ⚔️ Strike (1) — Deal 6 damage.
    [2] ⚔️ Strike (1) — Deal 6 damage.
@@ -52,14 +52,25 @@ Commands: [1-3] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > 1
 ▶ You play Strike.
 ⚔️  You deal 6 damage.
+🛡️  Enemy gains 3 block.
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 2/3  (Turn 1)
-🦟 Red Louse ❤️  6/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  6/12  🛡️ 3  | ⚔️  Attack 6  [🛡️0]
 🤚 Hand:
    [1] ⚔️ Strike (1) — Deal 6 damage.
    [2] ⚔️ Strike (1) — Deal 6 damage.
 Draw: 0  Discard: 1  Exhaust: 0
 Commands: [1-2] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
+> 1
+▶ You play Strike.
+⚔️  You deal 3 damage. (3 blocked by enemy)
+
+🧙 You  ❤️  80/80  🛡️ 0  ⚡ 1/3  (Turn 1)
+🦟 Red Louse ❤️  3/12  🛡️ 0  | ⚔️  Attack 6  [🛡️0]
+🤚 Hand:
+   [1] ⚔️ Strike (1) — Deal 6 damage.
+Draw: 0  Discard: 2  Exhaust: 0
+Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > 1
 ▶ You play Strike.
 ⚔️  You deal 6 damage.
@@ -70,9 +81,6 @@ Commands: [1-2] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 🪙 50   ❤️  80/80   🃏 0 cards
 
 ▶ ⚔️
-
-> 1
-Can't do that right now.
 
 > end
 Unknown command.

@@ -19,14 +19,14 @@ Unknown command.
 > enter
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand: (empty)
 Draw: 0  Discard: 0  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > add defend
 
 🧙 You  ❤️  80/80  🛡️ 0  ⚡ 3/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️3]
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
 Draw: 0  Discard: 0  Exhaust: 0
@@ -34,9 +34,10 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 > 1
 ▶ You play Defend.
 🛡️  You gain 5 block.
+🛡️  Enemy gains 3 block.
 
 🧙 You  ❤️  80/80  🛡️ 5  ⚡ 2/3  (Turn 1)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 3  | ⚔️  Attack 6  [🛡️0]
 🤚 Hand: (empty)
 Draw: 0  Discard: 1  Exhaust: 0
 Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
@@ -46,7 +47,7 @@ Commands: [1-1] play card  |  end / e  end turn  |  z draw  x discard  c exhaust
 ─── Turn 2 ───
 
 🧙 You  ❤️  79/80  🛡️ 0  ⚡ 3/3  (Turn 2)
-🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6
+🦟 Red Louse ❤️  12/12  🛡️ 0  | ⚔️  Attack 6  [🛡️0]
 🤚 Hand:
    [1] 🪄 Defend (1) — Gain 5 block.
 Draw: 0  Discard: 0  Exhaust: 0

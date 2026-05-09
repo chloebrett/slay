@@ -1753,6 +1753,30 @@ mod tests {
     }
 
     #[test]
+    fn mugger_second_move_is_lunge() {
+        assert_eq!(
+            next_move(&EnemyKind::Mugger, &[Move::MuggerMug], &StatusMap::new(), &mut rng()),
+            Move::MuggerLunge
+        );
+    }
+
+    #[test]
+    fn mugger_third_move_is_mug() {
+        assert_eq!(
+            next_move(&EnemyKind::Mugger, &[Move::MuggerMug, Move::MuggerLunge], &StatusMap::new(), &mut rng()),
+            Move::MuggerMug
+        );
+    }
+
+    #[test]
+    fn mugger_fourth_move_is_smoke_bomb() {
+        assert_eq!(
+            next_move(&EnemyKind::Mugger, &[Move::MuggerMug, Move::MuggerLunge, Move::MuggerMug], &StatusMap::new(), &mut rng()),
+            Move::MuggerSmokeBomb
+        );
+    }
+
+    #[test]
     fn mugger_fifth_move_is_flee() {
         assert_eq!(
             next_move(&EnemyKind::Mugger, &[Move::MuggerMug, Move::MuggerLunge, Move::MuggerMug, Move::MuggerSmokeBomb], &StatusMap::new(), &mut rng()),
