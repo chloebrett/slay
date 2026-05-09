@@ -2133,6 +2133,68 @@ mod tests {
         assert!(!Potion::DuplicationPotion.is_targeted());
     }
 
+    // --- Gambler's Brew ---
+
+    #[test]
+    fn gamblers_brew_discards_original_hand_cards() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Bash(Grade::Base), Card::Bash(Grade::Base)];
+        state.player.discard_pile.clear();
+        state.player.potions = vec![Potion::GamblersBrew];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.iter().all(|c| matches!(c, Card::Bash(_))), "hand should have Bash cards drawn from draw pile");
+        assert!(state.player.discard_pile.iter().any(|c| matches!(c, Card::Strike(_))), "Strike should be in discard");
+        assert!(state.player.discard_pile.iter().any(|c| matches!(c, Card::Defend(_))), "Defend should be in discard");
+    }
+
+    #[test]
+    fn gamblers_brew_draws_same_number_as_discarded() {
+        let mut state = combat_with_hand(vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Bash(Grade::Base), Card::Bash(Grade::Plus), Card::Inflame(Grade::Base)];
+        state.player.potions = vec![Potion::GamblersBrew];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2, "should draw 2 (same as discarded)");
+    }
+
+    #[test]
+    fn gamblers_brew_with_empty_hand_draws_nothing() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.potions = vec![Potion::GamblersBrew];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.is_empty());
+    }
+
+    #[test]
+    fn gamblers_brew_is_not_targeted() {
+        assert!(!Potion::GamblersBrew.is_targeted());
+    }
+
+    // --- Liquid Memories ---
+
+    #[test]
+    fn liquid_memories_moves_top_discard_to_hand() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        state.player.potions = vec![Potion::LiquidMemories];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1, "one card should be in hand");
+        assert_eq!(state.player.discard_pile.len(), 1, "one card should remain in discard");
+    }
+
+    #[test]
+    fn liquid_memories_with_empty_discard_does_nothing() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.discard_pile = vec![];
+        state.player.potions = vec![Potion::LiquidMemories];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.is_empty());
+    }
+
+    #[test]
+    fn liquid_memories_is_not_targeted() {
+        assert!(!Potion::LiquidMemories.is_targeted());
+    }
+
     // --- Steroid Potion (Flex Potion) ---
 
     #[test]

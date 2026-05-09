@@ -26,6 +26,8 @@ pub enum Potion {
     SpeedPotion,
     AncientPotion,
     DuplicationPotion,
+    GamblersBrew,
+    LiquidMemories,
 }
 
 pub struct PotionDef {
@@ -43,6 +45,7 @@ pub fn random_potions(rng: &mut impl Rng, count: usize) -> Vec<Potion> {
         Potion::EssenceOfSteel, Potion::HeartOfIron,
         Potion::SteroidPotion, Potion::SpeedPotion,
         Potion::AncientPotion, Potion::DuplicationPotion,
+        Potion::GamblersBrew, Potion::LiquidMemories,
     ];
     rng.shuffle(&mut pool);
     pool.into_iter().take(count).collect()
@@ -68,8 +71,10 @@ impl Potion {
             Potion::HeartOfIron      => PotionDef { name: "Heart of Iron",     targeted: false },
             Potion::SteroidPotion    => PotionDef { name: "Flex Potion",         targeted: false },
             Potion::SpeedPotion      => PotionDef { name: "Speed Potion",        targeted: false },
-            Potion::AncientPotion    => PotionDef { name: "Ancient Potion",      targeted: false },
-            Potion::DuplicationPotion => PotionDef { name: "Duplication Potion", targeted: false },
+            Potion::AncientPotion     => PotionDef { name: "Ancient Potion",      targeted: false },
+            Potion::DuplicationPotion => PotionDef { name: "Duplication Potion",  targeted: false },
+            Potion::GamblersBrew      => PotionDef { name: "Gambler's Brew",      targeted: false },
+            Potion::LiquidMemories    => PotionDef { name: "Liquid Memories",     targeted: false },
         }
     }
 
@@ -97,6 +102,8 @@ impl Potion {
             Potion::SpeedPotion       => "speed-potion",
             Potion::AncientPotion     => "ancient-potion",
             Potion::DuplicationPotion => "duplication-potion",
+            Potion::GamblersBrew      => "gamblers-brew",
+            Potion::LiquidMemories    => "liquid-memories",
         }
     }
 
@@ -110,6 +117,7 @@ impl Potion {
             Potion::EssenceOfSteel, Potion::HeartOfIron,
             Potion::SteroidPotion, Potion::SpeedPotion,
             Potion::AncientPotion, Potion::DuplicationPotion,
+            Potion::GamblersBrew, Potion::LiquidMemories,
         ]
     }
 
@@ -134,6 +142,8 @@ impl Potion {
             "speed-potion"        => Some(Potion::SpeedPotion),
             "ancient-potion"      => Some(Potion::AncientPotion),
             "duplication-potion"  => Some(Potion::DuplicationPotion),
+            "gamblers-brew"       => Some(Potion::GamblersBrew),
+            "liquid-memories"     => Some(Potion::LiquidMemories),
             _                     => None,
         }
     }
@@ -217,6 +227,23 @@ pub(crate) fn apply(potion: Potion, target_idx: usize, state: &mut CombatState, 
         Potion::DuplicationPotion => {
             state.duplication_pending = true;
         }
+        Potion::GamblersBrew => {
+            let count = state.player.hand.len();
+            state.player.discard_pile.extend(std::mem::take(&mut state.player.hand));
+            let drawn = count.min(state.player.draw_pile.len());
+            for _ in 0..drawn {
+                if let Some(card) = state.player.draw_pile.pop() {
+                    state.player.hand.push(card);
+                }
+            }
+            if drawn > 0 { events.push(Event::CardsDrawn { count: drawn }); }
+        }
+        Potion::LiquidMemories => {
+            if let Some(card) = state.player.discard_pile.pop() {
+                state.player.hand.push(card.clone());
+                events.push(Event::CardAdded { card });
+            }
+        }
     }
     if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
         state.phase = CombatPhase::Victory;
@@ -273,6 +300,7 @@ mod tests {
             Potion::EssenceOfSteel, Potion::HeartOfIron,
             Potion::SteroidPotion, Potion::SpeedPotion,
             Potion::AncientPotion, Potion::DuplicationPotion,
+            Potion::GamblersBrew, Potion::LiquidMemories,
         ];
         for p in potions {
             assert_eq!(Potion::from_id(p.id()), Some(p), "round-trip failed for {:?}", p);

@@ -4248,3 +4248,91 @@
         assert_eq!(Card::from_id("transmutation"),      Some(Card::Transmutation(Grade::Base)));
         assert_eq!(Card::from_id("transmutation-plus"), Some(Card::Transmutation(Grade::Plus)));
     }
+
+    // --- Chrysalis ---
+
+    #[test]
+    fn chrysalis_costs_2() {
+        assert_eq!(Card::Chrysalis(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn chrysalis_is_a_skill() {
+        assert_eq!(Card::Chrysalis(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn chrysalis_exhausts() {
+        assert!(Card::Chrysalis(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn chrysalis_adds_3_skills_to_hand() {
+        let mut state = combat_with_hand(vec![Card::Chrysalis(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+        for card in &state.player.hand {
+            assert_eq!(card.card_type(), CardType::Skill, "expected Skill, got {:?}", card);
+        }
+    }
+
+    #[test]
+    fn chrysalis_cards_cost_0() {
+        let mut state = combat_with_hand(vec![Card::Chrysalis(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        for card in &state.player.hand {
+            assert!(state.zero_cost_cards.contains(card), "card {:?} not in zero_cost_cards", card);
+        }
+    }
+
+    #[test]
+    fn chrysalis_id_round_trips() {
+        assert_eq!(Card::from_id("chrysalis"),      Some(Card::Chrysalis(Grade::Base)));
+        assert_eq!(Card::from_id("chrysalis-plus"), Some(Card::Chrysalis(Grade::Plus)));
+    }
+
+    // --- Metamorphosis ---
+
+    #[test]
+    fn metamorphosis_costs_2() {
+        assert_eq!(Card::Metamorphosis(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn metamorphosis_is_a_skill() {
+        assert_eq!(Card::Metamorphosis(Grade::Base).card_type(), CardType::Skill);
+    }
+
+    #[test]
+    fn metamorphosis_exhausts() {
+        assert!(Card::Metamorphosis(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn metamorphosis_adds_3_attacks_to_hand() {
+        let mut state = combat_with_hand(vec![Card::Metamorphosis(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+        for card in &state.player.hand {
+            assert_eq!(card.card_type(), CardType::Attack, "expected Attack, got {:?}", card);
+        }
+    }
+
+    #[test]
+    fn metamorphosis_cards_cost_0() {
+        let mut state = combat_with_hand(vec![Card::Metamorphosis(Grade::Base)]);
+        state.player.energy = Energy(10);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        for card in &state.player.hand {
+            assert!(state.zero_cost_cards.contains(card), "card {:?} not in zero_cost_cards", card);
+        }
+    }
+
+    #[test]
+    fn metamorphosis_id_round_trips() {
+        assert_eq!(Card::from_id("metamorphosis"),      Some(Card::Metamorphosis(Grade::Base)));
+        assert_eq!(Card::from_id("metamorphosis-plus"), Some(Card::Metamorphosis(Grade::Plus)));
+    }

@@ -74,7 +74,9 @@ mod sadistic_nature;
 mod the_bomb;
 mod secret_technique;
 mod secret_weapon;
+mod chrysalis;
 mod madness;
+mod metamorphosis;
 mod transmutation;
 mod thinking_ahead;
 mod violence;
@@ -146,6 +148,8 @@ pub enum Card {
     TheBomb(Grade),
     Madness(Grade),
     Transmutation(Grade),
+    Chrysalis(Grade),
+    Metamorphosis(Grade),
     Purity(Grade),
     SadisticNature(Grade),
     SecretTechnique(Grade),
@@ -329,6 +333,8 @@ impl Card {
             Card::TheBomb(g)         => the_bomb::def(*g),
             Card::Madness(g)         => madness::def(*g),
             Card::Transmutation(g)   => transmutation::def(*g),
+            Card::Chrysalis(g)       => chrysalis::def(*g),
+            Card::Metamorphosis(g)   => metamorphosis::def(*g),
             Card::MindBlast(g)     => mind_blast::def(*g),
             Card::SwiftStrike(g)   => swift_strike::def(*g),
             Card::Blind(g)         => blind::def(*g),
@@ -457,7 +463,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_) | Card::Purity(_) | Card::JackOfAllTrades(_) | Card::Panacea(_) | Card::PanicButton(_) | Card::TheBomb(_) | Card::Madness(_) | Card::Transmutation(_))
+        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_) | Card::Purity(_) | Card::JackOfAllTrades(_) | Card::Panacea(_) | Card::PanicButton(_) | Card::TheBomb(_) | Card::Madness(_) | Card::Transmutation(_) | Card::Chrysalis(_) | Card::Metamorphosis(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -482,7 +488,7 @@ impl Card {
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Enlightenment(g) | Card::Purity(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g) | Card::DeepBreath(g)
             | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g)
-            | Card::JackOfAllTrades(g) | Card::Panacea(g) | Card::PanicButton(g) | Card::Panache(g) | Card::SadisticNature(g) | Card::TheBomb(g) | Card::Madness(g) | Card::Transmutation(g) => Some(*g),
+            | Card::JackOfAllTrades(g) | Card::Panacea(g) | Card::PanicButton(g) | Card::Panache(g) | Card::SadisticNature(g) | Card::TheBomb(g) | Card::Madness(g) | Card::Transmutation(g) | Card::Chrysalis(g) | Card::Metamorphosis(g) => Some(*g),
             Card::SearingBlow(_) |
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
@@ -582,6 +588,8 @@ impl Card {
             Card::TheBomb(_)         => Card::TheBomb(g),
             Card::Madness(_)         => Card::Madness(g),
             Card::Transmutation(_)   => Card::Transmutation(g),
+            Card::Chrysalis(_)       => Card::Chrysalis(g),
+            Card::Metamorphosis(_)   => Card::Metamorphosis(g),
             Card::SearingBlow(_) => unreachable!(),
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::BurnPlus | Card::Doubt | Card::Shame |
@@ -668,6 +676,8 @@ impl Card {
             Card::TheBomb(g)         => the_bomb::id(*g),
             Card::Madness(g)         => madness::id(*g),
             Card::Transmutation(g)   => transmutation::id(*g),
+            Card::Chrysalis(g)       => chrysalis::id(*g),
+            Card::Metamorphosis(g)   => metamorphosis::id(*g),
             Card::SecretTechnique(g) => secret_technique::id(*g),
             Card::SecretWeapon(g)    => secret_weapon::id(*g),
             Card::ThinkingAhead(g)   => thinking_ahead::id(*g),
@@ -777,6 +787,8 @@ impl Card {
             Card::TheBomb(Base),         Card::TheBomb(Plus),
             Card::Madness(Base),         Card::Madness(Plus),
             Card::Transmutation(Base),   Card::Transmutation(Plus),
+            Card::Chrysalis(Base),       Card::Chrysalis(Plus),
+            Card::Metamorphosis(Base),   Card::Metamorphosis(Plus),
             Card::SwiftStrike(Base),   Card::SwiftStrike(Plus),
             Card::Blind(Base),         Card::Blind(Plus),
             Card::DramaticEntrance(Base), Card::DramaticEntrance(Plus),
@@ -902,6 +914,8 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::TheBomb(g)         => the_bomb::apply(state, events, *g),
         Card::Madness(g)         => madness::apply(state, events, *g, rng),
         Card::Transmutation(g)   => transmutation::apply(state, events, *g, rng, x_value),
+        Card::Chrysalis(g)       => chrysalis::apply(state, events, *g, rng),
+        Card::Metamorphosis(g)   => metamorphosis::apply(state, events, *g, rng),
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
         Card::Blind(g)         => blind::apply(state, events, *g, target),
         Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),
@@ -1009,6 +1023,18 @@ pub fn starter_deck() -> Vec<Card> {
     deck
 }
 
+pub fn skill_pool() -> Vec<Card> {
+    reward_pool().into_iter().chain(colorless_reward_pool())
+        .filter(|c| c.card_type() == CardType::Skill)
+        .collect()
+}
+
+pub fn attack_pool() -> Vec<Card> {
+    reward_pool().into_iter().chain(colorless_reward_pool())
+        .filter(|c| c.card_type() == CardType::Attack)
+        .collect()
+}
+
 pub fn colorless_reward_pool() -> Vec<Card> {
     use Grade::{Base, Plus};
     vec![
@@ -1034,6 +1060,8 @@ pub fn colorless_reward_pool() -> Vec<Card> {
         Card::TheBomb(Base), Card::TheBomb(Plus),
         Card::Madness(Base), Card::Madness(Plus),
         Card::Transmutation(Base), Card::Transmutation(Plus),
+        Card::Chrysalis(Base), Card::Chrysalis(Plus),
+        Card::Metamorphosis(Base), Card::Metamorphosis(Plus),
         Card::Purity(Base), Card::Purity(Plus),
         Card::SadisticNature(Base), Card::SadisticNature(Plus),
         Card::SecretTechnique(Base), Card::SecretTechnique(Plus),

@@ -53,13 +53,13 @@ These appear as combat rewards and in shops regardless of character.
 | Good Instincts | Skill | 0 | Gain 6 Block. | ✅ |
 | Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. | ✅ |
 | Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | ✅ |
-| Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
+| Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | ✅ |
 | Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | ✅ |
 | Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | ✅ |
 | Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | ✅ |
 | Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
 | Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | ✅ |
-| Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | |
+| Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | ✅ |
 | Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. | ✅ |
 
 ### Uncommon
@@ -82,10 +82,10 @@ These appear as combat rewards and in shops regardless of character.
 | Card | Type | Cost | Effect | Impl |
 |------|------|------|--------|------|
 | Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | ✅ |
-| Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | |
+| Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | ✅ |
 | Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | ✅ |
 | Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
-| Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | |
+| Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | ✅ |
 | Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | |
 | Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. | ✅ |
 | Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. | ✅ |
