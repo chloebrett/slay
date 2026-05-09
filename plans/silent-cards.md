@@ -121,14 +121,73 @@ These mechanisms don't yet exist in slay-core and must be added before implement
 - **Repeating Poison on death** — Corpse Explosion
 - **Per-use state** — Glass Knife decreases damage each time it's played in a combat
 
-## Implementation priority (Act 1 Silent)
+## Implementation order
 
-Good first pass for a playable Silent run:
+### Trivial — pure composition of existing mechanics
 
-1. Neutralize, Survivor (starter cards — required)
-2. Deadly Poison ✅
-3. Poisoned Stab, Slice, Sucker Punch (simple attacks)
-4. Prepared, Deflect, Backflip (simple skills)
-5. Footwork, After Image (simple powers)
-6. Noxious Fumes (requires start-of-turn hook)
-7. Catalyst, Envenom (poison synergy)
+- **Neutralize** — deal 3 damage and apply 1 Weak; both exist (damage like Strike, Weak like Clothesline).
+- **Slice** — deal 6 damage at 0 cost; same pattern as Swift Strike / every basic attack.
+- **Sucker Punch** — deal 7 damage and apply 1 Weak; same dual-effect as Clothesline with different numbers.
+- **Poisoned Stab** — deal 6 damage and apply 3 Poison; composes Strike-style damage with DeadlyPoison-style apply.
+- **Deflect** — gain 4 block and exhaust; same as Impervious but a common card.
+- **Backflip** — gain 5 block and draw 2; block exists, drawing 2 exists (BurningPact).
+- **Quick Slash** — deal 8 damage and draw 1; same pattern as PommelStrike.
+- **Footwork** — gain 2 Dexterity; identical to Inflame but applies Dexterity instead of Strength, both already exist as status effects.
+- **Leg Sweep** — apply 2 Weak and gain 11 block; both exist, two separate `apply` calls.
+- **Dash** — gain 10 block and deal 10 damage; same dual-effect structure as IronWave.
+- **Die Die Die** — deal 13 damage to ALL enemies and exhaust; AoE and exhaust both exist (Cleave, Impervious).
+- **Adrenaline** — gain 1 energy, draw 2, exhaust; all three exist (SeeingRed for energy, BurningPact for draw 2).
+
+### Minor — one new mechanism required
+
+- **Survivor** — gain 8 block and discard 1 chosen card; needs a card-selection prompt for the discard (random discard exists in TrueGrit, player-choice doesn't yet).
+- **Prepared** — draw 1 and discard 1 chosen card; same selection mechanism as Survivor.
+- **Dagger Throw** — deal 9 damage, draw 1, discard 1 chosen; same discard-selection mechanism.
+- **Acrobatics** — draw 3 and discard 1 chosen card; same mechanism, just draws more first.
+- **Bane** — deal 7 damage, and if the target has Poison deal 7 again; needs a conditional second hit that checks `get_stacks(statuses, Poison) > 0` at time of play.
+- **Dagger Spray** — deal 4 damage twice to ALL enemies; needs AoE multi-hit (single-target multi-hit exists via Pummel/TwinStrike, AoE multi-hit does not).
+- **Flying Knee** — deal 8 damage and gain 1 energy at the start of next turn; needs an "energy carry-forward" value in `CombatState` that is added during `StartPlayerTurn`.
+- **Outmaneuver** — gain 2 energy next turn; same carry-forward mechanism as Flying Knee.
+- **Sneaky Strike** — deal 12 damage; if a card was discarded this turn, gain 2 energy; needs a `discards_this_turn` counter in `CombatState`.
+- **Endless Agony** — deal 4 damage, add a copy of this card to hand, exhaust; needs "copy this card into hand" — a new operation but simple to implement.
+- **Blade Dance** — add 3 Shivs to hand; needs Shiv as a generated `Card` variant and an "add to hand" operation.
+- **Cloak and Dagger** — gain 6 block and add 1 Shiv; gain block exists, Shiv needed (same as Blade Dance).
+- **Escape Plan** — draw 1 card and if it's a Skill, gain 3 block; needs to inspect the type of the card just drawn, requiring the draw to yield the card back as an event or return value.
+- **Bouncing Flask** — apply 3 Poison to a random enemy 3 times; needs random enemy selection distinct from the player's chosen target.
+- **Predator** — deal 15 damage and draw 2 extra cards at the start of next turn; needs carry-forward extra draws, similar to the energy carry-forward for Flying Knee.
+- **Piercing Wail** — all enemies lose 6 Strength this turn; needs a temporary per-turn Strength debuff for all enemies (same mechanism as Dark Shackles from neutral, but applied to every enemy).
+- **Heel Hook** — deal 5 damage, gain 1 energy, draw 1, but only if the enemy is Weak; needs a conditional at play time checking `get_stacks(enemy.statuses, Weak) > 0`.
+- **Calculated Gamble** — discard your entire hand then draw that many cards; needs discard-all-hand (counting cards first) then draw-N.
+- **Expertise** — draw cards until you have 6 in hand; needs a draw loop with a hand-size check as the termination condition.
+- **Finisher** — deal 6 damage for each Attack played this turn; needs an `attacks_played_this_turn` counter in `CombatState`.
+- **Flechettes** — deal 5 damage for each Skill currently in hand; needs a hand scan counting `CardType::Skill` at time of play.
+- **After Image** — whenever you play a card, gain 1 block; needs an on-play-card trigger registered by powers, similar to the existing `relic_on_card_played` hook but for powers.
+- **A Thousand Cuts** — whenever you play a card, deal 1 damage to ALL enemies; same on-play trigger as After Image, but deals AoE damage instead.
+- **Noxious Fumes** — at the start of each turn, apply 2 Poison to ALL enemies; needs a start-of-turn power trigger (a new hook in `StartPlayerTurn` that powers can register with).
+- **Infinite Blades** — at the start of each turn, add 1 Shiv to hand; same start-of-turn trigger as Noxious Fumes, plus Shiv.
+- **Tools of the Trade** — at start of turn draw 1 and discard 1; same start-of-turn trigger, plus the player-choice discard.
+- **Catalyst** — double the target's Poison stacks; needs a "multiply existing status" operation (`statuses.entry(Poison).and_modify(|v| *v *= 2)`).
+- **Blur** — gain block that is not removed at end of turn; needs block to be tagged as persistent, bypassing the `block = 0` reset in `EndPlayerTurn`.
+- **Well-Laid Plans** — at end of turn, retain up to 1 card instead of discarding it; needs a Retain flag per card-in-hand so that `EndPlayerTurn` skips discarding it.
+- **Masterful Stab** — deal 12 damage but costs 1 more energy per card in the discard pile; needs dynamic cost that re-evaluates at display/play time based on `discard_pile.len()`.
+- **Grand Finale** — deal 50 damage to ALL if the draw pile is empty; needs a playability guard that checks `draw_pile.is_empty()` and blocks play otherwise.
+- **Envenom** — whenever an Attack deals unblocked damage, apply 1 Poison to that enemy; needs an on-unblocked-damage event hook fired from the damage application path.
+
+### Major — significant new architecture
+
+- **Concentrate** — discard 3 chosen cards and gain 2 energy; needs a multi-card hand-selection prompt (choosing 3 distinct cards), distinct from the single-card discard-selection.
+- **Tactician** — unplayable; when discarded from hand, gain 1 energy; needs an on-discard event that checks which card was discarded and fires card-specific effects.
+- **Storm of Steel** — discard your entire hand and add 1 Shiv per card discarded; needs discard-all-hand (counting cards) + Shiv generation + the on-discard hook (or just counts before discarding).
+- **Setup** — exhaust a chosen card in hand and permanently set its cost to 0 for this combat; needs per-card-instance cost mutation stored alongside the card in the deck data structure.
+- **Accuracy** — Shivs deal 4 more damage; needs a per-card-type damage modifier applied during `resolve_damage`, looking up whether the card being played is a Shiv.
+- **Choke** — deal 12 damage; whenever the enemy plays a card this turn, it loses 3 HP; needs an "enemy card played" event hook that fires during `apply_combat_command` for enemy moves.
+- **Corpse Explosion** — apply 6 Poison; when the target dies, deal 8 damage to ALL other enemies; needs an on-kill trigger in the damage application path that fires additional AoE damage.
+- **Glass Knife** — deal 8 damage twice; damage decreases by 4 each time this card is played this combat; needs mutable per-card-instance state (a damage counter) stored with the card.
+- **Burst** — your next Skill is played twice this turn; needs a "pending double-play" flag on `CombatState` that the play-card path checks and clears after consuming it.
+- **Phantasmal Killer** — your next Attack deals double damage this turn; same pending-modifier pattern as Burst.
+- **Doppelganger** — X-cost; next turn draw X extra and gain X energy; needs X-cost on a Skill (only Whirlwind uses it on an Attack today) and two carry-forward values keyed on the X spent.
+- **Malaise** — X-cost; apply X Weak and X Poison to target; needs X-cost on a Skill and X used as the status amount.
+- **Nightmare** — choose a card; next turn add 3 copies of it to hand; needs a card-selection prompt, storage of the chosen card across the turn boundary, and card-spawning at `StartPlayerTurn`.
+- **Bullet Time** — don't draw cards this turn; reduce cost of all cards currently in hand to 0; needs a "draw suppressed" flag for `EndPlayerTurn`/draw phase and a temporary per-card cost override for every card in hand.
+- **Distraction** — add a random Silent Skill to hand; needs a Silent card pool filtered to `CardType::Skill`, which requires the class-tagging system on `Card`.
+- **Alchemize** — obtain a random Potion; requires the potion system to be implemented.
