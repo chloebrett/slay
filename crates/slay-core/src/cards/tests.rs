@@ -3121,3 +3121,182 @@
         assert_eq!(Card::from_id("dark-shackles"),      Some(Card::DarkShackles(Grade::Base)));
         assert_eq!(Card::from_id("dark-shackles-plus"), Some(Card::DarkShackles(Grade::Plus)));
     }
+
+    // --- Violence ---
+
+    #[test]
+    fn violence_moves_up_to_3_attacks_from_draw_to_hand() {
+        let mut state = combat_with_hand(vec![Card::Violence(Grade::Base)]);
+        state.player.draw_pile = vec![
+            Card::Defend(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let strikes_in_hand = state.player.hand.iter().filter(|c| **c == Card::Strike(Grade::Base)).count();
+        assert_eq!(strikes_in_hand, 3);
+    }
+
+    #[test]
+    fn violence_does_not_move_non_attacks() {
+        let mut state = combat_with_hand(vec![Card::Violence(Grade::Base)]);
+        state.player.draw_pile = vec![
+            Card::Defend(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+        ];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.draw_pile.contains(&Card::Defend(Grade::Base)));
+    }
+
+    #[test]
+    fn violence_moves_fewer_if_not_enough_attacks() {
+        let mut state = combat_with_hand(vec![Card::Violence(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let strikes_in_hand = state.player.hand.iter().filter(|c| **c == Card::Strike(Grade::Base)).count();
+        assert_eq!(strikes_in_hand, 2);
+        assert!(state.player.draw_pile.is_empty());
+    }
+
+    #[test]
+    fn violence_plus_moves_up_to_5_attacks() {
+        let mut state = combat_with_hand(vec![Card::Violence(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base); 6];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let strikes_in_hand = state.player.hand.iter().filter(|c| **c == Card::Strike(Grade::Base)).count();
+        assert_eq!(strikes_in_hand, 5);
+    }
+
+    #[test]
+    fn violence_exhausts() {
+        let mut state = combat_with_hand(vec![Card::Violence(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Violence(Grade::Base)));
+        assert!(state.player.discard_pile.is_empty());
+    }
+
+    #[test]
+    fn violence_costs_0_energy() {
+        assert_eq!(Card::Violence(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn violence_id_round_trips() {
+        assert_eq!(Card::from_id("violence"),      Some(Card::Violence(Grade::Base)));
+        assert_eq!(Card::from_id("violence-plus"), Some(Card::Violence(Grade::Plus)));
+    }
+
+    // --- Secret Weapon ---
+
+    #[test]
+    fn secret_weapon_moves_attack_from_draw_to_hand() {
+        let mut state = combat_with_hand(vec![Card::SecretWeapon(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_weapon_does_not_move_skills() {
+        let mut state = combat_with_hand(vec![Card::SecretWeapon(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.draw_pile.contains(&Card::Defend(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_weapon_does_nothing_if_no_attacks_in_draw() {
+        let mut state = combat_with_hand(vec![Card::SecretWeapon(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.is_empty());
+        assert_eq!(state.player.draw_pile.len(), 1);
+    }
+
+    #[test]
+    fn secret_weapon_exhausts() {
+        let mut state = combat_with_hand(vec![Card::SecretWeapon(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::SecretWeapon(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_weapon_plus_does_not_exhaust() {
+        let mut state = combat_with_hand(vec![Card::SecretWeapon(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.iter().all(|c| !matches!(c, Card::SecretWeapon(_))));
+        assert!(state.player.discard_pile.contains(&Card::SecretWeapon(Grade::Plus)));
+    }
+
+    #[test]
+    fn secret_weapon_costs_0_energy() {
+        assert_eq!(Card::SecretWeapon(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn secret_weapon_id_round_trips() {
+        assert_eq!(Card::from_id("secret-weapon"),      Some(Card::SecretWeapon(Grade::Base)));
+        assert_eq!(Card::from_id("secret-weapon-plus"), Some(Card::SecretWeapon(Grade::Plus)));
+    }
+
+    // --- Secret Technique ---
+
+    #[test]
+    fn secret_technique_moves_skill_from_draw_to_hand() {
+        let mut state = combat_with_hand(vec![Card::SecretTechnique(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.contains(&Card::Defend(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_technique_does_not_move_attacks() {
+        let mut state = combat_with_hand(vec![Card::SecretTechnique(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.draw_pile.contains(&Card::Strike(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_technique_does_nothing_if_no_skills_in_draw() {
+        let mut state = combat_with_hand(vec![Card::SecretTechnique(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.is_empty());
+        assert_eq!(state.player.draw_pile.len(), 1);
+    }
+
+    #[test]
+    fn secret_technique_exhausts() {
+        let mut state = combat_with_hand(vec![Card::SecretTechnique(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::SecretTechnique(Grade::Base)));
+    }
+
+    #[test]
+    fn secret_technique_plus_does_not_exhaust() {
+        let mut state = combat_with_hand(vec![Card::SecretTechnique(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.iter().all(|c| !matches!(c, Card::SecretTechnique(_))));
+        assert!(state.player.discard_pile.contains(&Card::SecretTechnique(Grade::Plus)));
+    }
+
+    #[test]
+    fn secret_technique_costs_0_energy() {
+        assert_eq!(Card::SecretTechnique(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn secret_technique_id_round_trips() {
+        assert_eq!(Card::from_id("secret-technique"),      Some(Card::SecretTechnique(Grade::Base)));
+        assert_eq!(Card::from_id("secret-technique-plus"), Some(Card::SecretTechnique(Grade::Plus)));
+    }

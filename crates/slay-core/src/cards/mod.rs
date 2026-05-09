@@ -57,6 +57,9 @@ mod swift_strike;
 mod trip;
 mod normality;
 mod pain;
+mod secret_technique;
+mod secret_weapon;
+mod violence;
 mod void;
 mod writhe;
 mod entrench;
@@ -110,6 +113,9 @@ pub enum Card {
     Trip(Grade),
     Normality,
     Pain,
+    SecretTechnique(Grade),
+    SecretWeapon(Grade),
+    Violence(Grade),
     Void,
     Writhe,
     Cleave(Grade),
@@ -278,6 +284,9 @@ impl Card {
             Card::Trip(g)          => trip::def(*g),
             Card::Normality        => normality::def(),
             Card::Pain             => pain::def(),
+            Card::SecretTechnique(g) => secret_technique::def(*g),
+            Card::SecretWeapon(g)  => secret_weapon::def(*g),
+            Card::Violence(g)      => violence::def(*g),
             Card::Void             => void::def(),
             Card::Writhe           => writhe::def(),
             Card::Cleave(g)       => cleave::def(*g),
@@ -391,7 +400,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
+        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -413,7 +422,8 @@ impl Card {
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::GoodInstincts(g) | Card::SwiftStrike(g)
             | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g)
-            | Card::BandageUp(g) | Card::DarkShackles(g) => Some(*g),
+            | Card::BandageUp(g) | Card::DarkShackles(g)
+            | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::Violence(g) => Some(*g),
             Card::SearingBlow(_) |
             Card::Disarm | Card::Normality | Card::Pain | Card::Void | Card::Writhe | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
@@ -487,9 +497,12 @@ impl Card {
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::GoodInstincts(_) => Card::GoodInstincts(g),
             Card::SwiftStrike(_)   => Card::SwiftStrike(g),
-            Card::BandageUp(_)     => Card::BandageUp(g),
-            Card::Blind(_)         => Card::Blind(g),
-            Card::DarkShackles(_)  => Card::DarkShackles(g),
+            Card::BandageUp(_)       => Card::BandageUp(g),
+            Card::Blind(_)           => Card::Blind(g),
+            Card::DarkShackles(_)    => Card::DarkShackles(g),
+            Card::SecretTechnique(_) => Card::SecretTechnique(g),
+            Card::SecretWeapon(_)    => Card::SecretWeapon(g),
+            Card::Violence(_)        => Card::Violence(g),
             Card::DramaticEntrance(_) => Card::DramaticEntrance(g),
             Card::Trip(_)          => Card::Trip(g),
             Card::SearingBlow(_) => unreachable!(),
@@ -559,9 +572,12 @@ impl Card {
             Card::Blind(g)         => blind::id(*g),
             Card::DramaticEntrance(g) => dramatic_entrance::id(*g),
             Card::Trip(g)          => trip::id(*g),
-            Card::Normality        => normality::id(),
-            Card::Pain             => pain::id(),
-            Card::Void             => void::id(),
+            Card::Normality          => normality::id(),
+            Card::Pain               => pain::id(),
+            Card::SecretTechnique(g) => secret_technique::id(*g),
+            Card::SecretWeapon(g)    => secret_weapon::id(*g),
+            Card::Violence(g)        => violence::id(*g),
+            Card::Void               => void::id(),
             Card::Writhe           => writhe::id(),
             Card::Cleave(g)       => cleave::id(*g),
             Card::IronWave(g)     => iron_wave::id(*g),
@@ -655,6 +671,9 @@ impl Card {
             Card::Trip(Base),          Card::Trip(Plus),
             Card::Normality,
             Card::Pain,
+            Card::SecretTechnique(Base), Card::SecretTechnique(Plus),
+            Card::SecretWeapon(Base),    Card::SecretWeapon(Plus),
+            Card::Violence(Base),        Card::Violence(Plus),
             Card::Void,
             Card::Writhe,
             Card::Cleave(Base),       Card::Cleave(Plus),
@@ -754,7 +773,10 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::SwiftStrike(g)   => swift_strike::apply(state, events, *g, target),
         Card::Blind(g)         => blind::apply(state, events, *g, target),
         Card::DramaticEntrance(g) => dramatic_entrance::apply(state, events, *g),
-        Card::Trip(g)          => trip::apply(state, events, *g),
+        Card::Trip(g)            => trip::apply(state, events, *g),
+        Card::SecretTechnique(g) => secret_technique::apply(state, events, *g),
+        Card::SecretWeapon(g)    => secret_weapon::apply(state, events, *g),
+        Card::Violence(g)        => violence::apply(state, events, *g, rng),
         Card::Cleave(g)        => cleave::apply(state, events, *g),
         Card::IronWave(g)     => iron_wave::apply(state, events, *g, target, rng),
         Card::SpotWeakness(g)   => spot_weakness::apply(state, events, *g, target),

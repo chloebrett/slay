@@ -1,0 +1,338 @@
+[
+  {
+    "id": "ATTACK_POTION",
+    "name": "Attack Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Attack cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+  },
+  {
+    "id": "BLOCK_POTION",
+    "name": "Block Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [blue]12[/blue] [gold]Block[/gold]."
+  },
+  {
+    "id": "BLOOD_POTION",
+    "name": "Blood Potion",
+    "rarity": "Common",
+    "pool": "ironclad",
+    "description": "Heal for [green]20%[/green] of your Max HP."
+  },
+  {
+    "id": "COLORLESS_POTION",
+    "name": "Colorless Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Colorless cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+  },
+  {
+    "id": "DEXTERITY_POTION",
+    "name": "Dexterity Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [blue]2[/blue] [gold]Dexterity[/gold]."
+  },
+  {
+    "id": "ENERGY_POTION",
+    "name": "Energy Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [energy:2]."
+  },
+  {
+    "id": "EXPLOSIVE_AMPOULE",
+    "name": "Explosive Ampoule",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Deal [blue]10[/blue] damage to ALL enemies."
+  },
+  {
+    "id": "FIRE_POTION",
+    "name": "Fire Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Deal [blue]20[/blue] damage."
+  },
+  {
+    "id": "FLEX_POTION",
+    "name": "Flex Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [blue]5[/blue] [gold]Strength[/gold]. At the end of your turn, lose [blue]5[/blue] [gold]Strength[/gold]."
+  },
+  {
+    "id": "POWER_POTION",
+    "name": "Power Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Power cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+  },
+  {
+    "id": "SKILL_POTION",
+    "name": "Skill Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Skill cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+  },
+  {
+    "id": "SPEED_POTION",
+    "name": "Speed Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [blue]5[/blue] [gold]Dexterity[/gold]. At the end of your turn, lose [blue]5[/blue] [gold]Dexterity[/gold]."
+  },
+  {
+    "id": "STRENGTH_POTION",
+    "name": "Strength Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Gain [blue]2[/blue] [gold]Strength[/gold]."
+  },
+  {
+    "id": "SWIFT_POTION",
+    "name": "Swift Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Draw [blue]3[/blue] cards."
+  },
+  {
+    "id": "VULNERABLE_POTION",
+    "name": "Vulnerable Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Apply [blue]3[/blue] [gold]Vulnerable[/gold]."
+  },
+  {
+    "id": "WEAK_POTION",
+    "name": "Weak Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Apply [blue]3[/blue] [gold]Weak[/gold]."
+  },
+  {
+    "id": "BEETLE_JUICE",
+    "name": "Beetle Juice",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Enemy's attacks deal [blue]30%[/blue] less damage for the next [blue]4[/blue] turns."
+  },
+  {
+    "id": "BOTTLED_POTENTIAL",
+    "name": "Bottled Potential",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Shuffle ALL your cards into your [gold]Draw Pile[/gold]. Draw [blue]5[/blue] cards."
+  },
+  {
+    "id": "DISTILLED_CHAOS",
+    "name": "Distilled Chaos",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Play the top [blue]3[/blue] cards of your [gold]Draw Pile[/gold]."
+  },
+  {
+    "id": "DROPLET_OF_PRECOGNITION",
+    "name": "Droplet of Precognition",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Choose a card in your [gold]Draw Pile[/gold] and add it into your [gold]Hand[/gold]."
+  },
+  {
+    "id": "ENTROPIC_BREW",
+    "name": "Entropic Brew",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Fill all your empty potion slots with random potions."
+  },
+  {
+    "id": "FAIRY_IN_A_BOTTLE",
+    "name": "Fairy in a Bottle",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "When your HP would be reduced to [blue]0[/blue], instead this potion is discarded and you heal to [blue]30%[/blue] of your Max HP."
+  },
+  {
+    "id": "FRUIT_JUICE",
+    "name": "Fruit Juice",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Gain [blue]5[/blue] Max HP."
+  },
+  {
+    "id": "GIGANTIFICATION_POTION",
+    "name": "Gigantification Potion",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "The next Attack you play deals triple damage."
+  },
+  {
+    "id": "LIQUID_MEMORIES",
+    "name": "Liquid Memories",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn."
+  },
+  {
+    "id": "LUCKY_TONIC",
+    "name": "Lucky Tonic",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Gain [blue]1[/blue] [gold]Buffer[/gold]."
+  },
+  {
+    "id": "MAZALETHS_GIFT",
+    "name": "Mazaleth's Gift",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Gain [blue]1[/blue] [gold]Ritual[/gold]."
+  },
+  {
+    "id": "OROBIC_ACID",
+    "name": "Orobic Acid",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Add a random Attack, Skill, and Power into your [gold]Hand[/gold]. They're free to play this turn."
+  },
+  {
+    "id": "SHACKLING_POTION",
+    "name": "Shackling Potion",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "ALL enemies lose [blue]7[/blue] [gold]Strength[/gold] this turn."
+  },
+  {
+    "id": "SHIP_IN_A_BOTTLE",
+    "name": "Ship in a Bottle",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Gain [blue]10[/blue] [gold]Block[/gold]. Next turn, gain [blue]10[/blue] [gold]Block[/gold]."
+  },
+  {
+    "id": "SNECKO_OIL",
+    "name": "Snecko Oil",
+    "rarity": "Rare",
+    "pool": "shared",
+    "description": "Draw [blue]7[/blue] cards. Randomize the cost of cards in your [gold]Hand[/gold] this turn."
+  },
+  {
+    "id": "SOLDIERS_STEW",
+    "name": "Soldier's Stew",
+    "rarity": "Rare",
+    "pool": "ironclad",
+    "description": "All cards containing [gold]Strike[/gold] gain [blue]1[/blue] [gold]Replay[/gold] this combat."
+  },
+  {
+    "id": "ASHWATER",
+    "name": "Ashwater",
+    "rarity": "Uncommon",
+    "pool": "ironclad",
+    "description": "[gold]Exhaust[/gold] any number of cards in your [gold]Hand[/gold]."
+  },
+  {
+    "id": "BLESSING_OF_THE_FORGE",
+    "name": "Blessing of the Forge",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "[gold]Upgrade[/gold] all cards in your [gold]Hand[/gold] for the rest of combat."
+  },
+  {
+    "id": "CLARITY",
+    "name": "Clarity Extract",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Draw [blue]1[/blue] card. At the start of your next [blue]3[/blue] turns, draw [blue]1[/blue] additional card."
+  },
+  {
+    "id": "CURE_ALL",
+    "name": "Cure All",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [energy:1]. Draw [blue]2[/blue] cards."
+  },
+  {
+    "id": "DUPLICATOR",
+    "name": "Duplicator",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "This turn, your next card is played an extra time."
+  },
+  {
+    "id": "FORTIFIER",
+    "name": "Fortifier",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Triple your [gold]Block[/gold]."
+  },
+  {
+    "id": "FYSH_OIL",
+    "name": "Fysh Oil",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [blue]1[/blue] [gold]Strength[/gold] and [blue]1[/blue] [gold]Dexterity[/gold]."
+  },
+  {
+    "id": "GAMBLERS_BREW",
+    "name": "Gambler's Brew",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Discard any number of cards, then draw that many."
+  },
+  {
+    "id": "HEART_OF_IRON",
+    "name": "Heart of Iron",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [blue]7[/blue] [gold]Plating[/gold]."
+  },
+  {
+    "id": "LIQUID_BRONZE",
+    "name": "Liquid Bronze",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [blue]3[/blue] [gold]Thorns[/gold]."
+  },
+  {
+    "id": "POTION_OF_BINDING",
+    "name": "Potion of Binding",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Apply [blue]1[/blue] [gold]Weak[/gold] and [blue]1[/blue] [gold]Vulnerable[/gold] to ALL enemies."
+  },
+  {
+    "id": "POWDERED_DEMISE",
+    "name": "Powdered Demise",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Enemy loses [blue]9[/blue] HP at the end of each of its turns."
+  },
+  {
+    "id": "RADIANT_TINCTURE",
+    "name": "Radiant Tincture",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [energy:1]. Gain an additional [energy:1] at the start of your next [blue]3[/blue] turns."
+  },
+  {
+    "id": "REGEN_POTION",
+    "name": "Regen Potion",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Gain [green]5[/green] [gold]Regen[/gold]."
+  },
+  {
+    "id": "STABLE_SERUM",
+    "name": "Stable Serum",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "[gold]Retain[/gold] your [gold]Hand[/gold] for [blue]2[/blue] turns."
+  },
+  {
+    "id": "TOUCH_OF_INSANITY",
+    "name": "Touch of Insanity",
+    "rarity": "Uncommon",
+    "pool": "shared",
+    "description": "Choose a card in your [gold]Hand[/gold]. It is free to play this combat."
+  }
+]
