@@ -50,7 +50,9 @@ mod deadly_poison;
 mod defend;
 mod disarm;
 mod dramatic_entrance;
+mod apotheosis;
 mod deep_breath;
+mod enlightenment;
 mod finesse;
 mod flash_of_steel;
 mod forethought;
@@ -110,8 +112,10 @@ pub enum Card {
     Blind(Grade),
     DarkShackles(Grade),
     DeadlyPoison(Grade),
+    Apotheosis(Grade),
     DeepBreath(Grade),
     Disarm,
+    Enlightenment(Grade),
     DramaticEntrance(Grade),
     Finesse(Grade),
     FlashOfSteel(Grade),
@@ -286,9 +290,11 @@ impl Card {
             Card::Inflame(g)      => inflame::def(*g),
             Card::BandageUp(g)     => bandage_up::def(*g),
             Card::DeadlyPoison(g)  => deadly_poison::def(*g),
+            Card::Apotheosis(g)    => apotheosis::def(*g),
             Card::DarkShackles(g)  => dark_shackles::def(*g),
             Card::DeepBreath(g)    => deep_breath::def(*g),
             Card::Disarm           => disarm::def(),
+            Card::Enlightenment(g) => enlightenment::def(*g),
             Card::Finesse(g)       => finesse::def(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::def(*g),
             Card::Forethought(g)   => forethought::def(*g),
@@ -421,7 +427,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_))
+        matches!(self, Card::Apotheosis(_) | Card::BandageUp(_) | Card::DarkShackles(_) | Card::Disarm | Card::DramaticEntrance(_) | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed | Card::Violence(_) | Card::SecretWeapon(Grade::Base) | Card::SecretTechnique(Grade::Base) | Card::ThinkingAhead(Grade::Base) | Card::MasterOfStrategy(_))
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -441,8 +447,9 @@ impl Card {
             Card::Berserk(g) | Card::Brutality(g) | Card::Combust(g)
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g)
+            | Card::Apotheosis(g)
             | Card::Finesse(g) | Card::FlashOfSteel(g) | Card::Forethought(g) | Card::GoodInstincts(g) | Card::Impatience(g) | Card::MasterOfStrategy(g) | Card::MindBlast(g) | Card::SwiftStrike(g)
-            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Trip(g)
+            | Card::Blind(g) | Card::DramaticEntrance(g) | Card::Enlightenment(g) | Card::Trip(g)
             | Card::BandageUp(g) | Card::DarkShackles(g) | Card::DeepBreath(g)
             | Card::SecretTechnique(g) | Card::SecretWeapon(g) | Card::ThinkingAhead(g) | Card::Violence(g) => Some(*g),
             Card::SearingBlow(_) |
@@ -514,7 +521,9 @@ impl Card {
             Card::Shockwave(_)    => Card::Shockwave(g),
             Card::Brutality(_)    => Card::Brutality(g),
             Card::LimitBreak(_)    => Card::LimitBreak(g),
+            Card::Apotheosis(_)    => Card::Apotheosis(g),
             Card::DeepBreath(_)    => Card::DeepBreath(g),
+            Card::Enlightenment(_) => Card::Enlightenment(g),
             Card::Finesse(_)       => Card::Finesse(g),
             Card::FlashOfSteel(_)  => Card::FlashOfSteel(g),
             Card::Forethought(_)   => Card::Forethought(g),
@@ -590,9 +599,11 @@ impl Card {
             Card::Inflame(g)      => inflame::id(*g),
             Card::BandageUp(g)     => bandage_up::id(*g),
             Card::DeadlyPoison(g)  => deadly_poison::id(*g),
+            Card::Apotheosis(g)    => apotheosis::id(*g),
             Card::DarkShackles(g)  => dark_shackles::id(*g),
             Card::DeepBreath(g)    => deep_breath::id(*g),
             Card::Disarm           => disarm::id(),
+            Card::Enlightenment(g) => enlightenment::id(*g),
             Card::Finesse(g)       => finesse::id(*g),
             Card::FlashOfSteel(g)  => flash_of_steel::id(*g),
             Card::Forethought(g)   => forethought::id(*g),
@@ -694,9 +705,11 @@ impl Card {
             Card::Inflame(Base),      Card::Inflame(Plus),
             Card::BandageUp(Base),     Card::BandageUp(Plus),
             Card::DeadlyPoison(Base), Card::DeadlyPoison(Plus),
+            Card::Apotheosis(Base),    Card::Apotheosis(Plus),
             Card::DarkShackles(Base),  Card::DarkShackles(Plus),
             Card::DeepBreath(Base),    Card::DeepBreath(Plus),
             Card::Disarm,
+            Card::Enlightenment(Base), Card::Enlightenment(Plus),
             Card::Finesse(Base),       Card::Finesse(Plus),
             Card::FlashOfSteel(Base),  Card::FlashOfSteel(Plus),
             Card::Forethought(Base),   Card::Forethought(Plus),
@@ -807,8 +820,10 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::BandageUp(g)     => bandage_up::apply(state, events, *g),
         Card::DeadlyPoison(g)  => deadly_poison::apply(state, events, *g, target),
         Card::DarkShackles(g)  => dark_shackles::apply(state, events, target, *g),
+        Card::Apotheosis(g)    => apotheosis::apply(state, events, *g),
         Card::DeepBreath(g)    => deep_breath::apply(state, events, *g, rng),
         Card::Disarm           => disarm::apply(state, events, target),
+        Card::Enlightenment(g) => enlightenment::apply(state, events, *g),
         Card::Finesse(g)       => finesse::apply(state, events, *g, rng),
         Card::Forethought(g)   => forethought::apply(state, events, *g),
         Card::FlashOfSteel(g)  => flash_of_steel::apply(state, events, *g, target, rng),

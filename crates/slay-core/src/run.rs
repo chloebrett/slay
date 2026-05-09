@@ -75,6 +75,7 @@ impl std::fmt::Display for CommandError {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum MapNode {
     Combat(Vec<EnemyKind>),
+    Elite(Vec<EnemyKind>),
     RestSite,
     Boss(Vec<EnemyKind>),
     Merchant,
@@ -174,7 +175,7 @@ pub const POTION_PRICE: i32 = 50;
 pub enum GameState {
     Neow(NeowState),
     Map(MapState),
-    Combat { state: CombatState, floor: usize, is_boss: bool, graph: MapGraph, next_floor_cols: Vec<usize>, scenario: Scenario },
+    Combat { state: CombatState, floor: usize, is_boss: bool, is_elite: bool, graph: MapGraph, next_floor_cols: Vec<usize>, scenario: Scenario },
     RestSite(RestSiteState),
     TreasureRoom(TreasureRoomState),
     CardReward(CardRewardState),
@@ -301,17 +302,44 @@ pub fn new_simple_run() -> GameState {
     GameState::Map(MapState { player, floor: 0, graph, available_cols: vec![0], next_enemies: None, scenario: Scenario::Simple })
 }
 
-fn pick_combat_pair(rng: &mut impl Rng) -> (Vec<EnemyKind>, Vec<EnemyKind>) {
-    let mut pool = vec![
-        EnemyKind::RedLouse,
-        EnemyKind::Cultist,
-        EnemyKind::Fungibeast,
-        EnemyKind::JawWorm,
-        EnemyKind::SmallSpikeSlime,
-        EnemyKind::RedLouse,
-    ];
-    rng.shuffle(&mut pool);
-    (vec![pool[0].clone()], vec![pool[1].clone()])
+fn easy_encounters() -> Vec<Vec<EnemyKind>> {
+    vec![
+        vec![EnemyKind::Cultist],
+        vec![EnemyKind::JawWorm],
+        vec![EnemyKind::RedLouse, EnemyKind::GreenLouse],
+        vec![EnemyKind::SmallSpikeSlime, EnemyKind::SmallAcidSlime],
+    ]
+}
+
+fn hard_encounters() -> Vec<Vec<EnemyKind>> {
+    vec![
+        vec![EnemyKind::BlueSlaver],
+        vec![EnemyKind::RedSlaver],
+        vec![EnemyKind::FatGremlin, EnemyKind::MadGremlin, EnemyKind::ShieldGremlin, EnemyKind::SneakyGremlin, EnemyKind::GremlinWizard],
+        vec![EnemyKind::Fungibeast, EnemyKind::Fungibeast],
+        vec![EnemyKind::RedLouse, EnemyKind::RedLouse, EnemyKind::GreenLouse],
+        vec![EnemyKind::SmallSpikeSlime, EnemyKind::SmallSpikeSlime, EnemyKind::SmallAcidSlime],
+    ]
+}
+
+fn elite_encounters() -> Vec<Vec<EnemyKind>> {
+    vec![
+        vec![EnemyKind::GremlinNob],
+        vec![EnemyKind::Lagavulin],
+        vec![EnemyKind::Sentry, EnemyKind::Sentry, EnemyKind::Sentry],
+    ]
+}
+
+fn boss_encounters() -> Vec<Vec<EnemyKind>> {
+    vec![
+        vec![EnemyKind::TheGuardian],
+        // TODO: SlimeBoss, Hexaghost when implemented
+    ]
+}
+
+fn pick_encounter(pool: &mut [Vec<EnemyKind>], rng: &mut impl Rng) -> Vec<EnemyKind> {
+    rng.shuffle(pool);
+    pool[0].clone() // SAFETY: all pools are non-empty
 }
 
 pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
@@ -321,38 +349,57 @@ pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
     let mut rows: Vec<Vec<MapNode>> = Vec::new();
     let mut edges: Vec<Vec<Vec<usize>>> = Vec::new();
 
-    for i in 0..3 {
-        let (e0, e1) = pick_combat_pair(rng);
-        let row = if i == 1 {
-            vec![MapNode::Combat(e0), MapNode::Event]
-        } else {
-            vec![MapNode::Combat(e0), MapNode::Combat(e1)]
-        };
-        rows.push(row);
-        edges.push(if i < 2 { both.clone() } else { converge.clone() });
-    }
+    // Floors 0–2: easy combat section
+    // Floor 0: two easy combats
+    rows.push(vec![
+        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+    ]);
+    edges.push(both.clone());
+
+    // Floor 1: easy combat + event
+    rows.push(vec![MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)), MapNode::Event]);
+    edges.push(both.clone());
+
+    // Floor 2: two easy combats, then converge
+    rows.push(vec![
+        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+    ]);
+    edges.push(converge.clone());
+
+    // Floor 3: Merchant
     rows.push(vec![MapNode::Merchant]);
     edges.push(from_one.clone());
 
-    for i in 0..2 {
-        let (e0, e1) = pick_combat_pair(rng);
-        let row = if i == 0 {
-            vec![MapNode::Combat(e0), MapNode::Event]
-        } else {
-            vec![MapNode::Combat(e0), MapNode::Combat(e1)]
-        };
-        rows.push(row);
-        edges.push(if i == 0 { both.clone() } else { converge.clone() });
-    }
+    // Floor 4: hard combat + event
+    rows.push(vec![MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)), MapNode::Event]);
+    edges.push(both.clone());
+
+    // Floor 5: hard combat + elite (first elite available)
+    rows.push(vec![
+        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
+        MapNode::Elite(pick_encounter(&mut elite_encounters(), rng)),
+    ]);
+    edges.push(converge.clone());
+
+    // Floor 6: Rest site
     rows.push(vec![MapNode::RestSite]);
     edges.push(from_one.clone());
 
-    let (e0, e1) = pick_combat_pair(rng);
-    rows.push(vec![MapNode::Combat(e0), MapNode::Combat(e1)]);
+    // Floor 7: two hard combats
+    rows.push(vec![
+        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
+        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
+    ]);
     edges.push(converge.clone());
+
+    // Floor 8: Treasure
     rows.push(vec![MapNode::Treasure]);
     edges.push(vec![vec![0]]);
-    rows.push(vec![MapNode::Boss(vec![EnemyKind::TheGuardian])]);
+
+    // Floor 9: Boss
+    rows.push(vec![MapNode::Boss(pick_encounter(&mut boss_encounters(), rng))]);
     edges.push(vec![vec![]]);
 
     MapGraph { rows, edges }
@@ -424,6 +471,7 @@ fn player_after_combat(player: Player, gold_gain: i32) -> Player {
 }
 
 const GOLD_PER_COMBAT: i32 = 50;
+const GOLD_PER_ELITE: i32 = 30;
 
 pub fn apply_command(
     state: GameState,
@@ -446,9 +494,10 @@ pub fn apply_command(
                     .cloned()
                     .unwrap_or_default();
                 match &node {
-                    MapNode::Combat(node_enemies) | MapNode::Boss(node_enemies) => {
+                    MapNode::Combat(node_enemies) | MapNode::Boss(node_enemies) | MapNode::Elite(node_enemies) => {
                         let enemies = next_enemies.unwrap_or_else(|| node_enemies.clone());
                         let is_boss = matches!(node, MapNode::Boss(_));
+                        let is_elite = matches!(node, MapNode::Elite(_));
                         let mut combat_state = CombatState::from_player(player, enemies, rng);
                         let mut events = Vec::new();
                         apply_combat_start_relics(&mut combat_state, &mut events, rng, is_boss);
@@ -459,12 +508,18 @@ pub fn apply_command(
                             combat_state.player.neow_lament_combats_remaining -= 1;
                         }
                         if combat_state.enemies.iter().all(|e| e.hp <= Hp(0)) {
-                            events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
+                            let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                            events.push(Event::GoldEarned { amount: gold });
                             let mut victory_player = combat_state.player;
                             apply_end_of_combat_relics(&mut victory_player, &mut events);
-                            let player = player_after_combat(victory_player, GOLD_PER_COMBAT);
+                            let mut player = player_after_combat(victory_player, gold);
                             if is_boss {
                                 return Ok((GameState::GameOver { victory: true }, events));
+                            }
+                            if is_elite {
+                                let relic = crate::relics::random_common_relic(rng);
+                                player.relics.push(relic.clone());
+                                events.push(Event::RelicObtained { relic });
                             }
                             let options = generate_rewards(rng);
                             return Ok((
@@ -472,7 +527,7 @@ pub fn apply_command(
                                 events,
                             ));
                         }
-                        Ok((GameState::Combat { state: combat_state, floor, is_boss, graph, next_floor_cols, scenario }, events))
+                        Ok((GameState::Combat { state: combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, events))
                     }
                     MapNode::RestSite => Ok((
                         GameState::RestSite(RestSiteState { player, floor, graph, available_cols: next_floor_cols }),
@@ -531,16 +586,22 @@ pub fn apply_command(
             _ => Err(CommandError::InvalidPhase),
         },
 
-        GameState::Combat { state: mut combat_state, floor, is_boss, graph, next_floor_cols, scenario } => match command {
+        GameState::Combat { state: mut combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario } => match command {
             Command::WinCombat => {
-                let mut events = vec![Event::EnemyDied, Event::GoldEarned { amount: GOLD_PER_COMBAT }];
+                let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                let mut events = vec![Event::EnemyDied, Event::GoldEarned { amount: gold }];
                 apply_end_of_combat_relics(&mut combat_state.player, &mut events);
-                let mut player = player_after_combat(combat_state.player, GOLD_PER_COMBAT);
+                let mut player = player_after_combat(combat_state.player, gold);
                 if is_boss {
                     Ok((GameState::GameOver { victory: true }, events))
                 } else if scenario == Scenario::Simple {
                     Ok((GameState::Map(MapState { player, floor, graph, available_cols: next_floor_cols, next_enemies: None, scenario }), events))
                 } else {
+                    if is_elite {
+                        let relic = crate::relics::random_common_relic(rng);
+                        player.relics.push(relic.clone());
+                        events.push(Event::RelicObtained { relic });
+                    }
                     let offered_potion = award_potion(&mut player, &mut events, rng);
                     let options = generate_rewards(rng);
                     Ok((GameState::CardReward(CardRewardState { player, floor: floor + 1, options, offered_potion, graph, available_cols: next_floor_cols }), events))
@@ -548,24 +609,24 @@ pub fn apply_command(
             }
             Command::AddCard(card) => {
                 combat_state.player.hand.push(card);
-                Ok((GameState::Combat { state: combat_state, floor, is_boss, graph, next_floor_cols, scenario }, vec![]))
+                Ok((GameState::Combat { state: combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, vec![]))
             }
             Command::AddRelic(relic) => {
                 let events = crate::relics::grant_relic(&mut combat_state.player, relic, rng);
-                Ok((GameState::Combat { state: combat_state, floor, is_boss, graph, next_floor_cols, scenario }, events))
+                Ok((GameState::Combat { state: combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, events))
             }
             Command::AddPotion(potion) => {
                 if combat_state.player.potions.len() < MAX_POTIONS {
                     combat_state.player.potions.push(potion);
                 }
-                Ok((GameState::Combat { state: combat_state, floor, is_boss, graph, next_floor_cols, scenario }, vec![]))
+                Ok((GameState::Combat { state: combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, vec![]))
             }
             Command::DiscardPotion(slot) => {
                 if slot >= combat_state.player.potions.len() {
                     return Err(CommandError::InvalidCard);
                 }
                 let potion = combat_state.player.potions.remove(slot);
-                Ok((GameState::Combat { state: combat_state, floor, is_boss, graph, next_floor_cols, scenario },
+                Ok((GameState::Combat { state: combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
                     vec![Event::PotionDiscarded { potion }]))
             }
             Command::ChooseNode(_) | Command::Rest | Command::ChooseCardReward(_)
@@ -595,15 +656,21 @@ pub fn apply_command(
                 }
                 match new_combat.phase {
                     CombatPhase::Victory => {
-                        events.push(Event::GoldEarned { amount: GOLD_PER_COMBAT });
+                        let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                        events.push(Event::GoldEarned { amount: gold });
                         let mut victory_player = new_combat.player;
                         apply_end_of_combat_relics(&mut victory_player, &mut events);
-                        let mut player = player_after_combat(victory_player, GOLD_PER_COMBAT);
+                        let mut player = player_after_combat(victory_player, gold);
                         if is_boss {
                             Ok((GameState::GameOver { victory: true }, events))
                         } else if scenario == Scenario::Simple {
                             Ok((GameState::Map(MapState { player, floor, graph, available_cols: next_floor_cols, next_enemies: None, scenario }), events))
                         } else {
+                            if is_elite {
+                                let relic = crate::relics::random_common_relic(rng);
+                                player.relics.push(relic.clone());
+                                events.push(Event::RelicObtained { relic });
+                            }
                             let offered_potion = award_potion(&mut player, &mut events, rng);
                             let options = generate_rewards(rng);
                             Ok((
@@ -620,7 +687,7 @@ pub fn apply_command(
                         }
                     }
                     CombatPhase::Defeat => Ok((GameState::GameOver { victory: false }, events)),
-                    _ => Ok((GameState::Combat { state: new_combat, floor, is_boss, graph, next_floor_cols, scenario }, events)),
+                    _ => Ok((GameState::Combat { state: new_combat, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, events)),
                 }
             }
         },
@@ -1034,11 +1101,11 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let graph = test_graph();
         let next_floor_cols = all_cols(&graph, floor + 1);
-        GameState::Combat { state: cs, floor, is_boss: false, graph, next_floor_cols, scenario: Scenario::Main }
+        GameState::Combat { state: cs, floor, is_boss: false, is_elite: false, graph, next_floor_cols, scenario: Scenario::Main }
     }
 
     fn boss_combat() -> GameState {
@@ -1065,15 +1132,15 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
-        GameState::Combat { state: cs, floor: 9, is_boss: true, graph: test_graph(), next_floor_cols: vec![], scenario: Scenario::Main }
+        GameState::Combat { state: cs, floor: 9, is_boss: true, is_elite: false, graph: test_graph(), next_floor_cols: vec![], scenario: Scenario::Main }
     }
 
     fn wrap_combat(cs: CombatState, floor: usize) -> GameState {
         let graph = test_graph();
         let next_floor_cols = all_cols(&graph, floor + 1);
-        GameState::Combat { state: cs, floor, is_boss: false, graph, next_floor_cols, scenario: Scenario::Main }
+        GameState::Combat { state: cs, floor, is_boss: false, is_elite: false, graph, next_floor_cols, scenario: Scenario::Main }
     }
 
     // --- new_run ---
@@ -1255,11 +1322,11 @@ mod tests {
 
     #[test]
     fn player_block_reset_after_combat() {
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
         cs.player.block = Block(10);
         let (next, _) = apply_command(
-            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
             &mut rng(),
         ).unwrap();
@@ -1276,11 +1343,11 @@ mod tests {
 
     #[test]
     fn player_hand_cleared_after_combat() {
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
         cs.player.hand.push(Card::Strike(Grade::Base)); // two Strikes in hand; one kills enemy, one remains
         let (next, _) = apply_command(
-            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
             &mut rng(),
         ).unwrap();
@@ -1290,11 +1357,11 @@ mod tests {
 
     #[test]
     fn player_draw_pile_cleared_after_combat() {
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
         cs.player.draw_pile = vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)];
         let (next, _) = apply_command(
-            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
             &mut rng(),
         ).unwrap();
@@ -1311,11 +1378,11 @@ mod tests {
 
     #[test]
     fn player_statuses_cleared_after_combat() {
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
         cs.player.statuses.insert(StatusEffect::Strength, 3);
         let (next, _) = apply_command(
-            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
             Command::PlayCard(0, 0),
             &mut rng(),
         ).unwrap();
@@ -1402,7 +1469,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (after_end, _) =
@@ -1545,8 +1612,8 @@ mod tests {
     fn choose_node_falls_back_to_graph_enemies_when_no_spawn() {
         let (state, _) = apply_command(map_at_floor(0), Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
-        // With NoOpRng the pool is unshuffled, so floor 0 col 0 = Louse
-        assert_eq!(cs.enemies[0].kind, EnemyKind::RedLouse);
+        // With NoOpRng the pool is unshuffled, so first easy encounter = Cultist
+        assert_eq!(cs.enemies[0].kind, EnemyKind::Cultist);
     }
 
     // --- player state persists across combat ---
@@ -1576,7 +1643,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -1602,10 +1669,10 @@ mod tests {
         // Enter floor 1 combat
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         // Manually kill the enemy
-        let state = if let GameState::Combat { mut state, floor, is_boss, graph, next_floor_cols, scenario: Scenario::Main } = state {
+        let state = if let GameState::Combat { mut state, floor, is_boss, is_elite, graph, next_floor_cols, scenario: Scenario::Main } = state {
             state.enemies[0].hp = Hp(1);
             state.player.hand = vec![Card::Strike(Grade::Base)];
-            GameState::Combat { state, floor, is_boss, graph, next_floor_cols, scenario: Scenario::Main }
+            GameState::Combat { state, floor, is_boss, is_elite, graph, next_floor_cols, scenario: Scenario::Main }
         } else {
             panic!("expected Combat");
         };
@@ -1684,7 +1751,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -2264,7 +2331,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         wrap_combat(cs, floor)
     }
@@ -2396,7 +2463,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         wrap_combat(cs, floor)
     }
@@ -2436,7 +2503,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -2470,7 +2537,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
@@ -2779,13 +2846,13 @@ mod tests {
 
     #[test]
     fn add_potion_in_combat_rejected_when_slots_full() {
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario }
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario }
             = combat_at_floor(0) else { panic!() };
         for _ in 0..MAX_POTIONS {
             cs.player.potions.push(Potion::BlockPotion);
         }
         let (next, _) = apply_command(
-            GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario },
+            GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario },
             Command::AddPotion(Potion::FirePotion),
             &mut rng(),
         ).unwrap();
@@ -2843,9 +2910,9 @@ mod tests {
     #[test]
     fn potion_awarded_via_in_combat_kill() {
         let state = combat_at_floor_0();
-        let GameState::Combat { state: mut cs, floor, is_boss, graph, next_floor_cols, scenario } = state else { panic!() };
+        let GameState::Combat { state: mut cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario } = state else { panic!() };
         cs.enemies[0].hp = Hp(6);
-        let state = GameState::Combat { state: cs, floor, is_boss, graph, next_floor_cols, scenario };
+        let state = GameState::Combat { state: cs, floor, is_boss, is_elite, graph, next_floor_cols, scenario };
         let (state, _) = apply_command(state, Command::EndTurn, &mut rng()).unwrap();
         let (state, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
         if let GameState::CardReward(cr) = state {
@@ -2962,7 +3029,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         wrap_combat(cs, 0)
     }
@@ -3026,7 +3093,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
@@ -3082,7 +3149,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let state = wrap_combat(cs, 0);
         // Play 1 card (≤3), end turn
@@ -3123,7 +3190,7 @@ mod tests {
             attacks_this_combat: 0,
             skills_this_combat: 0,
             cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         };
         let mut state = wrap_combat(cs, 0);
         // Play 4 cards (>3 threshold), end turn

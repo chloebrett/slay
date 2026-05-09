@@ -3599,3 +3599,89 @@
         assert_eq!(Card::from_id("deep-breath"),      Some(Card::DeepBreath(Grade::Base)));
         assert_eq!(Card::from_id("deep-breath-plus"), Some(Card::DeepBreath(Grade::Plus)));
     }
+
+    // --- Apotheosis ---
+
+    #[test]
+    fn apotheosis_upgrades_all_cards_in_hand() {
+        let mut state = combat_with_hand(vec![Card::Apotheosis(Grade::Base), Card::Strike(Grade::Base), Card::Defend(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.hand.iter().all(|c| matches!(c, Card::Strike(Grade::Plus) | Card::Defend(Grade::Plus))));
+    }
+
+    #[test]
+    fn apotheosis_upgrades_all_cards_in_discard_pile() {
+        let mut state = combat_with_hand(vec![Card::Apotheosis(Grade::Base)]);
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.discard_pile.iter().all(|c| matches!(c, Card::Strike(Grade::Plus) | Card::Bash(Grade::Plus))));
+    }
+
+    #[test]
+    fn apotheosis_exhausts() {
+        assert!(Card::Apotheosis(Grade::Base).exhausts());
+        assert!(Card::Apotheosis(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn apotheosis_costs_2() {
+        assert_eq!(Card::Apotheosis(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn apotheosis_id_round_trips() {
+        assert_eq!(Card::from_id("apotheosis"),      Some(Card::Apotheosis(Grade::Base)));
+        assert_eq!(Card::from_id("apotheosis-plus"), Some(Card::Apotheosis(Grade::Plus)));
+    }
+
+    // --- Enlightenment ---
+
+    #[test]
+    fn enlightenment_reduces_hand_card_costs_to_1_this_turn() {
+        let mut state = combat_with_hand(vec![Card::Enlightenment(Grade::Base), Card::Bash(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Bash normally costs 2; after Enlightenment it should cost 1
+        // With 3 energy and Enlightenment (0 cost) already played, playing Bash for 1 should leave 2 energy
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(2));
+    }
+
+    #[test]
+    fn enlightenment_cost_cap_expires_at_start_of_next_turn() {
+        let mut state = combat_with_hand(vec![Card::Enlightenment(Grade::Base)]);
+        state.player.discard_pile = vec![Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Full turn cycle
+        let state = full_turn(state);
+        // Bash is now in hand (drawn at start of turn); its cost should be back to 2
+        // With 3 energy, playing Bash (cost 2) should leave 1 energy
+        let mut state = state;
+        let bash_idx = state.player.hand.iter().position(|c| matches!(c, Card::Bash(_))).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(bash_idx, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(1));
+    }
+
+    #[test]
+    fn enlightenment_plus_cost_cap_persists_across_turns() {
+        let mut state = combat_with_hand(vec![Card::Enlightenment(Grade::Plus)]);
+        state.player.discard_pile = vec![Card::Bash(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Full turn cycle
+        let state = full_turn(state);
+        // Bash cost is still capped at 1; playing it leaves 2 energy
+        let mut state = state;
+        let bash_idx = state.player.hand.iter().position(|c| matches!(c, Card::Bash(_))).unwrap();
+        let (state, _) = apply_command(state, Command::PlayCard(bash_idx, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.energy, Energy(2));
+    }
+
+    #[test]
+    fn enlightenment_costs_0() {
+        assert_eq!(Card::Enlightenment(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn enlightenment_id_round_trips() {
+        assert_eq!(Card::from_id("enlightenment"),      Some(Card::Enlightenment(Grade::Base)));
+        assert_eq!(Card::from_id("enlightenment-plus"), Some(Card::Enlightenment(Grade::Plus)));
+    }

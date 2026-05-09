@@ -82,6 +82,8 @@ pub struct CombatState {
     pub skills_this_combat: u32,
     pub cards_played_this_turn: u32,
     pub extra_draws_next_turn: u32,
+    pub hand_cost_max: Option<Energy>,
+    pub hand_cost_max_expires: bool,
 }
 
 impl CombatState {
@@ -154,8 +156,7 @@ impl CombatState {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 }
@@ -242,6 +243,7 @@ pub enum Event {
     PotionUsed { potion: Potion },
     PotionAwarded { potion: Potion },
     PotionDiscarded { potion: Potion },
+    RelicObtained { relic: crate::relics::Relic },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -282,7 +284,11 @@ fn apply_play_card(
             return Err(CommandError::InvalidCard);
         }
     }
-    if !card.card_cost().is_affordable(state.player.energy) {
+    let effective_cost = match (card.card_cost(), state.hand_cost_max) {
+        (CardCost::Fixed(cost), Some(cap)) => CardCost::Fixed(Energy(cost.0.min(cap.0))),
+        (cost, _) => cost,
+    };
+    if !effective_cost.is_affordable(state.player.energy) {
         return Err(CommandError::NotEnoughEnergy);
     }
     if card.card_type() == CardType::Attack && state.player.statuses.contains_key(&StatusEffect::Entangle) {
@@ -295,7 +301,7 @@ fn apply_play_card(
     let mut events = Vec::new();
     state.player.hand.remove(index);
     let x_value = state.player.energy.0;
-    state.player.energy = match card.card_cost() {
+    state.player.energy = match effective_cost {
         CardCost::Fixed(cost) => Energy(state.player.energy.0 - cost.0),
         CardCost::X => Energy(0),
     };
@@ -686,6 +692,10 @@ pub(crate) fn apply_combat_command(
             state.skills_this_turn = 0;
             state.cards_played_this_turn = 0;
             state.extra_draws_next_turn = 0;
+            if state.hand_cost_max_expires {
+                state.hand_cost_max = None;
+                state.hand_cost_max_expires = false;
+            }
             // Start-of-turn power effects
             let demon_form = get_stacks(&state.player.statuses, StatusEffect::DemonForm);
             if demon_form > 0 {
@@ -864,8 +874,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0,
-        extra_draws_next_turn: 0,
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
     }
 }
 
@@ -922,8 +931,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         skills_this_turn: 0,
         attacks_this_combat: 0,
         skills_this_combat: 0,
-        cards_played_this_turn: 0,
-        extra_draws_next_turn: 0,
+        cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
     }
 }
 
@@ -1788,6 +1796,50 @@ mod tests {
         assert_eq!(result, Err(CommandError::InvalidPhase));
     }
 
+    #[test]
+    fn dexterity_potion_grants_2_dexterity() {
+        let state = combat_with_potion(Potion::DexterityPotion);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(crate::status::get_stacks(&state.player.statuses, StatusEffect::Dexterity), 2);
+    }
+
+    #[test]
+    fn dexterity_potion_is_not_targeted() {
+        assert!(!Potion::DexterityPotion.is_targeted());
+    }
+
+    #[test]
+    fn fruit_juice_raises_max_hp_by_5() {
+        let state = combat_with_potion(Potion::FruitJuice);
+        let max_before = state.player.max_hp.0;
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.max_hp.0, max_before + 5);
+    }
+
+    #[test]
+    fn fruit_juice_also_heals_5_hp() {
+        let mut state = combat_with_potion(Potion::FruitJuice);
+        state.player.hp = Hp(50);
+        state.player.max_hp = Hp(80);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(55));
+    }
+
+    #[test]
+    fn fruit_juice_does_not_overheal_above_new_max() {
+        let mut state = combat_with_potion(Potion::FruitJuice);
+        state.player.hp = Hp(80);
+        state.player.max_hp = Hp(80);
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hp, Hp(85));
+        assert_eq!(state.player.max_hp, Hp(85));
+    }
+
+    #[test]
+    fn fruit_juice_is_not_targeted() {
+        assert!(!Potion::FruitJuice.is_targeted());
+    }
+
     // --- The Guardian: Sharp Hide ---
 
     fn guardian_combat(hand: Vec<Card>) -> CombatState {
@@ -1826,8 +1878,7 @@ mod tests {
             skills_this_turn: 0,
             attacks_this_combat: 0,
             skills_this_combat: 0,
-            cards_played_this_turn: 0,
-            extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 
@@ -2216,7 +2267,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 
@@ -2310,7 +2361,7 @@ mod tests {
             phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 
@@ -2403,7 +2454,7 @@ mod tests {
             turn: 1, phase: CombatPhase::PlayerTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 
@@ -2455,7 +2506,7 @@ mod tests {
             turn: 1, phase: CombatPhase::EnemyTurn,
             attacks_this_turn: 0, skills_this_turn: 0,
             attacks_this_combat: 0, skills_this_combat: 0,
-            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false,
         }
     }
 
