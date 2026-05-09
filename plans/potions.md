@@ -25,12 +25,10 @@ Extracted via: `plans/extract_potions.py` → `plans/potions.json`
 
 No new status effects or engine mechanics needed. Each is a single match arm in `potions.rs::apply`.
 
-| JAR class id  | Name              | Effect                                              | Targeted |
-|---------------|-------------------|-----------------------------------------------------|----------|
-| DexterityPotion | Dexterity Potion | Gain 2 Dexterity (parallels Strength for Block)     | No       |
-| FruitJuice    | Fruit Juice       | Gain 5 Max HP                                       | No       |
-
-> **Dexterity** needs a `StatusEffect::Dexterity` that adds to Block calculation — same pattern as Strength adds to damage.
+| JAR class id    | Name              | Effect                                              | Targeted |
+|-----------------|-------------------|-----------------------------------------------------|----------|
+| DexterityPotion | Dexterity Potion  | Gain 2 Dexterity (`StatusEffect::Dexterity` exists) | No       |
+| FruitJuice      | Fruit Juice       | Gain 5 Max HP (and 5 current HP if in combat)       | No       |
 
 ---
 

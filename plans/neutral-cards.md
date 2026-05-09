@@ -68,7 +68,7 @@ These appear as combat rewards and in shops regardless of character.
 |------|------|------|--------|------|
 | Discovery | Skill | 1 | Choose 1 of 3 random cards from your class. Add it to hand (costs 0 this turn). Exhaust. | |
 | Dramatic Entrance | Attack | 0 | Innate. Deal 8 damage to ALL enemies. Exhaust. | ✅ |
-| Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | |
+| Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | ✅ |
 | Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | ✅ |
 | Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | |
 | Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
@@ -81,7 +81,7 @@ These appear as combat rewards and in shops regardless of character.
 
 | Card | Type | Cost | Effect | Impl |
 |------|------|------|--------|------|
-| Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | |
+| Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | ✅ |
 | Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | |
 | Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | ✅ |
 | Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
@@ -122,14 +122,12 @@ New mechanics required for remaining cards:
 ### Minor — one new mechanism required
 
 - **Purity** — exhaust up to 3 cards in hand of your choice; `exhaust_card` already exists, needs a multi-card hand-selection prompt.
-- **Enlightenment** — reduce the cost of all cards in hand to 1 this turn; needs a temporary per-card cost override that clears at the start of the next turn.
 - **Jack of All Trades** — add 1 random colorless card to hand; needs a colorless card pool to sample from and an "add to hand" mechanism.
 - **Panacea** — gain 2 Artifact; Artifact is a new status that absorbs the next debuff applied, intercepting `apply_status` for debuffs.
 - **Panache** — deal 10 AoE damage every 5 cards played in a turn; needs a `cards_played_this_turn` counter in `CombatState` and a post-play trigger that checks it.
 - **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
-- **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.
 
 ### Major — significant new architecture
 - **The Bomb** — deal 40 damage to ALL enemies after a 3-turn countdown; needs a delayed-effect system (a list of pending triggers with turn counters) that fires at end of player turn.

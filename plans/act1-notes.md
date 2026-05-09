@@ -39,32 +39,48 @@ The first 3 combat encounters are drawn from the **easy pool**; all subsequent c
 
 ## Enemy Pools
 
-### Easy pool (floor 1 and first 3 encounters)
-- Cultist
-- Jaw Worm
-- 2× Louses (Red + Green)
-- Small Slimes (Spike Slime + Acid Slime)
+### Easy pool (floor 1 and first ~3 combat encounters)
 
-### Hard pool (floors 2+ after 3 easy encounters used)
-- Blue Slaver
-- Red Slaver
-- Gremlin Gang (3–5 Gremlins) — *not yet implemented*
-- 3 Louses — *not yet implemented*
-- 2 Fungi Beasts
-- Exordium Thugs — *not yet implemented*
-- Exordium Wildlife — *not yet implemented*
-- Large Slime (Medium Slime + Small Slimes) — *not yet implemented*
-- Looter — *not yet implemented*
+| Encounter | Enemies | Status |
+|-----------|---------|--------|
+| Cultist | Cultist | ✅ Implemented |
+| Jaw Worm | Jaw Worm | ✅ Implemented |
+| 2× Louses | Red Louse + Green Louse | ✅ Implemented |
+| Small Slimes | Small Spike Slime + Small Acid Slime | ✅ Implemented |
 
-### Elite pool (floor 6+)
-- **Gremlin Nob** — *not yet implemented*
-- **Lagavulin** — *not yet implemented*
-- **3 Sentries** — *not yet implemented*
+### Hard pool (after first ~3 combat encounters)
 
-### Boss pool (floor 16, one chosen at random)
-- **Slime Boss** — *not yet implemented*
-- **Hexaghost** — *not yet implemented*
-- **The Guardian** — *not yet implemented*
+| Encounter | Enemies | Status |
+|-----------|---------|--------|
+| Blue Slaver | Blue Slaver | ✅ Implemented |
+| Red Slaver | Red Slaver | ✅ Implemented |
+| Gremlin Gang | Fat Gremlin + Mad Gremlin + Shield Gremlin + Sneaky Gremlin + Wizard Gremlin | ✅ Implemented |
+| 2 Fungi Beasts | Fungibeast + Fungibeast | ✅ Implemented |
+| 3 Louses | Red Louse + Red Louse + Green Louse | ✅ Implemented |
+| Exordium Thugs | Looter + Mugger | ❌ Needs Looter, Mugger |
+| Exordium Wildlife | Jaw Worm + Red Louse + Green Louse | ❌ Pending verification |
+| Lots of Slimes | Small Spike Slime + Small Spike Slime + Small Acid Slime | ✅ Enemies exist (encounter not in pool yet) |
+| Looter | Looter | ❌ Needs Looter |
+
+### Elite pool (floor index 5+, i.e. floor 6 in STS display)
+
+| Encounter | Enemies | Status |
+|-----------|---------|--------|
+| Gremlin Nob | Gremlin Nob | ✅ Implemented |
+| Lagavulin | Lagavulin | ✅ Implemented |
+| 3 Sentries | Sentry + Sentry + Sentry | ✅ Implemented |
+
+Elite rewards: ~30 gold + 1 random relic + 3 card options.
+
+### Boss pool (floor index 15 in 16-floor map; one chosen at random)
+
+| Encounter | Enemies | Status |
+|-----------|---------|--------|
+| The Guardian | The Guardian | ✅ Implemented |
+| Slime Boss | Slime Boss | ❌ Not yet implemented |
+| Hexaghost | Hexaghost | ❌ Not yet implemented |
+
+Boss rewards: ~100 gold + 3 rare card options + boss relic choice.
 
 ---
 
