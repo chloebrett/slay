@@ -1,338 +1,219 @@
 [
   {
-    "id": "ATTACK_POTION",
+    "id": "AttackPotion",
     "name": "Attack Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Attack cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+    "description": "Choose #b1 of #b3 random #yAttack cards to add to your hand, it costs #b0 this turn. Choose #b1 of #b3 random #yAttack cards and add #b2 copies to your hand, they cost #b0 this turn."
   },
   {
-    "id": "BLOCK_POTION",
+    "id": "BlessingOfTheForge",
+    "name": "Blessing of the Forge",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Upgrade all cards in your hand for the rest of combat."
+  },
+  {
+    "id": "BlockPotion",
     "name": "Block Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [blue]12[/blue] [gold]Block[/gold]."
+    "description": "Gain #b  #yBlock."
   },
   {
-    "id": "BLOOD_POTION",
+    "id": "BloodPotion",
     "name": "Blood Potion",
     "rarity": "Common",
     "pool": "ironclad",
-    "description": "Heal for [green]20%[/green] of your Max HP."
+    "description": "Heal for #b % of your Max HP."
   },
   {
-    "id": "COLORLESS_POTION",
+    "id": "ColorlessPotion",
     "name": "Colorless Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Colorless cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+    "description": "Choose #b1 of #b3 random #yColorless cards to add to your hand, it costs #b0 this turn. Choose #b1 of #b3 random #yColorless cards and add #b2 copies to your hand, they cost #b0 this turn."
   },
   {
-    "id": "DEXTERITY_POTION",
+    "id": "DexterityPotion",
     "name": "Dexterity Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [blue]2[/blue] [gold]Dexterity[/gold]."
+    "description": "Gain #b  #yDexterity."
   },
   {
-    "id": "ENERGY_POTION",
+    "id": "EnergyPotion",
     "name": "Energy Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [energy:2]."
+    "description": "Gain #b  Energy."
   },
   {
-    "id": "EXPLOSIVE_AMPOULE",
-    "name": "Explosive Ampoule",
+    "id": "ExplosivePotion",
+    "name": "Explosive Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Deal [blue]10[/blue] damage to ALL enemies."
+    "description": "Deal #b  damage to ALL enemies."
   },
   {
-    "id": "FIRE_POTION",
+    "id": "FearPotion",
+    "name": "Fear Potion",
+    "rarity": "Common",
+    "pool": "shared",
+    "description": "Apply #b  #yVulnerable."
+  },
+  {
+    "id": "FirePotion",
     "name": "Fire Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Deal [blue]20[/blue] damage."
+    "description": "Deal #b  damage."
   },
   {
-    "id": "FLEX_POTION",
+    "id": "SteroidPotion",
     "name": "Flex Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [blue]5[/blue] [gold]Strength[/gold]. At the end of your turn, lose [blue]5[/blue] [gold]Strength[/gold]."
+    "description": "Gain #b  #yStrength. At the end of your turn, lose #b  #yStrength."
   },
   {
-    "id": "POWER_POTION",
+    "id": "PowerPotion",
     "name": "Power Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Power cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+    "description": "Choose #b1 of #b3 random #yPower cards to add to your hand, it costs #b0 this turn. Choose #b1 of #b3 random #yPower cards and add #b2 copies to your hand, they cost #b0 this turn."
   },
   {
-    "id": "SKILL_POTION",
+    "id": "SkillPotion",
     "name": "Skill Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Choose [blue]1[/blue] of [blue]3[/blue] random Skill cards to add into your [gold]Hand[/gold]. It's free to play this turn."
+    "description": "Choose #b1 of #b3 random #ySkill cards to add to your hand, it costs #b0 this turn. Choose #b1 of #b3 random #ySkill cards and add #b2 copies to your hand, they cost #b0 this turn."
   },
   {
-    "id": "SPEED_POTION",
+    "id": "SpeedPotion",
     "name": "Speed Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [blue]5[/blue] [gold]Dexterity[/gold]. At the end of your turn, lose [blue]5[/blue] [gold]Dexterity[/gold]."
+    "description": "Gain #b  #yDexterity. At the end of your turn, lose #b  #yDexterity."
   },
   {
-    "id": "STRENGTH_POTION",
+    "id": "StrengthPotion",
     "name": "Strength Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Gain [blue]2[/blue] [gold]Strength[/gold]."
+    "description": "Gain #b  #yStrength."
   },
   {
-    "id": "SWIFT_POTION",
+    "id": "SwiftPotion",
     "name": "Swift Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Draw [blue]3[/blue] cards."
+    "description": " Draw #b  cards."
   },
   {
-    "id": "VULNERABLE_POTION",
-    "name": "Vulnerable Potion",
-    "rarity": "Common",
-    "pool": "shared",
-    "description": "Apply [blue]3[/blue] [gold]Vulnerable[/gold]."
-  },
-  {
-    "id": "WEAK_POTION",
+    "id": "WeakenPotion",
     "name": "Weak Potion",
     "rarity": "Common",
     "pool": "shared",
-    "description": "Apply [blue]3[/blue] [gold]Weak[/gold]."
+    "description": "Apply #b  #yWeak."
   },
   {
-    "id": "BEETLE_JUICE",
-    "name": "Beetle Juice",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Enemy's attacks deal [blue]30%[/blue] less damage for the next [blue]4[/blue] turns."
-  },
-  {
-    "id": "BOTTLED_POTENTIAL",
-    "name": "Bottled Potential",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Shuffle ALL your cards into your [gold]Draw Pile[/gold]. Draw [blue]5[/blue] cards."
-  },
-  {
-    "id": "DISTILLED_CHAOS",
-    "name": "Distilled Chaos",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Play the top [blue]3[/blue] cards of your [gold]Draw Pile[/gold]."
-  },
-  {
-    "id": "DROPLET_OF_PRECOGNITION",
-    "name": "Droplet of Precognition",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Choose a card in your [gold]Draw Pile[/gold] and add it into your [gold]Hand[/gold]."
-  },
-  {
-    "id": "ENTROPIC_BREW",
+    "id": "EntropicBrew",
     "name": "Entropic Brew",
     "rarity": "Rare",
     "pool": "shared",
     "description": "Fill all your empty potion slots with random potions."
   },
   {
-    "id": "FAIRY_IN_A_BOTTLE",
+    "id": "FairyPotion",
     "name": "Fairy in a Bottle",
     "rarity": "Rare",
     "pool": "shared",
-    "description": "When your HP would be reduced to [blue]0[/blue], instead this potion is discarded and you heal to [blue]30%[/blue] of your Max HP."
+    "description": "When you would die, heal to #b % of your Max HP instead and discard this potion."
   },
   {
-    "id": "FRUIT_JUICE",
+    "id": "FruitJuice",
     "name": "Fruit Juice",
     "rarity": "Rare",
     "pool": "shared",
-    "description": "Gain [blue]5[/blue] Max HP."
+    "description": "Gain #b  Max HP."
   },
   {
-    "id": "GIGANTIFICATION_POTION",
-    "name": "Gigantification Potion",
+    "id": "HeartOfIron",
+    "name": "Heart of Iron",
+    "rarity": "Rare",
+    "pool": "ironclad",
+    "description": "Gain #b  #yMetallicize."
+  },
+  {
+    "id": "SmokeBomb",
+    "name": "Smoke Bomb",
     "rarity": "Rare",
     "pool": "shared",
-    "description": "The next Attack you play deals triple damage."
+    "description": "Escape from a non-boss combat. Receive no rewards. I'm Surrounded!"
   },
   {
-    "id": "LIQUID_MEMORIES",
-    "name": "Liquid Memories",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Put a card from your [gold]Discard Pile[/gold] into your [gold]Hand[/gold]. It's free to play this turn."
-  },
-  {
-    "id": "LUCKY_TONIC",
-    "name": "Lucky Tonic",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Gain [blue]1[/blue] [gold]Buffer[/gold]."
-  },
-  {
-    "id": "MAZALETHS_GIFT",
-    "name": "Mazaleth's Gift",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Gain [blue]1[/blue] [gold]Ritual[/gold]."
-  },
-  {
-    "id": "OROBIC_ACID",
-    "name": "Orobic Acid",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Add a random Attack, Skill, and Power into your [gold]Hand[/gold]. They're free to play this turn."
-  },
-  {
-    "id": "SHACKLING_POTION",
-    "name": "Shackling Potion",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "ALL enemies lose [blue]7[/blue] [gold]Strength[/gold] this turn."
-  },
-  {
-    "id": "SHIP_IN_A_BOTTLE",
-    "name": "Ship in a Bottle",
-    "rarity": "Rare",
-    "pool": "shared",
-    "description": "Gain [blue]10[/blue] [gold]Block[/gold]. Next turn, gain [blue]10[/blue] [gold]Block[/gold]."
-  },
-  {
-    "id": "SNECKO_OIL",
+    "id": "SneckoOil",
     "name": "Snecko Oil",
     "rarity": "Rare",
     "pool": "shared",
-    "description": "Draw [blue]7[/blue] cards. Randomize the cost of cards in your [gold]Hand[/gold] this turn."
+    "description": "Draw #b  cards. Randomize the cost of cards in your hand. "
   },
   {
-    "id": "SOLDIERS_STEW",
-    "name": "Soldier's Stew",
-    "rarity": "Rare",
-    "pool": "ironclad",
-    "description": "All cards containing [gold]Strike[/gold] gain [blue]1[/blue] [gold]Replay[/gold] this combat."
-  },
-  {
-    "id": "ASHWATER",
-    "name": "Ashwater",
-    "rarity": "Uncommon",
-    "pool": "ironclad",
-    "description": "[gold]Exhaust[/gold] any number of cards in your [gold]Hand[/gold]."
-  },
-  {
-    "id": "BLESSING_OF_THE_FORGE",
-    "name": "Blessing of the Forge",
+    "id": "AncientPotion",
+    "name": "Ancient Potion",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "[gold]Upgrade[/gold] all cards in your [gold]Hand[/gold] for the rest of combat."
+    "description": "Gain #b  #yArtifact."
   },
   {
-    "id": "CLARITY",
-    "name": "Clarity Extract",
+    "id": "DistilledChaosPotion",
+    "name": "Distilled Chaos",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Draw [blue]1[/blue] card. At the start of your next [blue]3[/blue] turns, draw [blue]1[/blue] additional card."
+    "description": "Play the top #b  cards of your draw pile."
   },
   {
-    "id": "CURE_ALL",
-    "name": "Cure All",
+    "id": "DuplicationPotion",
+    "name": "Duplication Potion",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Gain [energy:1]. Draw [blue]2[/blue] cards."
+    "description": "This turn, your next card is played twice. This turn, your next #b2 cards are played twice."
   },
   {
-    "id": "DUPLICATOR",
-    "name": "Duplicator",
+    "id": "EssenceOfSteel",
+    "name": "Essence of Steel",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "This turn, your next card is played an extra time."
+    "description": "Gain #b  #yPlated #yArmor."
   },
   {
-    "id": "FORTIFIER",
-    "name": "Fortifier",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Triple your [gold]Block[/gold]."
-  },
-  {
-    "id": "FYSH_OIL",
-    "name": "Fysh Oil",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Gain [blue]1[/blue] [gold]Strength[/gold] and [blue]1[/blue] [gold]Dexterity[/gold]."
-  },
-  {
-    "id": "GAMBLERS_BREW",
+    "id": "GamblersBrew",
     "name": "Gambler's Brew",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Discard any number of cards, then draw that many."
+    "description": "Discard any number of cards then draw that many."
   },
   {
-    "id": "HEART_OF_IRON",
-    "name": "Heart of Iron",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Gain [blue]7[/blue] [gold]Plating[/gold]."
-  },
-  {
-    "id": "LIQUID_BRONZE",
+    "id": "LiquidBronze",
     "name": "Liquid Bronze",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Gain [blue]3[/blue] [gold]Thorns[/gold]."
+    "description": "Gain #b  #yThorns."
   },
   {
-    "id": "POTION_OF_BINDING",
-    "name": "Potion of Binding",
+    "id": "LiquidMemories",
+    "name": "Liquid Memories",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Apply [blue]1[/blue] [gold]Weak[/gold] and [blue]1[/blue] [gold]Vulnerable[/gold] to ALL enemies."
+    "description": "Choose a card in your discard pile and return it to your hand. It costs #b0 this turn. Choose #b  cards in your discard pile and return them to your hand. They cost #b0 this turn."
   },
   {
-    "id": "POWDERED_DEMISE",
-    "name": "Powdered Demise",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Enemy loses [blue]9[/blue] HP at the end of each of its turns."
-  },
-  {
-    "id": "RADIANT_TINCTURE",
-    "name": "Radiant Tincture",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Gain [energy:1]. Gain an additional [energy:1] at the start of your next [blue]3[/blue] turns."
-  },
-  {
-    "id": "REGEN_POTION",
+    "id": "RegenPotion",
     "name": "Regen Potion",
     "rarity": "Uncommon",
     "pool": "shared",
-    "description": "Gain [green]5[/green] [gold]Regen[/gold]."
-  },
-  {
-    "id": "STABLE_SERUM",
-    "name": "Stable Serum",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "[gold]Retain[/gold] your [gold]Hand[/gold] for [blue]2[/blue] turns."
-  },
-  {
-    "id": "TOUCH_OF_INSANITY",
-    "name": "Touch of Insanity",
-    "rarity": "Uncommon",
-    "pool": "shared",
-    "description": "Choose a card in your [gold]Hand[/gold]. It is free to play this combat."
+    "description": "Gain #b  #yRegen. "
   }
 ]

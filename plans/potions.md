@@ -1,122 +1,108 @@
 # Potions Implementation Plan
 
-Source: `~/c/spire-codex/data/eng/potions.json` — 48 total (16 Common, 16 Uncommon, 16 Rare)  
+Source: STS1 Steam installation JAR (`desktop-1.0.jar` localization + class bytecode)  
 Extracted via: `plans/extract_potions.py` → `plans/potions.json`
+
+31 potions total (17 Common, 8 Uncommon, 6 Rare) — ironclad + shared pools only.
 
 ## Already Implemented (9)
 
-| Code name       | Codex ID            | Effect                                     |
-|-----------------|---------------------|--------------------------------------------|
-| FirePotion      | FIRE_POTION         | Deal 20 damage to one enemy                |
-| ExplosivePotion | EXPLOSIVE_AMPOULE   | Deal 10 damage to ALL enemies              |
-| BlockPotion     | BLOCK_POTION        | Gain 12 Block                              |
-| StrengthPotion  | STRENGTH_POTION     | Gain 2 Strength                            |
-| SwiftPotion     | SWIFT_POTION        | Draw 3 cards                               |
-| FearPotion      | VULNERABLE_POTION   | Apply 3 Vulnerable to one enemy (targeted) |
-| WeakPotion      | WEAK_POTION         | Apply 3 Weak to one enemy (targeted)       |
-| BloodPotion     | BLOOD_POTION        | Heal 20% of Max HP                         |
-| EnergyPotion    | ENERGY_POTION       | Gain 2 Energy                              |
-
-> **Note:** `FearPotion` in code corresponds to `VULNERABLE_POTION` in the codex (applies Vulnerable).
-> Rename to `VulnerablePotion` when convenient.
+| Code enum       | JAR class id        | Effect                                      |
+|-----------------|---------------------|---------------------------------------------|
+| FirePotion      | FirePotion          | Deal 20 damage to one enemy                 |
+| ExplosivePotion | ExplosivePotion     | Deal 10 damage to ALL enemies               |
+| BlockPotion     | BlockPotion         | Gain 12 Block                               |
+| StrengthPotion  | StrengthPotion      | Gain 2 Strength                             |
+| SwiftPotion     | SwiftPotion         | Draw 3 cards                                |
+| FearPotion      | FearPotion          | Apply 3 Vulnerable to one enemy (targeted)  |
+| WeakPotion      | WeakenPotion        | Apply 3 Weak to one enemy (targeted)        |
+| BloodPotion     | BloodPotion         | Heal 20% of Max HP (Ironclad pool)          |
+| EnergyPotion    | EnergyPotion        | Gain 2 Energy                               |
 
 ---
 
-## Tier 1 — Simple Additions (no new status effects, no new mechanics)
+## Tier 1 — Simple Additions
 
-These can be added with a single match arm in `potions.rs::apply`.
+No new status effects or engine mechanics needed. Each is a single match arm in `potions.rs::apply`.
 
-| Codex ID          | Name               | Effect                                        | Targeted |
-|-------------------|--------------------|-----------------------------------------------|----------|
-| POTION_OF_BINDING | Potion of Binding  | Apply 1 Weak + 1 Vulnerable to ALL enemies    | No       |
-| FORTIFIER         | Fortifier          | Triple current Block                          | No       |
-| CURE_ALL          | Cure All           | Gain 1 Energy + draw 2 cards                  | No       |
-| FYSH_OIL          | Fysh Oil           | Gain 1 Strength + 1 Dexterity                 | No       |
-| FRUIT_JUICE       | Fruit Juice        | Gain 5 Max HP (outside combat: heal + raise max) | No    |
+| JAR class id  | Name              | Effect                                              | Targeted |
+|---------------|-------------------|-----------------------------------------------------|----------|
+| DexterityPotion | Dexterity Potion | Gain 2 Dexterity (parallels Strength for Block)     | No       |
+| FruitJuice    | Fruit Juice       | Gain 5 Max HP                                       | No       |
+
+> **Dexterity** needs a `StatusEffect::Dexterity` that adds to Block calculation — same pattern as Strength adds to damage.
 
 ---
 
 ## Tier 2 — Requires New Status Effects
 
-Each needs a new `StatusEffect` variant and its turn-tick logic.
+Each needs a new `StatusEffect` variant and tick logic in `combat.rs`.
 
-| Codex ID        | Name            | New Status Effect              | Effect                                            |
-|-----------------|-----------------|-------------------------------|---------------------------------------------------|
-| REGEN_POTION    | Regen Potion    | `Regen(n)` — heal n/turn       | Gain 5 Regen                                      |
-| LIQUID_BRONZE   | Liquid Bronze   | `Thorns(n)` — reflect damage   | Gain 3 Thorns                                     |
-| HEART_OF_IRON   | Heart of Iron   | `Plating(n)` — block per hit   | Gain 7 Plating                                    |
-| DEXTERITY_POTION| Dexterity Potion| `Dexterity(n)` — reduces cost  | Gain 2 Dexterity (similar to Strength for Block)  |
-| FLEX_POTION     | Flex Potion     | `StrengthDown(n)` at EoT       | Gain 5 Strength, lose 5 Strength at end of turn   |
-| SPEED_POTION    | Speed Potion    | `DexterityDown(n)` at EoT      | Gain 5 Dexterity, lose 5 Dexterity at end of turn |
-| POWDERED_DEMISE | Powdered Demise | `Burn(n)` — lose n HP/EoT      | Enemy loses 9 HP at end of each of its turns      |
-| SHACKLING_POTION| Shackling Potion| `StrengthDown(n)` on enemies   | ALL enemies lose 7 Strength this turn             |
+| JAR class id    | Name              | Effect                                                   | New status           |
+|-----------------|-------------------|----------------------------------------------------------|----------------------|
+| RegenPotion     | Regen Potion      | Gain 5 Regen (heal n HP at end of each player turn)      | `Regen(n)`           |
+| LiquidBronze    | Liquid Bronze     | Gain 3 Thorns (reflect damage when hit)                  | `Thorns(n)`          |
+| EssenceOfSteel  | Essence of Steel  | Gain 2 Plated Armor (gain n Block at start of each turn) | `PlatedArmor(n)`     |
+| HeartOfIron     | Heart of Iron     | Gain 3 Metallicize (same as Plated Armor, Ironclad pool) | `PlatedArmor(n)` (same) |
+| AncientPotion   | Ancient Potion    | Gain 1 Artifact (negate next debuff)                     | `Artifact(n)`        |
+| SteroidPotion   | Flex Potion       | Gain 5 Strength, lose 5 at end of turn                   | `StrengthDown(n)`    |
+| SpeedPotion     | Speed Potion      | Gain 5 Dexterity, lose 5 at end of turn                  | `DexterityDown(n)`   |
+
+> HeartOfIron and EssenceOfSteel both give Plated Armor / Metallicize — same status, different names in-game.  
+> `StrengthDown` / `DexterityDown` also unlock end-of-turn expiry for the card Flex.
 
 ---
 
 ## Tier 3 — Requires New Mechanics
 
-Needs engine-level work beyond status effects.
-
-| Codex ID              | Name                  | Blocker / New Mechanic                                       |
-|-----------------------|-----------------------|--------------------------------------------------------------|
-| GAMBLERS_BREW         | Gambler's Brew        | Interactive discard: player chooses cards to discard, then draws that many |
-| LIQUID_MEMORIES       | Liquid Memories       | Retrieve card from Discard Pile to Hand (needs discard pile access) |
-| BOTTLED_POTENTIAL     | Bottled Potential     | Shuffle ALL cards into Draw Pile, draw 5                    |
-| DROPLET_OF_PRECOGNITION| Droplet of Precognition| Choose from Draw Pile (needs pile peek UI)                 |
-| DISTILLED_CHAOS       | Distilled Chaos       | Auto-play top 3 cards of Draw Pile                          |
-| FAIRY_IN_A_BOTTLE     | Fairy in a Bottle     | Passive: triggers on lethal damage (needs potion passive hooks) |
-| BLESSING_OF_THE_FORGE | Blessing of the Forge | Upgrade all cards in Hand for rest of combat                |
-| TOUCH_OF_INSANITY     | Touch of Insanity     | Make one hand card free for the rest of combat              |
-| DUPLICATOR            | Duplicator            | Next card played this turn plays an extra time              |
-| STABLE_SERUM          | Stable Serum          | Retain Hand for 2 turns                                     |
-| GIGANTIFICATION_POTION| Gigantification Potion| Next Attack deals triple damage                            |
-| SNECKO_OIL            | Snecko Oil            | Draw 7, randomize costs of all Hand cards this turn         |
-| CLARITY               | Clarity Extract       | Draw 1 now + 1 extra at start of next 3 turns               |
-| RADIANT_TINCTURE      | Radiant Tincture      | Gain 1 Energy now + 1 at start of next 3 turns              |
-| BEETLE_JUICE          | Beetle Juice          | Enemy attacks deal 30% less damage for 4 turns (needs Frail-like debuff) |
-| SHIP_IN_A_BOTTLE      | Ship in a Bottle      | Gain 10 Block now + 10 Block at start of next turn          |
-| ASHWATER              | Ashwater              | Exhaust any number of cards from Hand (player choice)       |
+| JAR class id        | Name              | Blocker                                                          |
+|---------------------|-------------------|------------------------------------------------------------------|
+| GamblersBrew        | Gambler's Brew    | Interactive: player chooses cards to discard, then draws that many |
+| LiquidMemories      | Liquid Memories   | Retrieve card from discard pile to hand                         |
+| DistilledChaosPotion| Distilled Chaos   | Auto-play top 3 cards of draw pile                              |
+| DuplicationPotion   | Duplication Potion| Next card played this turn plays twice                          |
+| FairyPotion         | Fairy in a Bottle | Passive trigger: fires on lethal damage instead of dying        |
+| SneckoOil           | Snecko Oil        | Draw 7 + randomize costs of all hand cards this turn            |
+| SmokeBomb           | Smoke Bomb        | Escape non-boss combat (EscapeCombat effect, no rewards)        |
 
 ---
 
 ## Tier 4 — Card-Choice Potions (complex, skip for now)
 
-| Codex ID         | Name             | Effect                                                  |
-|------------------|------------------|---------------------------------------------------------|
-| ATTACK_POTION    | Attack Potion    | Choose 1 of 3 random Attack cards, add free to Hand    |
-| SKILL_POTION     | Skill Potion     | Choose 1 of 3 random Skill cards, add free to Hand     |
-| POWER_POTION     | Power Potion     | Choose 1 of 3 random Power cards, add free to Hand     |
-| COLORLESS_POTION | Colorless Potion | Choose 1 of 3 random Colorless cards, add free to Hand |
-| OROBIC_ACID      | Orobic Acid      | Add random Attack + Skill + Power to Hand (all free)   |
+Requires a full card-choice UI flow mid-combat — similar complexity to Neow or card rewards.
 
-These require a full card-choice UI flow mid-combat — similar complexity to Neow or card rewards.
-
----
-
-## Out of Scope
-
-| Codex ID          | Name             | Reason                                         |
-|-------------------|------------------|------------------------------------------------|
-| ENTROPIC_BREW     | Entropic Brew    | Fills empty potion slots with random potions — meta potion logic |
-| LUCKY_TONIC       | Lucky Tonic      | Buffer status not yet in game                  |
-| MAZALETHS_GIFT    | Mazaleth's Gift  | Ritual status not yet in game                  |
-| SOLDIERS_STEW     | Soldier's Stew   | Replay mechanic not yet in game                |
+| JAR class id   | Name             | Effect                                                 |
+|----------------|------------------|--------------------------------------------------------|
+| AttackPotion   | Attack Potion    | Choose 1 of 3 random Attack cards, add free to Hand   |
+| SkillPotion    | Skill Potion     | Choose 1 of 3 random Skill cards, add free to Hand    |
+| PowerPotion    | Power Potion     | Choose 1 of 3 random Power cards, add free to Hand    |
+| ColorlessPotion| Colorless Potion | Choose 1 of 3 random Colorless cards, add free to Hand|
 
 ---
 
-## Recommended Implementation Order
+## Out of Scope / Later
 
-1. **Tier 1** (5 potions) — pure logic, no engine changes, TDD straightforward
-2. **Dexterity** + `Dexterity` status effect — high impact, parallels Strength
-3. **Regen** — common enough to be worth adding; simple tick logic
-4. **Thorns** — useful for Ironclad build diversity
-5. **Flex/Speed** — requires `StrengthDown`/`DexterityDown` which also unlocks end-of-turn buff expiry for cards
-6. **Tier 3** items as individual features once prerequisites exist
+| JAR class id  | Name            | Reason                                              |
+|---------------|-----------------|-----------------------------------------------------|
+| EntropicBrew  | Entropic Brew   | Fills empty potion slots with random potions — meta potion logic |
+| BlessingOfTheForge | Blessing of the Forge | Upgrade all hand cards for rest of combat — card upgrade mechanic needed |
+
+---
+
+## Recommended Order
+
+1. **DexterityPotion** — simple, unlocks Dexterity status (important for many relics/cards)
+2. **FruitJuice** — simple max HP gain, no new logic
+3. **RegenPotion** — common Uncommon drop, Regen tick is straightforward  
+4. **LiquidBronze** + **EssenceOfSteel/HeartOfIron** — Thorns + Plated Armor status pair
+5. **SteroidPotion/SpeedPotion** — StrengthDown/DexterityDown (also needed for Flex card)
+6. **AncientPotion** — Artifact (negate debuff mechanic)
+7. **Tier 3** items individually as features
 
 ---
 
 ## Notes
 
 - `random_potions()` pool should grow as each potion is added.
-- Potions that require status effects need corresponding `describe_status` and `format_status` entries in `engine.rs`.
-- All potions that work outside combat (e.g. Fruit Juice for Max HP) need handling in `run.rs` `apply_command` for the `UsePotion` command in Map/Neow states.
+- All new statuses need `describe_status` + display entries in `engine.rs`.
+- Potions usable outside combat (FruitJuice) need handling in `run.rs::apply_command` for Map/Neow states.
