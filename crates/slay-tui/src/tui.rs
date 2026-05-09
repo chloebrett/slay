@@ -11,7 +11,7 @@ use ratatui::{
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatPhase, CombatState, EventKind, EventRoomState, GameState,
-    MapNode, MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
+    MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
     CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
