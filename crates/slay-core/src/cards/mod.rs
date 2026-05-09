@@ -42,6 +42,7 @@ mod bludgeon;
 mod cleave;
 mod clothesline;
 mod dazed;
+mod slimed;
 mod deadly_poison;
 mod defend;
 mod disarm;
@@ -143,6 +144,7 @@ pub enum Card {
     // Skill (exhausts on base)
     LimitBreak(Grade),
     Dazed,
+    Slimed,
     Injury,
     Clumsy,
     Decay,
@@ -290,6 +292,7 @@ impl Card {
             Card::Brutality(g)    => brutality::def(*g),
             Card::LimitBreak(g)   => limit_break::def(*g),
             Card::Dazed           => dazed::def(),
+            Card::Slimed          => slimed::def(),
             Card::Injury          => injury::def(),
             Card::Clumsy          => clumsy::def(),
             Card::Decay           => decay::def(),
@@ -337,7 +340,7 @@ impl Card {
     }
 
     pub fn exhausts(&self) -> bool {
-        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_))
+        matches!(self, Card::Disarm | Card::Impervious(_) | Card::SeeingRed(_) | Card::Pummel(_) | Card::Carnage(_) | Card::LimitBreak(Grade::Base) | Card::Intimidate(_) | Card::Shockwave(_) | Card::FiendFire(_) | Card::Reaper(_) | Card::Feed(_) | Card::Warcry(_) | Card::Slimed)
     }
 
     pub fn grade(&self) -> Option<Grade> {
@@ -358,7 +361,7 @@ impl Card {
             | Card::Evolve(g) | Card::FireBreathing(g) | Card::Feed(g) | Card::FiendFire(g) | Card::Flex(g) | Card::PerfectedStrike(g) | Card::PowerThrough(g) | Card::BurningPact(g) | Card::Warcry(g) | Card::Armaments(g) | Card::GhostlyArmor(g) | Card::SecondWind(g) | Card::Sentinel(g) | Card::AllOutAttack(g) | Card::AllForOne(g) | Card::Reaper(g) | Card::Whirlwind(g)
             | Card::Immolate(g) | Card::Intimidate(g) | Card::Shockwave(g) | Card::LimitBreak(g) => Some(*g),
             Card::SearingBlow(_) |
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => None,
         }
@@ -427,7 +430,7 @@ impl Card {
             Card::Brutality(_)    => Card::Brutality(g),
             Card::LimitBreak(_)   => Card::LimitBreak(g),
             Card::SearingBlow(_) => unreachable!(),
-            Card::Disarm | Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
+            Card::Disarm | Card::Dazed | Card::Slimed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
             Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
             Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => unreachable!(),
         }
@@ -540,6 +543,7 @@ impl Card {
             Card::Brutality(g)    => brutality::id(*g),
             Card::LimitBreak(g)   => limit_break::id(*g),
             Card::Dazed           => dazed::id(),
+            Card::Slimed          => slimed::id(),
             Card::Injury          => injury::id(),
             Card::Clumsy          => clumsy::id(),
             Card::Decay           => decay::id(),
@@ -620,6 +624,7 @@ impl Card {
             Card::Brutality(Base),    Card::Brutality(Plus),
             Card::LimitBreak(Base),   Card::LimitBreak(Plus),
             Card::Dazed,
+            Card::Slimed,
             Card::Injury,
             Card::Clumsy,
             Card::Decay,
@@ -707,6 +712,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
         Card::Shockwave(g)    => shockwave::apply(state, events, *g, target),
         Card::Brutality(g)    => brutality::apply(state, events, *g, target),
         Card::LimitBreak(g)   => limit_break::apply(state, events, *g, target),
+        Card::Slimed => {} // playable, but no effect — just exhausts
         Card::Dazed | Card::Injury | Card::Clumsy | Card::Decay | Card::Regret |
         Card::Wound | Card::Burn | Card::Doubt | Card::Shame |
         Card::Parasite | Card::CurseOfTheBell | Card::AscendersBane => {} // unplayable

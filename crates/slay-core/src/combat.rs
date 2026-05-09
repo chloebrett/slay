@@ -32,7 +32,7 @@ pub struct Enemy {
     pub max_hp: Hp,
     pub block: Block,
     pub move_: Move,
-    pub last_move: Option<Move>,
+    pub move_history: Vec<Move>,
     pub statuses: StatusMap,
 }
 
@@ -121,14 +121,14 @@ impl CombatState {
             .iter()
             .map(|kind| {
                 let max_hp = kind.max_hp();
-                let first_move = enemies::next_move(kind, None, &crate::status::StatusMap::new(), rng);
+                let first_move = enemies::next_move(kind, &[], &crate::status::StatusMap::new(), rng);
                 Enemy {
                     kind: kind.clone(),
                     hp: max_hp,
                     max_hp,
                     block: Block(0),
                     move_: first_move,
-                    last_move: None,
+                    move_history: vec![],
                     statuses: StatusMap::new(),
                 }
             })
@@ -205,6 +205,7 @@ pub enum Event {
     TurnStarted { turn: u32 },
     EnemyPoisoned { damage: i32 },
     EnemyDied,
+    EnemySplit,
     PlayerDied,
     PlayerSelfDamaged { amount: i32 },
     EnergyGained { amount: i32 },
@@ -294,6 +295,8 @@ fn apply_play_card(
             &state.enemies[actual_target].kind,
             &state.enemies[actual_target].statuses,
             hp_lost,
+            state.enemies[actual_target].hp,
+            state.enemies[actual_target].max_hp,
         ) {
             let enemy = &mut state.enemies[actual_target];
             enemy.block.0 += reaction.block_gain;
@@ -482,14 +485,39 @@ pub(crate) fn apply_combat_command(
             if state.phase != CombatPhase::EnemyTurn {
                 return Err(CommandError::InvalidPhase);
             }
-            for i in 0..state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { continue; }
+            let mut i = 0;
+            while i < state.enemies.len() {
+                if state.enemies[i].hp <= Hp(0) { i += 1; continue; }
                 state.enemies[i].block = Block(0);
                 tick_ritual(&mut state.enemies[i].statuses);
                 let is_incapacitated = get_stacks(&state.enemies[i].statuses, StatusEffect::Stunned) > 0
                     || get_stacks(&state.enemies[i].statuses, StatusEffect::Sleep) > 0;
                 if !is_incapacitated {
                     let current_move = state.enemies[i].move_;
+                    if matches!(current_move, Move::LargeSpikeSplit | Move::LargeAcidSplit) {
+                        let current_hp = state.enemies[i].hp;
+                        let spawn_kinds: [EnemyKind; 2] = match state.enemies[i].kind {
+                            EnemyKind::LargeSpike => [EnemyKind::MediumSpike, EnemyKind::MediumSpike],
+                            EnemyKind::LargeAcid  => [EnemyKind::MediumAcid,  EnemyKind::MediumAcid],
+                            _ => unreachable!(),
+                        };
+                        state.enemies.remove(i);
+                        for (offset, kind) in spawn_kinds.into_iter().enumerate() {
+                            let spawn_max_hp = kind.max_hp();
+                            state.enemies.insert(i + offset, Enemy {
+                                kind,
+                                hp: current_hp,
+                                max_hp: spawn_max_hp,
+                                block: Block(0),
+                                move_: Move::MediumSpikeLick,
+                                move_history: vec![],
+                                statuses: StatusMap::new(),
+                            });
+                        }
+                        events.push(Event::EnemySplit);
+                        i += 2;
+                        continue;
+                    }
                     let enemy_statuses = state.enemies[i].statuses.clone();
                     for effect in current_move.def().effects {
                         match effect {
@@ -529,8 +557,9 @@ pub(crate) fn apply_combat_command(
                     state.enemies[i].block.0 += metallicize;
                     events.push(Event::EnemyDefended { amount: metallicize });
                 }
-                let last = state.enemies[i].move_;
-                state.enemies[i].last_move = Some(last);
+                let executed = state.enemies[i].move_;
+                state.enemies[i].move_history.push(executed);
+                i += 1;
             }
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
@@ -554,7 +583,7 @@ pub(crate) fn apply_combat_command(
             state.turn += 1;
             for enemy in state.enemies.iter_mut() {
                 if enemy.hp > Hp(0) {
-                    enemy.move_ = enemies::next_move(&enemy.kind, enemy.last_move, &enemy.statuses, rng);
+                    enemy.move_ = enemies::next_move(&enemy.kind, &enemy.move_history, &enemy.statuses, rng);
                     events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
                 }
             }
@@ -731,7 +760,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             max_hp: Hp(20),
             block: Block(0),
             move_: Move::RedLouseBite,
-            last_move: None,
+            move_history: vec![],
             statuses: StatusMap::new(),
         }],
         turn: 1,
@@ -767,7 +796,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
         max_hp: Hp(20),
         block: Block(0),
         move_: Move::RedLouseBite,
-        last_move: None,
+        move_history: vec![],
         statuses: StatusMap::new(),
     };
     CombatState {
@@ -1470,7 +1499,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            last_move: None,
+            move_history: vec![],
             statuses: StatusMap::new(),
         };
         enemy.statuses.insert(StatusEffect::Strength, 3);
@@ -1484,7 +1513,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            last_move: None,
+            move_history: vec![],
             statuses: StatusMap::new(),
         };
         let mut player_statuses = StatusMap::new();
@@ -1498,7 +1527,7 @@ mod tests {
             kind: EnemyKind::RedLouse,
             hp: Hp(20), max_hp: Hp(20), block: Block(0),
             move_: Move::LouseBite,
-            last_move: None,
+            move_history: vec![],
             statuses: StatusMap::new(),
         };
         enemy.statuses.insert(StatusEffect::Weak, 1);
@@ -1687,7 +1716,7 @@ mod tests {
                 max_hp: Hp(240),
                 block: Block(0),
                 move_: Move::GuardianChargingUp,
-                last_move: None,
+                move_history: vec![],
                 statuses: StatusMap::new(),
             }],
             turn: 1,
@@ -2060,5 +2089,98 @@ mod tests {
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         let mode = get_stacks(&state.enemies[0].statuses, StatusEffect::GuardianMode);
         assert_eq!(mode, 0); // back to Offensive after TwinSlam
+    }
+
+    // --- Large slime split ---
+
+    fn large_spike_with_split() -> CombatState {
+        CombatState {
+            player: Player {
+                hp: Hp(80), max_hp: Hp(80), block: Block(0),
+                energy: Energy(3), max_energy: Energy(3),
+                hand: Vec::new(), draw_pile: Vec::new(),
+                discard_pile: Vec::new(), exhaust_pile: Vec::new(),
+                statuses: StatusMap::new(), deck: Vec::new(),
+                gold: 0, relics: Vec::new(), potions: Vec::new(),
+            },
+            enemies: vec![Enemy {
+                kind: EnemyKind::LargeSpike,
+                hp: Hp(10),
+                max_hp: Hp(67),
+                block: Block(0),
+                move_: Move::LargeSpikeSplit,
+                move_history: vec![],
+                statuses: StatusMap::new(),
+            }],
+            turn: 1,
+            phase: CombatPhase::EnemyTurn,
+            attacks_this_turn: 0, skills_this_turn: 0,
+            attacks_this_combat: 0, skills_this_combat: 0,
+            cards_played_this_turn: 0, extra_draws_next_turn: 0,
+        }
+    }
+
+    #[test]
+    fn split_replaces_large_slime_with_two_medium_slimes() {
+        let state = large_spike_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies.len(), 2);
+    }
+
+    #[test]
+    fn split_produces_medium_spike_slimes() {
+        let state = large_spike_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies.iter().all(|e| e.kind == EnemyKind::MediumSpike));
+    }
+
+    #[test]
+    fn split_slimes_inherit_current_hp() {
+        let state = large_spike_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(state.enemies.iter().all(|e| e.hp == Hp(10)));
+    }
+
+    #[test]
+    fn split_emits_enemy_split_event() {
+        let state = large_spike_with_split();
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(events.contains(&Event::EnemySplit));
+    }
+
+    #[test]
+    fn split_does_not_emit_enemy_died_event() {
+        let state = large_spike_with_split();
+        let (_, events) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert!(!events.contains(&Event::EnemyDied));
+    }
+
+    #[test]
+    fn split_slimes_do_not_act_on_spawn_turn() {
+        let state = large_spike_with_split();
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        // move_history should be empty — no move was executed by spawned slimes
+        assert!(state.enemies.iter().all(|e| e.move_history.is_empty()));
+    }
+
+    #[test]
+    fn split_followed_by_both_medium_slimes_dying_is_victory() {
+        let mut state = large_spike_with_split();
+        state.enemies[0].hp = Hp(1); // so spawned slimes have HP=1
+        let (state, _) = apply_command(state, Command::EndEnemyTurn, &mut rng()).unwrap();
+        assert_eq!(state.enemies.len(), 2);
+        // now kill both medium slimes
+        let mut state = {
+            let mut s = state;
+            s.phase = CombatPhase::PlayerTurn;
+            s.player.energy = Energy(3);
+            s.player.hand = vec![Card::Strike(Grade::Base); 5];
+            s
+        };
+        // Play Strike on enemy 0 and 1
+        let (s, _) = apply_command(state.clone(), Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let (s, _) = apply_command(s, Command::PlayCard(0, 1), &mut rng()).unwrap();
+        // Both should be dead (HP=1 each, Strike deals 6)
+        assert_eq!(s.phase, CombatPhase::Victory);
     }
 }

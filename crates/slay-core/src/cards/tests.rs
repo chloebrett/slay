@@ -2588,3 +2588,29 @@
     fn searing_blow_id_round_trips() {
         assert_eq!(Card::from_id("searing-blow"), Some(Card::SearingBlow(0)));
     }
+
+    // --- Slimed ---
+
+    #[test]
+    fn slimed_card_type_is_status() {
+        assert_eq!(Card::Slimed.card_type(), CardType::Status);
+    }
+
+    #[test]
+    fn slimed_costs_1() {
+        assert_eq!(Card::Slimed.card_cost(), CardCost::Fixed(Energy(1)));
+    }
+
+    #[test]
+    fn slimed_is_playable() {
+        assert!(Card::Slimed.is_playable());
+    }
+
+    #[test]
+    fn slimed_exhausts_when_played() {
+        let mut state = combat_with_hand(vec![Card::Slimed]);
+        state.player.energy = crate::types::Energy(3);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.exhaust_pile.contains(&Card::Slimed));
+        assert!(!state.player.discard_pile.contains(&Card::Slimed));
+    }

@@ -51,6 +51,7 @@ pub fn describe_event(event: &Event) -> String {
         Event::IntentRevealed { intent } => format!("👁  Enemy prepares: {}.", describe_intent(intent)),
         Event::PlayerBlockExpired { amount } => format!("🛡️  Your {amount} block expired."),
         Event::EnemyDied => "💀 Enemy slain!".into(),
+        Event::EnemySplit => "🔀 Slime splits!".into(),
         Event::PlayerDied => "💀 You have been slain.".into(),
         Event::EnemyPoisoned { damage } => format!("{} Poison deals {damage} to enemy.", status_display(StatusEffect::Poison).0),
         Event::TurnEnded => String::new(),
@@ -87,6 +88,7 @@ pub fn describe_intent(intent: &Intent) -> String {
         Intent::AttackDefend(d, b) => format!("⚔️🛡️  Attack {d} + Defend {b}"),
         Intent::Buff => "✨ Buff".into(),
         Intent::Debuff => "💀 Debuff".into(),
+        Intent::Split => "🔀 Split".into(),
     }
 }
 
@@ -153,16 +155,21 @@ pub fn card_type_icon(card_type: CardType) -> &'static str {
 pub fn enemy_icon(enemy: &Enemy) -> &'static str {
     match enemy.kind {
         EnemyKind::Fungibeast      => "🍄",
-        EnemyKind::Cultist         => "🐦",
-        EnemyKind::JawWorm         => "🪱",
-        EnemyKind::SmallSpikeSlime => "🫧",
+        EnemyKind::Cultist         => "🦆",
+        EnemyKind::JawWorm         => "🦈",
+        EnemyKind::SmallSpikeSlime => "🟢",
         EnemyKind::RedLouse        => "🦟",
         EnemyKind::GreenLouse      => "🦟",
-        EnemyKind::SmallAcidSlime  => "🫧",
+        EnemyKind::SmallAcidSlime  => "🟢",
         EnemyKind::BlueSlaver      => "⛓️",
         EnemyKind::RedSlaver       => "⛓️",
-        EnemyKind::TheGuardian     => "🗿",
+        EnemyKind::TheGuardian     => "🦾",
         EnemyKind::GremlinNob      => "👺",
+        EnemyKind::Lagavulin       => "🐚",
+        EnemyKind::LargeSpike      => "🔵",
+        EnemyKind::MediumSpike     => "🔵",
+        EnemyKind::LargeAcid       => "🟢",
+        EnemyKind::MediumAcid      => "🟢",
     }
 }
 

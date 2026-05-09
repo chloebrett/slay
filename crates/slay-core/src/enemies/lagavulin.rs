@@ -4,20 +4,27 @@ use crate::types::Hp;
 
 pub const DEF: EnemyDef = EnemyDef { name: "Lagavulin", max_hp: Hp(109) };
 
-pub fn next_move(last: Option<Move>, statuses: &StatusMap) -> Move {
+pub fn next_move(history: &[Move], statuses: &StatusMap) -> Move {
+    let last = history.last().copied();
+    let prev = history.len().checked_sub(2).and_then(|i| history.get(i)).copied();
     match last {
         None => Move::LagavulinSleep,
         Some(Move::LagavulinSleep) => {
             if get_stacks(statuses, StatusEffect::Sleep) > 0 {
                 Move::LagavulinSleep
             } else {
-                Move::LagavulinAttackA
+                Move::LagavulinAttack
             }
         }
-        Some(Move::LagavulinStunned) => Move::LagavulinAttackA,
-        Some(Move::LagavulinAttackA) => Move::LagavulinAttackB,
-        Some(Move::LagavulinAttackB) => Move::LagavulinSiphonSoul,
-        Some(Move::LagavulinSiphonSoul) => Move::LagavulinAttackA,
-        _ => unreachable!("unexpected last move for Lagavulin"),
+        Some(Move::LagavulinStunned) => Move::LagavulinAttack,
+        Some(Move::LagavulinAttack) => {
+            if prev == Some(Move::LagavulinAttack) {
+                Move::LagavulinSiphonSoul
+            } else {
+                Move::LagavulinAttack
+            }
+        }
+        Some(Move::LagavulinSiphonSoul) => Move::LagavulinAttack,
+        _ => unreachable!("unexpected move in Lagavulin history"),
     }
 }

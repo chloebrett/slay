@@ -44,7 +44,7 @@ impl TestHarness {
                     max_hp: Hp(20),
                     block: Block(0),
                     move_: Move::LouseBite,
-                    last_move: None,
+                    move_history: vec![],
                     statuses: StatusMap::new(),
                 }],
                 turn: 1,
