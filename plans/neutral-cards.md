@@ -47,7 +47,7 @@ These appear as combat rewards and in shops regardless of character.
 | Bandage Up | Skill | 0 | Heal 4 HP. Exhaust. | ✅ |
 | Blind | Skill | 0 | Apply 2 Weak to enemy. Exhaust. | ✅ |
 | Dark Shackles | Skill | 0 | Enemy loses 9 Strength this turn. Exhaust. | ✅ |
-| Deep Breath | Skill | 0 | Shuffle your discard pile into your draw pile. Draw 1. | |
+| Deep Breath | Skill | 0 | Shuffle your discard pile into your draw pile. Draw 1. | ✅ |
 | Finesse | Skill | 0 | Gain 2 Block. Draw 1. | ✅ |
 | Flash of Steel | Attack | 0 | Deal 3 damage. Draw 1. | ✅ |
 | Good Instincts | Skill | 0 | Gain 6 Block. | ✅ |
@@ -58,7 +58,7 @@ These appear as combat rewards and in shops regardless of character.
 | Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | |
 | Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | |
 | Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
-| Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | |
+| Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | ✅ |
 | Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | |
 | Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. | ✅ |
 
@@ -69,7 +69,7 @@ These appear as combat rewards and in shops regardless of character.
 | Discovery | Skill | 1 | Choose 1 of 3 random cards from your class. Add it to hand (costs 0 this turn). Exhaust. | |
 | Dramatic Entrance | Attack | 0 | Innate. Deal 8 damage to ALL enemies. Exhaust. | ✅ |
 | Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | |
-| Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | |
+| Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | ✅ |
 | Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | |
 | Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | ✅ |
 | Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | |
@@ -83,7 +83,7 @@ These appear as combat rewards and in shops regardless of character.
 |------|------|------|--------|------|
 | Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | |
 | Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | |
-| Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | |
+| Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | ✅ |
 | Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
 | Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | |
 | Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | |
@@ -114,18 +114,13 @@ New mechanics required for remaining cards:
 - **On-kill trigger** — detect when an attack kills an enemy (Hand of Greed, Ritual Dagger)
 - **Carry-forward Block lock** — cannot gain Block for N turns (Panic Button)
 - **Delayed damage** — countdown before effect fires (The Bomb)
-- **Discard → draw pile shuffle** — reshuffle (Deep Breath)
 - **Play-count trigger** — track cards played this turn (Panache)
 - **Per-combat card cost change** — permanent this-combat cost reduction (Madness)
-- **Put card on draw pile top/bottom** — needed for Thinking Ahead / Forethought
 
 ## Implementation order
 
 ### Minor — one new mechanism required
 
-- **Deep Breath** — shuffle the discard pile back into the draw pile; needs a reshuffle step (move all discard → draw, then re-shuffle).
-- **Forethought** — place a chosen card from hand at the bottom of the draw pile; needs "insert at index 0" into the draw pile and a card-selection prompt.
-- **Thinking Ahead** — draw 2 then place a chosen card on top of the draw pile; needs "insert at tail" into the draw pile and a card-selection prompt.
 - **Purity** — exhaust up to 3 cards in hand of your choice; `exhaust_card` already exists, needs a multi-card hand-selection prompt.
 - **Enlightenment** — reduce the cost of all cards in hand to 1 this turn; needs a temporary per-card cost override that clears at the start of the next turn.
 - **Jack of All Trades** — add 1 random colorless card to hand; needs a colorless card pool to sample from and an "add to hand" mechanism.
@@ -135,7 +130,6 @@ New mechanics required for remaining cards:
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 - **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.
-- **Master of Strategy** — draw 3 cards. Exhaust. (draw + exhaust, no new mechanism needed)
 
 ### Major — significant new architecture
 - **The Bomb** — deal 40 damage to ALL enemies after a 3-turn countdown; needs a delayed-effect system (a list of pending triggers with turn counters) that fires at end of player turn.

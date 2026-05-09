@@ -3521,3 +3521,81 @@
         assert_eq!(Card::from_id("impatience"),      Some(Card::Impatience(Grade::Base)));
         assert_eq!(Card::from_id("impatience-plus"), Some(Card::Impatience(Grade::Plus)));
     }
+
+    // --- Master of Strategy ---
+
+    #[test]
+    fn master_of_strategy_draws_3_cards() {
+        let mut state = combat_with_hand(vec![Card::MasterOfStrategy(Grade::Base)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base); 3];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 3);
+    }
+
+    #[test]
+    fn master_of_strategy_plus_draws_4_cards() {
+        let mut state = combat_with_hand(vec![Card::MasterOfStrategy(Grade::Plus)]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base); 4];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 4);
+    }
+
+    #[test]
+    fn master_of_strategy_exhausts() {
+        assert!(Card::MasterOfStrategy(Grade::Base).exhausts());
+        assert!(Card::MasterOfStrategy(Grade::Plus).exhausts());
+    }
+
+    #[test]
+    fn master_of_strategy_costs_0() {
+        assert_eq!(Card::MasterOfStrategy(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn master_of_strategy_id_round_trips() {
+        assert_eq!(Card::from_id("master-of-strategy"),      Some(Card::MasterOfStrategy(Grade::Base)));
+        assert_eq!(Card::from_id("master-of-strategy-plus"), Some(Card::MasterOfStrategy(Grade::Plus)));
+    }
+
+    // --- Deep Breath ---
+
+    #[test]
+    fn deep_breath_shuffles_discard_into_draw_pile() {
+        let mut state = combat_with_hand(vec![Card::DeepBreath(Grade::Base)]);
+        state.player.draw_pile = vec![];
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Deep Breath itself goes to discard after play; the 2 original discard cards move to draw+hand
+        assert!(!state.player.discard_pile.contains(&Card::Strike(Grade::Base)));
+        assert!(!state.player.discard_pile.contains(&Card::Defend(Grade::Base)));
+        assert_eq!(state.player.draw_pile.len() + state.player.hand.len(), 2);
+    }
+
+    #[test]
+    fn deep_breath_draws_1_after_shuffle() {
+        let mut state = combat_with_hand(vec![Card::DeepBreath(Grade::Base)]);
+        state.player.draw_pile = vec![];
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn deep_breath_plus_draws_2_after_shuffle() {
+        let mut state = combat_with_hand(vec![Card::DeepBreath(Grade::Plus)]);
+        state.player.draw_pile = vec![];
+        state.player.discard_pile = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 2);
+    }
+
+    #[test]
+    fn deep_breath_costs_0() {
+        assert_eq!(Card::DeepBreath(Grade::Base).energy_cost(), Energy(0));
+    }
+
+    #[test]
+    fn deep_breath_id_round_trips() {
+        assert_eq!(Card::from_id("deep-breath"),      Some(Card::DeepBreath(Grade::Base)));
+        assert_eq!(Card::from_id("deep-breath-plus"), Some(Card::DeepBreath(Grade::Plus)));
+    }
