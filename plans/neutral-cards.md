@@ -16,7 +16,7 @@ Cards available to all characters. ✅ = implemented in Rust.
 | Burn | Status | — | Unplayable. End of turn: take 2 damage. | ✅ |
 | Dazed | Status | — | Unplayable. Ethereal. | ✅ |
 | Slimed | Status | 1 | Exhaust. | ✅ |
-| Void | Status | — | Unplayable. When drawn, lose 1 energy. | |
+| Void | Status | — | Unplayable. When drawn, lose 1 energy. | ✅ |
 | Wound | Status | — | Unplayable. | ✅ |
 
 ## Curses (added to deck by events, relics, or enemy moves)
@@ -34,7 +34,7 @@ Cards available to all characters. ✅ = implemented in Rust.
 | Parasite | Curse | Unplayable. If transformed or removed, lose 3 Max HP. | ✅ |
 | Regret | Curse | Unplayable. End of turn: lose 1 HP per card in hand. | ✅ |
 | Shame | Curse | Unplayable. End of turn: gain 1 Frail. | ✅ |
-| Writhe | Curse | Unplayable. Innate. | |
+| Writhe | Curse | Unplayable. Innate. | ✅ |
 
 ## Colorless reward cards (available to all characters in reward pools / shops)
 
@@ -42,53 +42,53 @@ Not yet implemented. These appear as combat rewards and in shops regardless of c
 
 ### Common
 
-| Card | Type | Cost | Effect |
-|------|------|------|--------|
-| Bandage Up | Skill | 0 | Heal 4 HP. Exhaust. |
-| Blind | Skill | 0 | Apply 2 Weak to enemy. Exhaust. |
-| Dark Shackles | Skill | 0 | Enemy loses 9 Strength this turn. Exhaust. |
-| Deep Breath | Skill | 0 | Shuffle your discard pile into your draw pile. Draw 1. |
-| Finesse | Skill | 0 | Gain 2 Block. Draw 1. |
-| Flash of Steel | Attack | 0 | Deal 3 damage. Draw 1. |
-| Good Instincts | Skill | 0 | Gain 6 Block. |
-| Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. |
-| Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. |
-| Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. |
-| Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. |
-| Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. |
-| Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. |
-| Swift Strike | Attack | 0 | Deal 7 damage. |
-| Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. |
-| Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. |
-| Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. |
+| Card | Type | Cost | Effect | Impl |
+|------|------|------|--------|------|
+| Bandage Up | Skill | 0 | Heal 4 HP. Exhaust. | |
+| Blind | Skill | 0 | Apply 2 Weak to enemy. Exhaust. | ✅ |
+| Dark Shackles | Skill | 0 | Enemy loses 9 Strength this turn. Exhaust. | |
+| Deep Breath | Skill | 0 | Shuffle your discard pile into your draw pile. Draw 1. | |
+| Finesse | Skill | 0 | Gain 2 Block. Draw 1. | ✅ |
+| Flash of Steel | Attack | 0 | Deal 3 damage. Draw 1. | ✅ |
+| Good Instincts | Skill | 0 | Gain 6 Block. | ✅ |
+| Impatience | Skill | 0 | If you have no Attacks in hand, draw 2 cards. | |
+| Jack of All Trades | Skill | 0 | Add 1 random Colorless card to hand. Exhaust. | |
+| Madness | Skill | 1 | A random card in hand costs 0 this combat. Exhaust. | |
+| Panacea | Skill | 0 | Gain 2 Artifact. Exhaust. | |
+| Panic Button | Skill | 0 | Gain 30 Block. Cannot gain Block for 2 turns. Exhaust. | |
+| Purity | Skill | 0 | Exhaust up to 3 cards in hand. Exhaust. | |
+| Swift Strike | Attack | 0 | Deal 7 damage. | ✅ |
+| Thinking Ahead | Skill | 0 | Draw 2. Put 1 card from hand on top of draw pile. Exhaust. | |
+| Transmutation | Skill | X | Create X random Colorless cards in hand. Exhaust. | |
+| Violence | Skill | 0 | Put 3 random Attacks from draw pile into hand. Exhaust. | |
 
 ### Uncommon
 
-| Card | Type | Cost | Effect |
-|------|------|------|--------|
-| Discovery | Skill | 1 | Choose 1 of 3 random cards from your class. Add it to hand (costs 0 this turn). Exhaust. |
-| Dramatic Entrance | Attack | 0 | Innate. Deal 8 damage to ALL enemies. Exhaust. |
-| Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. |
-| Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. |
-| Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. |
-| Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. |
-| Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. |
-| Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. |
-| The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. |
-| Trip | Skill | 0 | Apply 2 Vulnerable to ALL enemies. |
+| Card | Type | Cost | Effect | Impl |
+|------|------|------|--------|------|
+| Discovery | Skill | 1 | Choose 1 of 3 random cards from your class. Add it to hand (costs 0 this turn). Exhaust. | |
+| Dramatic Entrance | Attack | 0 | Innate. Deal 8 damage to ALL enemies. Exhaust. | ✅ |
+| Enlightenment | Skill | 0 | Reduce cost of all cards in hand to 1 this turn. | |
+| Forethought | Skill | 0 | Place a card from hand at the bottom of your draw pile. | |
+| Hand of Greed | Attack | 2 | Deal 20 damage. If this kills a non-minion, gain 20 Gold. | |
+| Mind Blast | Attack | 2 | Innate. Deal damage equal to the size of your draw pile. | |
+| Panache | Power | 0 | Every time you play 5 cards in a turn, deal 10 damage to ALL enemies. | |
+| Sadistic Nature | Power | 0 | Whenever an enemy receives a debuff, deal 5 damage to them. | |
+| The Bomb | Skill | 2 | At the end of 3 turns, deal 40 damage to ALL enemies. | |
+| Trip | Skill | 0 | Apply 2 Vulnerable to ALL enemies. | ✅ |
 
 ### Rare
 
-| Card | Type | Cost | Effect |
-|------|------|------|--------|
-| Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. |
-| Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. |
-| Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. |
-| Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. |
-| Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. |
-| Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. |
-| Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. |
-| Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. |
+| Card | Type | Cost | Effect | Impl |
+|------|------|------|--------|------|
+| Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | |
+| Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | |
+| Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | |
+| Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
+| Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | |
+| Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | |
+| Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. | |
+| Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. | |
 
 ## Upgrade values (colorless)
 
@@ -123,17 +123,6 @@ New mechanics required before implementing colorless reward cards:
 
 ## Implementation order
 
-### Trivial — pure composition of existing mechanics
-
-- **Flash of Steel** — deal damage and draw 1 card; identical pattern to PommelStrike.
-- **Finesse** — gain block and draw 1; same dual-effect pattern, defensive variant.
-- **Good Instincts** — gain 6 block at 0 cost; just a different number on Defend.
-- **Swift Strike** — deal 7 damage at 0 cost; same as Slice but with different numbers.
-- **Blind** — apply 2 Weak to target; Weak status and `apply_status` both exist, same pattern as Inflame.
-- **Trip** — apply 2 Vulnerable to ALL enemies; Vulnerable exists, apply-to-all pattern exists (Thunderclap).
-- **Dramatic Entrance** — innate, deal 8 damage to ALL, exhaust; AoE damage, exhaust, and innate (Brutality+) all exist.
-- **Writhe** — innate unplayable curse; same as AscendersBane but with the innate flag set.
-
 ### Minor — one new mechanism required
 
 - **Bandage Up** — heal N HP and exhaust; Feed already restores max HP so HP healing exists, just needs a Skill wrapper.
@@ -153,7 +142,6 @@ New mechanics required before implementing colorless reward cards:
 - **Sadistic Nature** — deal 5 damage to an enemy whenever they receive a debuff; needs an on-status-applied event hook that fires after `apply_status`.
 - **Pain (curse)** — whenever the player plays a card, lose 1 HP; needs an on-play trigger checked against curses in hand (or a flag on `CombatState`).
 - **Normality (curse)** — cannot play more than 3 cards this turn; needs the same `cards_played_this_turn` counter and enforcement in the play-card path.
-- **Void (status)** — when drawn, immediately lose 1 energy; needs an on-draw hook that runs as cards enter hand.
 - **Hand of Greed** — deal 20 damage and gain 20 gold if this kills the enemy; needs kill detection (checking if HP reached 0) and a gold gain side-effect.
 - **Madness** — a random card in hand permanently costs 0 for this combat; needs a per-card-instance cost override stored alongside each `Card` in the hand.
 - **Apotheosis** — upgrade every card in the player's hand and discard pile in-place for this combat; the run-level deck list is untouched, so no reversion is needed — just iterate both piles calling `card.upgrade()` and replacing the entry.
