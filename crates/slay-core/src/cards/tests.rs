@@ -2614,3 +2614,137 @@
         assert!(state.player.exhaust_pile.contains(&Card::Slimed));
         assert!(!state.player.discard_pile.contains(&Card::Slimed));
     }
+
+    // --- Neutral card id round-trips ---
+
+    #[test]
+    fn flash_of_steel_id_round_trips() {
+        assert_eq!(Card::from_id("flash-of-steel"),      Some(Card::FlashOfSteel(Grade::Base)));
+        assert_eq!(Card::from_id("flash-of-steel-plus"), Some(Card::FlashOfSteel(Grade::Plus)));
+    }
+
+    #[test]
+    fn finesse_id_round_trips() {
+        assert_eq!(Card::from_id("finesse"),      Some(Card::Finesse(Grade::Base)));
+        assert_eq!(Card::from_id("finesse-plus"), Some(Card::Finesse(Grade::Plus)));
+    }
+
+    #[test]
+    fn good_instincts_id_round_trips() {
+        assert_eq!(Card::from_id("good-instincts"),      Some(Card::GoodInstincts(Grade::Base)));
+        assert_eq!(Card::from_id("good-instincts-plus"), Some(Card::GoodInstincts(Grade::Plus)));
+    }
+
+    #[test]
+    fn swift_strike_id_round_trips() {
+        assert_eq!(Card::from_id("swift-strike"),      Some(Card::SwiftStrike(Grade::Base)));
+        assert_eq!(Card::from_id("swift-strike-plus"), Some(Card::SwiftStrike(Grade::Plus)));
+    }
+
+    // --- Flash of Steel ---
+
+    #[test]
+    fn flash_of_steel_deals_3_damage() {
+        let state = combat_with_hand(vec![Card::FlashOfSteel(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(17));
+    }
+
+    #[test]
+    fn flash_of_steel_draws_1_card() {
+        let mut state = combat_with_hand(vec![Card::FlashOfSteel(Grade::Base)]);
+        state.player.draw_pile.push(Card::Strike(Grade::Base));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn flash_of_steel_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::FlashOfSteel(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn flash_of_steel_plus_deals_6_damage() {
+        let state = combat_with_hand(vec![Card::FlashOfSteel(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(14));
+    }
+
+    // --- Finesse ---
+
+    #[test]
+    fn finesse_gains_2_block() {
+        let state = combat_with_hand(vec![Card::Finesse(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(2));
+    }
+
+    #[test]
+    fn finesse_draws_1_card() {
+        let mut state = combat_with_hand(vec![Card::Finesse(Grade::Base)]);
+        state.player.draw_pile.push(Card::Strike(Grade::Base));
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.hand.len(), 1);
+    }
+
+    #[test]
+    fn finesse_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::Finesse(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn finesse_plus_gains_4_block() {
+        let state = combat_with_hand(vec![Card::Finesse(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(4));
+    }
+
+    // --- Good Instincts ---
+
+    #[test]
+    fn good_instincts_gains_6_block() {
+        let state = combat_with_hand(vec![Card::GoodInstincts(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(6));
+    }
+
+    #[test]
+    fn good_instincts_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::GoodInstincts(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn good_instincts_plus_gains_9_block() {
+        let state = combat_with_hand(vec![Card::GoodInstincts(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block, Block(9));
+    }
+
+    // --- Swift Strike ---
+
+    #[test]
+    fn swift_strike_deals_7_damage() {
+        let state = combat_with_hand(vec![Card::SwiftStrike(Grade::Base)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(13));
+    }
+
+    #[test]
+    fn swift_strike_costs_0_energy() {
+        let mut state = combat_with_hand(vec![Card::SwiftStrike(Grade::Base)]);
+        state.player.energy = Energy(0);
+        apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+    }
+
+    #[test]
+    fn swift_strike_plus_deals_10_damage() {
+        let state = combat_with_hand(vec![Card::SwiftStrike(Grade::Plus)]);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp, Hp(10));
+    }
