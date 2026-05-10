@@ -1,6 +1,21 @@
 use ratatui::{Terminal, widgets::Paragraph};
 use slay_wasm::WasmBackend;
 
+fn strip_ansi(s: &str) -> String {
+    let mut out = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            for nc in chars.by_ref() {
+                if nc.is_ascii_alphabetic() { break; }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 #[test]
 fn wasm_backend_draw_paragraph_contains_ansi_sequences() {
     let backend = WasmBackend::new(40, 10);
@@ -10,12 +25,11 @@ fn wasm_backend_draw_paragraph_contains_ansi_sequences() {
         f.render_widget(Paragraph::new("hello wasm"), area);
     }).unwrap();
     let output = terminal.backend().output();
-    // Ratatui diffs against the blank initial buffer, so only non-space characters
-    // are sent. "hello" and "wasm" appear as runs of characters with a cursor
-    // reposition in between where the space was.
-    assert!(output.contains("hello"), "rendered text should contain 'hello': {output:?}");
-    assert!(output.contains("wasm"), "rendered text should contain 'wasm': {output:?}");
     assert!(output.contains('\x1b'), "output should contain ANSI escape sequences: {output:?}");
+    // Each character gets its own absolute cursor position, so check plain text after stripping.
+    let plain = strip_ansi(output);
+    assert!(plain.contains("hello"), "plain text should contain 'hello': {plain:?}");
+    assert!(plain.contains("wasm"), "plain text should contain 'wasm': {plain:?}");
 }
 
 #[test]
