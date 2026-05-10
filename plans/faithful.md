@@ -23,11 +23,13 @@ node fans out in exactly one direction).
 **Phase 2 — Node type assignment (bucket system):**
 
 Three nodes are pre-typed before the bucket is filled:
+
 - Floor 9 (1-indexed): Treasure
 - Floor 15 (1-indexed): Rest Site
 - Floor 1 (1-indexed): Normal enemy (the starting floor)
 
 Remaining untyped nodes are filled from a shuffled bucket. The bucket contains:
+
 - 5% Shops
 - 12% Rest Sites
 - 22% Events
@@ -38,7 +40,12 @@ The bucket is shuffled and nodes are assigned in order. If a type would violate 
 constraint, the next bucket entry is tried. If the bucket is exhausted the node
 becomes a Normal enemy.
 
+**Question mark nodes**
+
+https://www.reddit.com/r/slaythespire/comments/7w51qz/almost_everything_about_question_mark_nodes/
+
 **Adjacency / placement constraints:**
+
 - No consecutive Rests, Shops, or Elites on the same path (if two nodes share a
   parent, they can't both be the same special type — Normal enemies are exempt)
 - If a node has multiple exits, no two exits can be the same special type
@@ -48,6 +55,7 @@ becomes a Normal enemy.
   Rest Site on floor 15)
 
 **Corrections from earlier draft:**
+
 - ~~"53/24/15/8% per-node probability roll"~~ — it's a bucket system, not per-node rolls
 - ~~"Elite+RestSite consecutive forbidden"~~ — Elite then Rest Site IS allowed (common path)
 - ~~"Floor 16 = Boss"~~ — Boss is floor 16 (1-indexed) = index 15
@@ -102,6 +110,7 @@ Swarm of Slimes (3 SmallSpike + 2 SmallAcid).
 **Boss pool**: TheGuardian, SlimeBoss, Hexaghost (all three now included).
 
 **Known gaps:**
+
 - Encounter weights (wiki: 1/1.5/2) are approximated as uniform; pick_encounter shuffles and picks first
 - Gremlin Gang should be 4 random of 5 gremlins each time; currently fixed to same 4
 - Small Slimes internal randomness (MediumSpike+SmallAcid vs MediumAcid+SmallSpike) not implemented
