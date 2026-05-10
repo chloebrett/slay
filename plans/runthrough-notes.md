@@ -1,0 +1,10 @@
+- enemies should disappear when dead
+- need to show statuses in the top bar!
+- need to support "esc" for hiding panels!
+- should be able to look at deck from anywhere
+- track and highlight the player's path in the map.
+- "undo" for debugging?
+- debug build in wasm
+- shouldn't have to press enter to play a card. if there are multi targets, switch to selecting an enemy by number, grey out hand, and any other key cancels.
+- but also the hand should be stateful, i.e. there's a selected card, and you move up/down.
+- taking a potion should be optional

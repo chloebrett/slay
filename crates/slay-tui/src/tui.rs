@@ -48,6 +48,7 @@ pub struct TuiState {
     pub player_flash: Option<std::time::Instant>,
     pub enemy_flashes: Vec<Option<std::time::Instant>>,
     pub hand_scroll: usize,
+    pub map_scroll: usize,
     pub debug: bool,
     pub should_quit: bool,
     #[cfg(feature = "terminal")]
@@ -97,6 +98,7 @@ impl TuiState {
             player_flash: None,
             enemy_flashes,
             hand_scroll: 0,
+            map_scroll: 0,
             debug,
             should_quit: false,
             #[cfg(feature = "terminal")]
@@ -187,6 +189,9 @@ impl TuiState {
                 }
 
                 self.hand_scroll = 0;
+                if matches!(&self.game, GameState::Map(_)) {
+                    self.map_scroll = 0;
+                }
                 for ev in &events {
                     let msg = describe_event(ev);
                     self.push_log(msg);
@@ -370,7 +375,7 @@ fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
 
 fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
     match &tui.game {
-        GameState::Map(map) => render_map(f, area, map),
+        GameState::Map(map) => render_map(f, area, map, tui.map_scroll),
         GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log, &tui.enemy_flashes, tui.hand_scroll),
         GameState::RestSite(rs) => render_rest(f, area, rs),
         GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
@@ -395,7 +400,7 @@ fn render_neow(f: &mut Frame, area: Rect, neow: &slay_core::NeowState) {
     f.render_widget(para, area);
 }
 
-fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
+fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
     let [map_area, choices_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
@@ -410,9 +415,24 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
     let left_margin = inner_width.saturating_sub(map_content_width) / 2;
     let margin = " ".repeat(left_margin);
 
+    let available_height = map_area.height.saturating_sub(2) as usize;
+    let floors_per_screen = (available_height / 3).max(1);
+
+    let (view_bottom, view_top) = if max_floor + 1 <= floors_per_screen {
+        (0, max_floor)
+    } else {
+        let view_bottom = map_scroll.min(max_floor.saturating_sub(floors_per_screen.saturating_sub(1)));
+        let view_top = (view_bottom + floors_per_screen - 1).min(max_floor);
+        (view_bottom, view_top)
+    };
+
     let mut lines: Vec<Line> = Vec::new();
 
-    for floor in (0..=max_floor).rev() {
+    if view_top < max_floor {
+        lines.push(Line::raw(format!("{margin}  ↑ more floors")));
+    }
+
+    for floor in (view_bottom..=view_top).rev() {
         let row = &map.graph.rows[floor];
         let is_boss = row.iter().any(|n| matches!(n, MapNode::Boss(_)));
         let past = floor < map.floor;
@@ -444,7 +464,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
         lines.push(Line::from(spans));
 
         // Connector rows between this floor and the one below
-        if floor > 0 {
+        if floor > view_bottom {
             let lower_row = &map.graph.rows[floor - 1];
             let lower_off = offset_of(lower_row);
             if is_boss {
@@ -461,6 +481,10 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
                 lines.push(Line::styled(format!("{margin}{r1}"), conn_style));
             }
         }
+    }
+
+    if view_bottom > 0 {
+        lines.push(Line::raw(format!("{margin}  ↓ more floors")));
     }
 
     let block = Block::default().borders(Borders::ALL).title(" 🗺️  Map ");
@@ -1113,9 +1137,18 @@ pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) ->
         Key::Char(c) => { tui.input_buf.push(c); true }
         Key::Backspace => { tui.input_buf.pop(); true }
         Key::Enter => { tui.handle_enter(rng); true }
-        Key::Up => { tui.hand_scroll = tui.hand_scroll.saturating_sub(1); true }
+        Key::Up => {
+            if matches!(&tui.game, GameState::Map(_)) {
+                tui.map_scroll += 1;
+            } else {
+                tui.hand_scroll = tui.hand_scroll.saturating_sub(1);
+            }
+            true
+        }
         Key::Down => {
-            if let GameState::Combat { state: cs, .. } = &tui.game {
+            if matches!(&tui.game, GameState::Map(_)) {
+                tui.map_scroll = tui.map_scroll.saturating_sub(1);
+            } else if let GameState::Combat { state: cs, .. } = &tui.game {
                 let max = cs.player.hand.len().saturating_sub(1);
                 tui.hand_scroll = (tui.hand_scroll + 1).min(max);
             }
@@ -1350,10 +1383,25 @@ mod tests {
 
     #[test]
     fn map_screen_shows_node_icons() {
+        // Use a tall terminal so all 15 floors fit without scrolling.
+        // 15 floors × 3 lines + 4 boss lines + 2 borders + 9 fixed rows = ~60 minimum.
         let tui = make_main_run_map_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&tui, 100, 65);
         assert!(out.contains("⚔️"), "expected ⚔️ icon in:\n{out}");
         assert!(out.contains("💀"), "expected 💀 boss icon in:\n{out}");
+    }
+
+    #[test]
+    fn map_scroll_up_reveals_boss_icon() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        // Scroll up many times to reach the boss floor.
+        for _ in 0..20 {
+            handle_key(&mut tui, &mut rng, Key::Up);
+        }
+        let out = render_to_string(&tui, 100, 30);
+        assert!(out.contains("💀"), "expected 💀 boss icon after scrolling up in:\n{out}");
     }
 
     #[test]

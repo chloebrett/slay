@@ -261,13 +261,7 @@ pub enum Target {
 }
 
 fn resolve_target(enemies: &[Enemy], target_idx: usize) -> Result<usize, CommandError> {
-    if target_idx >= enemies.len() {
-        return Err(CommandError::InvalidCard);
-    }
-    if enemies[target_idx].hp > Hp(0) {
-        return Ok(target_idx);
-    }
-    enemies.iter().position(|e| e.hp > Hp(0)).ok_or(CommandError::InvalidCard)
+    if target_idx < enemies.len() { Ok(target_idx) } else { Err(CommandError::InvalidCard) }
 }
 
 fn apply_play_card(
@@ -417,8 +411,9 @@ fn apply_play_card(
         }
         events.push(Event::EnemyDied);
         apply_enemy_died_relics(&mut state, &mut events, rng);
+        state.enemies.remove(actual_target);
     }
-    if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+    if state.enemies.is_empty() {
         state.phase = CombatPhase::Victory;
     }
     Ok((state, events))
@@ -472,23 +467,27 @@ pub(crate) fn apply_combat_command(
                     return Ok((state, events));
                 }
                 damage_all_enemies(&mut state.enemies, &mut events, combust);
-                if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                state.enemies.retain(|e| e.hp > Hp(0));
+                if state.enemies.is_empty() {
                     state.phase = CombatPhase::Victory;
                     return Ok((state, events));
                 }
             }
-            for i in 0..state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { continue; }
+            let mut i = 0;
+            while i < state.enemies.len() {
                 let poison_dmg = drain_poison(&mut state.enemies[i].statuses);
                 if poison_dmg > 0 {
                     state.enemies[i].hp.0 = (state.enemies[i].hp.0 - poison_dmg).max(0);
                     events.push(Event::EnemyPoisoned { damage: poison_dmg });
                     if state.enemies[i].hp <= Hp(0) {
                         events.push(Event::EnemyDied);
+                        state.enemies.remove(i);
+                        continue;
                     }
                 }
+                i += 1;
             }
-            if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+            if state.enemies.is_empty() {
                 state.phase = CombatPhase::Victory;
                 return Ok((state, events));
             }
@@ -505,7 +504,8 @@ pub(crate) fn apply_combat_command(
             state.pending_bombs.retain(|&(_, turns)| turns > 0);
             for damage in fired_bombs {
                 damage_all_enemies(&mut state.enemies, &mut events, damage);
-                if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                state.enemies.retain(|e| e.hp > Hp(0));
+                if state.enemies.is_empty() {
                     state.phase = CombatPhase::Victory;
                     return Ok((state, events));
                 }
@@ -592,13 +592,10 @@ pub(crate) fn apply_combat_command(
                 return Err(CommandError::InvalidPhase);
             }
             for enemy in &mut state.enemies {
-                if enemy.hp > Hp(0) {
-                    enemy.block = Block(0);
-                }
+                enemy.block = Block(0);
             }
             let mut i = 0;
             while i < state.enemies.len() {
-                if state.enemies[i].hp <= Hp(0) { i += 1; continue; }
                 tick_ritual(&mut state.enemies[i].statuses);
                 let is_incapacitated = get_stacks(&state.enemies[i].statuses, StatusEffect::Stunned) > 0
                     || get_stacks(&state.enemies[i].statuses, StatusEffect::Sleep) > 0;
@@ -706,6 +703,10 @@ pub(crate) fn apply_combat_command(
                     if fled {
                         continue;
                     }
+                    if state.enemies[i].hp <= Hp(0) {
+                        state.enemies.remove(i);
+                        continue;
+                    }
                 }
                 tick_statuses(&mut state.enemies[i].statuses);
                 let strength_delta = tick_strength_modifiers(&mut state.enemies[i].statuses);
@@ -724,7 +725,7 @@ pub(crate) fn apply_combat_command(
             if state.player.hp <= Hp(0) {
                 state.phase = CombatPhase::Defeat;
                 events.push(Event::PlayerDied);
-            } else if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+            } else if state.enemies.is_empty() {
                 state.phase = CombatPhase::Victory;
             } else {
                 state.phase = CombatPhase::StartOfPlayerTurn;
@@ -743,17 +744,15 @@ pub(crate) fn apply_combat_command(
             }
             state.player.energy = state.player.max_energy;
             state.turn += 1;
-            let alive_count = state.enemies.iter().filter(|e| e.hp > Hp(0)).count();
+            let alive_count = state.enemies.len();
             for enemy in state.enemies.iter_mut() {
-                if enemy.hp > Hp(0) {
-                    enemy.move_ = if enemy.kind == EnemyKind::ShieldGremlin {
-                        let allies_alive = alive_count.saturating_sub(1);
-                        enemies::shield_gremlin_next_move(&enemy.move_history, allies_alive)
-                    } else {
-                        enemies::next_move(&enemy.kind, &enemy.move_history, &enemy.statuses, rng)
-                    };
-                    events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
-                }
+                enemy.move_ = if enemy.kind == EnemyKind::ShieldGremlin {
+                    let allies_alive = alive_count.saturating_sub(1);
+                    enemies::shield_gremlin_next_move(&enemy.move_history, allies_alive)
+                } else {
+                    enemies::next_move(&enemy.kind, &enemy.move_history, &enemy.statuses, rng)
+                };
+                events.push(Event::IntentRevealed { intent: enemy.move_.intent() });
             }
             let extra = state.extra_draws_next_turn as usize;
             state.attacks_this_turn = 0;
