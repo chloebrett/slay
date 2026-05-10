@@ -109,6 +109,7 @@ impl WasmSession {
 pub struct WasmTuiSession {
     inner: TuiSession,
     game_over_recorded: bool,
+    save_prompt: bool,
 }
 
 #[wasm_bindgen]
@@ -117,21 +118,34 @@ impl WasmTuiSession {
     pub fn new() -> WasmTuiSession {
         let mut rng = AnyRng::Thread(ThreadRng::new());
         #[cfg(feature = "browser")]
-        let state = persist::start_or_resume(&persist::LocalStorage, &mut rng);
+        let (state, save_prompt) = {
+            let has = persist::load_run(&persist::LocalStorage).is_some();
+            (persist::start_or_resume(&persist::LocalStorage, &mut rng), has)
+        };
         #[cfg(not(feature = "browser"))]
-        let state = {
+        let (state, save_prompt) = ({
             let ctx = NeowContext { runs_completed: 0, prev_run_reached_boss: false };
             slay_core::new_run(&mut rng, &ctx)
-        };
-        WasmTuiSession { inner: TuiSession::new(state, rng, false), game_over_recorded: false }
+        }, false);
+        WasmTuiSession { inner: TuiSession::new(state, rng, false), game_over_recorded: false, save_prompt }
     }
 
     pub fn send(&mut self, input: &str) -> String {
+        if self.save_prompt {
+            return match input.to_lowercase().trim() {
+                "c" => self.start_game(),
+                "n" => self.start_fresh(),
+                _   => self.render_save_prompt(),
+            };
+        }
         self.inner.process(input);
         self.after_action()
     }
 
     pub fn send_key(&mut self, key: &str) -> String {
+        if self.save_prompt {
+            return self.render_save_prompt();
+        }
         use slay_tui::key::Key;
         let k = match key {
             "Enter"     => Key::Enter,
@@ -147,7 +161,7 @@ impl WasmTuiSession {
 
     pub fn resize(&mut self, cols: u16, rows: u16) -> String {
         self.inner.resize(cols, rows);
-        self.inner.render()
+        if self.save_prompt { self.render_save_prompt() } else { self.inner.render() }
     }
 
     pub fn is_over(&self) -> bool {
@@ -156,6 +170,80 @@ impl WasmTuiSession {
 }
 
 impl WasmTuiSession {
+    fn start_game(&mut self) -> String {
+        self.save_prompt = false;
+        let _ = self.inner.terminal.clear();
+        self.after_action()
+    }
+
+    fn start_fresh(&mut self) -> String {
+        let size = self.inner.terminal.size().unwrap_or(ratatui::layout::Size { width: 120, height: 40 });
+        #[cfg(feature = "browser")]
+        persist::delete_run(&persist::LocalStorage);
+        let mut rng = AnyRng::Thread(ThreadRng::new());
+        let ctx = {
+            #[cfg(feature = "browser")]
+            { persist::neow_context(&persist::LocalStorage) }
+            #[cfg(not(feature = "browser"))]
+            { NeowContext { runs_completed: 0, prev_run_reached_boss: false } }
+        };
+        let state = slay_core::new_run(&mut rng, &ctx);
+        self.inner = TuiSession::new(state, rng, false);
+        self.inner.resize(size.width, size.height);
+        self.game_over_recorded = false;
+        self.save_prompt = false;
+        let _ = self.inner.terminal.clear();
+        self.after_action()
+    }
+
+    fn render_save_prompt(&mut self) -> String {
+        use ratatui::{
+            layout::{Alignment, Rect},
+            style::{Color, Modifier, Style},
+            text::{Line, Span},
+            widgets::{Block, Borders, Paragraph},
+        };
+
+        self.inner.terminal.draw(|f| {
+            let area = f.area();
+
+            let w = 52u16.min(area.width);
+            let h = 10u16.min(area.height);
+            let popup = Rect::new(
+                (area.width.saturating_sub(w)) / 2,
+                (area.height.saturating_sub(h)) / 2,
+                w, h,
+            );
+
+            let lines = vec![
+                Line::from(""),
+                Line::from(Span::styled("  Save file found.", Style::default())),
+                Line::from(""),
+                Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("[C]", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+                    Span::raw("  Continue run"),
+                ]),
+                Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("[N]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+                    Span::styled("  New run", Style::default().fg(Color::Red)),
+                    Span::styled(" (discards save)", Style::default().fg(Color::DarkGray)),
+                ]),
+                Line::from(""),
+            ];
+
+            let block = Block::default()
+                .title("  ⚔️  Slay the Spire  ")
+                .title_alignment(Alignment::Center)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            f.render_widget(Paragraph::new(lines).block(block), popup);
+        }).ok();
+        self.inner.terminal.backend_mut().take_output()
+    }
+
     fn after_action(&mut self) -> String {
         #[cfg(feature = "browser")]
         self.persist();
