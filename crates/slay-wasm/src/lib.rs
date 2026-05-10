@@ -234,7 +234,7 @@ impl WasmTuiSession {
             ];
 
             let block = Block::default()
-                .title("  ⚔️  Slay the Spire  ")
+                .title("  ⚔️  Slay  ")
                 .title_alignment(Alignment::Center)
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
