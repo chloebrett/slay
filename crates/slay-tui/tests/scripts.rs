@@ -1,4 +1,4 @@
-use slay_core::{AnyRng, NoOpRng, new_simple_run};
+use slay_core::{AnyRng, Command, NeowContext, NoOpRng, new_run, new_simple_run};
 use std::fs;
 use std::path::Path;
 
@@ -7,6 +7,15 @@ fn run_script(script_content: &str) -> String {
     let mut rng = AnyRng::NoOp(NoOpRng);
     let mut output = Vec::<u8>::new();
     slay_tui::game::run_game(state, script_content.as_bytes(), &mut output, &mut rng, true, None);
+    String::from_utf8(output).expect("output is valid utf8")
+}
+
+fn run_seeded_map_script(seed: u64, script_content: &str) -> String {
+    let mut rng = AnyRng::seeded(seed);
+    let state = new_run(&mut rng, &NeowContext::default());
+    let (state, _) = slay_core::apply_command(state, Command::ChooseNeowBlessing(0), &mut rng).unwrap();
+    let mut output = Vec::<u8>::new();
+    slay_tui::game::run_game(state, script_content.as_bytes(), &mut output, &mut rng, false, None);
     String::from_utf8(output).expect("output is valid utf8")
 }
 
@@ -35,4 +44,10 @@ fn snapshot_all_simple_scripts() {
         let output = run_script(&content);
         insta::assert_snapshot!(name, output);
     }
+}
+
+#[test]
+fn snapshot_seeded_map_seed_1() {
+    let output = run_seeded_map_script(1, "");
+    insta::assert_snapshot!(output);
 }
