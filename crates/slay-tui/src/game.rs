@@ -145,8 +145,11 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         let marker = if floor_idx == floor { "▶ " } else { "  " };
         let off = offset_of(row);
         let padding = " ".repeat(off * MAP_COL_STRIDE);
-        let icons: Vec<String> = row.iter()
-            .map(|n| if past { "·· ".to_string() } else { map_node_icon(n).to_string() })
+        let icons: Vec<String> = row.iter().enumerate()
+            .map(|(col, n)| {
+                let visited = map.graph.path.get(floor_idx) == Some(&col);
+                if past && visited { map_node_icon(n).to_string() } else if past { "·· ".to_string() } else { map_node_icon(n).to_string() }
+            })
             .collect();
         if is_boss { let _ = writeln!(w); }
         let _ = writeln!(w, "{marker}{padding}{}", icons.join("        "));
@@ -494,6 +497,7 @@ mod tests {
         let graph = MapGraph {
             rows: vec![vec![MapNode::Combat(vec![]), MapNode::Combat(vec![])]],
             edges: vec![vec![vec![], vec![]]],
+            path: Vec::new(),
         };
         let map = MapState {
             player: bare_player(),
@@ -517,6 +521,7 @@ mod tests {
         let graph = MapGraph {
             rows: vec![vec![MapNode::RestSite]],
             edges: vec![vec![vec![]]],
+            path: Vec::new(),
         };
         let map = MapState {
             player: bare_player(),
@@ -545,6 +550,7 @@ mod tests {
             edges: vec![
                 vec![vec![0]],
             ],
+            path: Vec::new(),
         };
         let map = MapState {
             player: bare_player(),

@@ -8,3 +8,4 @@
 - shouldn't have to press enter to play a card. if there are multi targets, switch to selecting an enemy by number, grey out hand, and any other key cancels.
 - but also the hand should be stateful, i.e. there's a selected card, and you move up/down.
 - taking a potion should be optional
+- maybe the splash screen should be "any key to continue"? then we can do it for wasm too.

@@ -118,6 +118,7 @@ pub struct EventRoomState {
 pub struct MapGraph {
     pub rows: Vec<Vec<MapNode>>,
     pub edges: Vec<Vec<Vec<usize>>>,
+    pub path: Vec<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -316,6 +317,7 @@ pub fn new_simple_run() -> GameState {
     let graph = MapGraph {
         rows: vec![vec![MapNode::Combat(vec![EnemyKind::RedLouse])]],
         edges: vec![vec![vec![]]],
+        path: Vec::new(),
     };
     GameState::Map(MapState { player, floor: 0, graph, available_cols: vec![0], next_enemies: None, scenario: Scenario::Simple })
 }
@@ -602,7 +604,7 @@ pub fn generate_map(config: &MapConfig, rng: &mut impl Rng) -> MapGraph {
     rows.push(vec![MapNode::Boss(pick_encounter(&mut boss_encounters(), rng))]);
     graph_edges.push(vec![vec![]]);
 
-    MapGraph { rows, edges: graph_edges }
+    MapGraph { rows, edges: graph_edges, path: Vec::new() }
 }
 
 fn generate_shop(player: Player, floor: usize, graph: MapGraph, available_cols: Vec<usize>, rng: &mut impl Rng) -> ShopState {
@@ -625,7 +627,7 @@ pub fn apply_command(
     rng: &mut impl Rng,
 ) -> Result<(GameState, Vec<Event>), CommandError> {
     match state {
-        GameState::Map(MapState { player, floor, graph, available_cols, next_enemies, scenario }) => match command {
+        GameState::Map(MapState { player, floor, mut graph, available_cols, next_enemies, scenario }) => match command {
             Command::Spawn(enemies) => {
                 Ok((GameState::Map(MapState { player, floor, graph, available_cols, next_enemies: Some(enemies), scenario }), Vec::new()))
             }
@@ -633,6 +635,7 @@ pub fn apply_command(
                 if !available_cols.contains(&col) {
                     return Err(CommandError::InvalidPhase);
                 }
+                graph.path.push(col);
                 let floor_nodes = graph.rows.get(floor).ok_or(CommandError::InvalidPhase)?;
                 let node = floor_nodes.get(col).cloned().ok_or(CommandError::InvalidCard)?;
                 let next_floor_cols = graph.edges.get(floor)
@@ -2302,6 +2305,7 @@ mod tests {
         let graph = MapGraph {
             rows: vec![vec![MapNode::Event]],
             edges: vec![vec![vec![]]],
+            path: Vec::new(),
         };
         let state = GameState::Map(MapState {
             player: make_player(),
@@ -2381,6 +2385,7 @@ mod tests {
                 vec![MapNode::Combat(vec![EnemyKind::RedLouse])],
             ],
             edges: vec![vec![vec![0]], vec![vec![]]],
+            path: Vec::new(),
         };
         GameState::Map(MapState {
             player: make_player(),
@@ -3694,6 +3699,7 @@ mod tests {
         let graph = MapGraph {
             rows: vec![vec![MapNode::Treasure], vec![MapNode::RestSite]],
             edges: vec![vec![vec![0]], vec![vec![]]],
+            path: Vec::new(),
         };
         GameState::Map(MapState {
             player: make_player(),

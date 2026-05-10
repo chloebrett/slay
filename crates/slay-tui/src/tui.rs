@@ -403,7 +403,7 @@ fn render_neow(f: &mut Frame, area: Rect, neow: &slay_core::NeowState) {
         ratatui::text::Line::raw(""),
     ];
     for (i, blessing) in neow.blessings.iter().enumerate() {
-        lines.push(ratatui::text::Line::raw(format!("  [{}] {:?}", i + 1, blessing)));
+        lines.push(ratatui::text::Line::raw(format!("  [{}] {}", i + 1, blessing.describe())));
     }
     let para = Paragraph::new(lines);
     f.render_widget(para, area);
@@ -458,6 +458,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
         ))];
         for col in 0..row.len() {
             let icon = map_node_icon(&row[col]);
+            let visited = map.graph.path.get(floor) == Some(&col);
             let style = if past {
                 Style::default().fg(Color::DarkGray)
             } else if current && map.available_cols.contains(&col) {
@@ -465,7 +466,8 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
             } else {
                 Style::default()
             };
-            spans.push(Span::styled(if past { "·· ".to_string() } else { icon.to_string() }, style));
+            let text = if past && visited { icon.to_string() } else if past { "·· ".to_string() } else { icon.to_string() };
+            spans.push(Span::styled(text, style));
             if col < row.len() - 1 {
                 spans.push(Span::raw("        "));
             }
@@ -1373,7 +1375,7 @@ mod tests {
                 neow_lament_combats_remaining: 0, reached_boss: false, potion_chance: 0.40,
             },
             floor: 0,
-            graph: MapGraph { rows: vec![vec![node.clone()]], edges: vec![vec![vec![]]] },
+            graph: MapGraph { rows: vec![vec![node.clone()]], edges: vec![vec![vec![]]], path: Vec::new() },
             available_cols: vec![0],
             next_enemies: None,
             scenario: Scenario::Main,
@@ -1595,6 +1597,7 @@ mod tests {
         let graph = slay_core::MapGraph {
             rows: vec![vec![MapNode::Combat(vec![]), MapNode::RestSite]],
             edges: vec![vec![vec![], vec![]]],
+            path: Vec::new(),
         };
         use slay_core::{Block, Energy, Hp, Player, Scenario, StatusMap};
         let state = GameState::Map(MapState {
