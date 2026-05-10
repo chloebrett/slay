@@ -25,6 +25,7 @@ pub struct Player {
     pub potions: Vec<Potion>,
     pub neow_lament_combats_remaining: u32,
     pub reached_boss: bool,
+    pub potion_chance: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -112,6 +113,7 @@ impl CombatState {
             potions: Vec::new(),
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         };
         Self::from_player(player, vec![EnemyKind::RedLouse], rng)
     }
@@ -982,6 +984,7 @@ pub(crate) fn combat_with_hand(hand: Vec<Card>) -> CombatState {
             potions: Vec::new(),
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         },
         enemies: vec![Enemy {
             kind: EnemyKind::RedLouse,
@@ -1014,6 +1017,7 @@ pub(crate) fn combat_with_deck(deck: Vec<Card>, rng: &mut impl Rng) -> CombatSta
         deck,
         neow_lament_combats_remaining: 0,
         reached_boss: false,
+        potion_chance: 0.40,
     };
     CombatState::from_player(player, vec![EnemyKind::RedLouse], rng)
 }
@@ -1047,6 +1051,7 @@ pub(crate) fn combat_with_two_enemies(hand: Vec<Card>) -> CombatState {
             potions: Vec::new(),
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         },
         enemies: vec![louse(), louse()],
         turn: 1,
@@ -2349,6 +2354,7 @@ mod tests {
                 potions: Vec::new(),
                 neow_lament_combats_remaining: 0,
                 reached_boss: false,
+                potion_chance: 0.40,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::TheGuardian,
@@ -2739,7 +2745,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
-                neow_lament_combats_remaining: 0, reached_boss: false,
+                neow_lament_combats_remaining: 0, reached_boss: false, potion_chance: 0.40,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::LargeSpike,
@@ -2833,7 +2839,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
-                neow_lament_combats_remaining: 0, reached_boss: false,
+                neow_lament_combats_remaining: 0, reached_boss: false, potion_chance: 0.40,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::SlimeBoss,
@@ -2928,7 +2934,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
-                neow_lament_combats_remaining: 0, reached_boss: false,
+                neow_lament_combats_remaining: 0, reached_boss: false, potion_chance: 0.40,
             },
             enemies: vec![Enemy {
                 kind: EnemyKind::MadGremlin,
@@ -2970,7 +2976,7 @@ mod tests {
                 discard_pile: Vec::new(), exhaust_pile: Vec::new(),
                 statuses: StatusMap::new(), deck: Vec::new(),
                 gold: 0, relics: Vec::new(), potions: Vec::new(),
-                neow_lament_combats_remaining: 0, reached_boss: false,
+                neow_lament_combats_remaining: 0, reached_boss: false, potion_chance: 0.40,
             },
             enemies: vec![
                 Enemy {

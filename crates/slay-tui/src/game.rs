@@ -475,6 +475,7 @@ mod tests {
             deck: vec![], gold: 0, relics: vec![], potions: vec![],
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         }
     }
 

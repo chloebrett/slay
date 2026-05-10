@@ -203,6 +203,7 @@ pub fn new_run(rng: &mut impl Rng, ctx: &NeowContext) -> GameState {
         potions: Vec::new(),
         neow_lament_combats_remaining: 0,
         reached_boss: false,
+        potion_chance: 0.40,
     };
     let graph = generate_map(rng);
     let blessings = generate_blessings(rng, ctx);
@@ -294,6 +295,7 @@ pub fn new_simple_run() -> GameState {
         potions: Vec::new(),
         neow_lament_combats_remaining: 0,
         reached_boss: false,
+        potion_chance: 0.40,
     };
     let graph = MapGraph {
         rows: vec![vec![MapNode::Combat(vec![EnemyKind::RedLouse])]],
@@ -421,10 +423,12 @@ fn random_potion(rng: &mut impl Rng) -> Potion {
     pool[0]
 }
 
-const POTION_DROP_CHANCE: f64 = 0.40;
-
 fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &mut impl Rng) -> Option<Potion> {
-    if !rng.gen_bool(POTION_DROP_CHANCE) {
+    let dropped = rng.gen_bool(player.potion_chance);
+    if dropped {
+        player.potion_chance = (player.potion_chance - 0.10).max(0.0);
+    } else {
+        player.potion_chance = (player.potion_chance + 0.10).min(1.0);
         return None;
     }
     let potion = random_potion(rng);
@@ -1085,6 +1089,7 @@ mod tests {
             potions: Vec::new(),
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         }
     }
 
@@ -2965,6 +2970,26 @@ mod tests {
             assert!(events.iter().any(|e| matches!(e, Event::PotionAwarded { .. })));
         }
         // (if not yet in CardReward, combat may still be ongoing — that's fine for this test)
+    }
+
+    #[test]
+    fn winning_combat_decreases_potion_chance_when_potion_drops() {
+        // NoOpRng always returns true for gen_bool, so a potion always drops
+        let (state, _) = apply_command(combat_at_floor_0(), Command::WinCombat, &mut rng()).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert!((cr.player.potion_chance - 0.30).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn winning_combat_increases_potion_chance_when_no_potion_drops() {
+        // Set potion_chance to 0.0 so SeededRng will never roll a drop
+        let base = combat_at_floor_0();
+        let GameState::Combat { mut state, floor, is_boss, is_elite, graph, next_floor_cols, scenario } = base else { panic!() };
+        state.player.potion_chance = 0.0;
+        let state = GameState::Combat { state, floor, is_boss, is_elite, graph, next_floor_cols, scenario };
+        let (state, _) = apply_command(state, Command::WinCombat, &mut crate::rng::SeededRng::new(0)).unwrap();
+        let GameState::CardReward(cr) = state else { panic!("expected CardReward") };
+        assert!((cr.player.potion_chance - 0.10).abs() < f64::EPSILON);
     }
 
     // --- DiscardPotion ---

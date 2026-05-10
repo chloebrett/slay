@@ -45,6 +45,7 @@ impl TestHarness {
                     potions: vec![],
                     neow_lament_combats_remaining: 0,
                     reached_boss: false,
+                    potion_chance: 0.40,
                 },
                 enemies: vec![Enemy {
                     kind: EnemyKind::RedLouse,
@@ -227,6 +228,7 @@ fn rest_heals_player_hp() {
             potions: vec![],
             neow_lament_combats_remaining: 0,
             reached_boss: false,
+            potion_chance: 0.40,
         },
         floor: 3,
         graph: generate_map(&mut AnyRng::NoOp(NoOpRng)),
@@ -383,6 +385,7 @@ fn upgrade_at_rest_site_replaces_card_in_deck() {
         potions: vec![],
         neow_lament_combats_remaining: 0,
         reached_boss: false,
+        potion_chance: 0.40,
     };
     let state = GameState::RestSite(RestSiteState { player, floor: 3, graph: generate_map(&mut AnyRng::NoOp(NoOpRng)), available_cols: vec![0, 1] });
     let mut game = TestHarness::with_state(state);

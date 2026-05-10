@@ -25,6 +25,7 @@ fn test_player() -> Player {
         potions: vec![],
         neow_lament_combats_remaining: 0,
         reached_boss: false,
+        potion_chance: 0.40,
     }
 }
 
