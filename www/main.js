@@ -36,7 +36,7 @@ function fit() {
   const { cellW, cellH } = measureCell();
   // Leave a small gutter so scroll bars never appear.
   const cols = Math.max(80, Math.floor((window.innerWidth  - 32) / cellW));
-  const rows = Math.max(24, Math.floor((window.innerHeight - 80) / cellH));
+  const rows = Math.max(24, Math.floor((window.innerHeight - 96) / cellH));
 
   if (cols !== term.cols || rows !== term.rows) {
     term.resize(cols, rows);
