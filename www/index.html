@@ -36,9 +36,24 @@
       overflow: hidden;
       visibility: hidden;
     }
+    #github-link {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      color: #ebdfca88;
+      font-size: 0.75rem;
+      text-decoration: none;
+      font-family: 'Courier Prime', 'Courier New', monospace;
+      transition: color 0.15s;
+      z-index: 10;
+    }
+    #github-link:hover {
+      color: #ebdfca;
+    }
   </style>
 </head>
 <body>
+  <a id="github-link" href="https://github.com/chloebrett/slay" target="_blank" rel="noopener">github.com/chloebrett/slay</a>
   <h1>⚔️ Slay</h1>
   <div id="terminal"></div>
   <script src="xterm/xterm.js"></script>
