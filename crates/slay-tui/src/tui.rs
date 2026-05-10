@@ -345,9 +345,10 @@ fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
                 format!("   🧪 {}", potions.join(" "))
             };
             let hp_str = format!("HP {}/{} {}", p.hp.0, p.max_hp.0, hp_bar(p.hp.0, p.max_hp.0, 20));
+            let status_str = statuses_inline(&p.statuses);
             let rest = format!(
-                "   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}",
-                p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str
+                "   ⚡ {}/{}   🛡 {}   🪙 {}   🃏 {} cards{}{}",
+                p.energy.0, p.max_energy.0, p.block.0, p.gold, p.deck.len(), potion_str, status_str
             );
             let hp_fg = if player_flash_active {
                 Color::LightRed
@@ -902,9 +903,9 @@ fn help_lines(state: &GameState) -> Vec<String> {
     match state {
         GameState::Combat { state: cs, .. } if cs.phase == CombatPhase::PlayerTurn => {
             let mut lines = vec![
-                "play N          play card N from your hand".to_string(),
-                "play N T        play card N targeting enemy T".to_string(),
-                "end             end your turn".to_string(),
+                "N / play N      play card N from your hand".to_string(),
+                "N T / play N T  play card N targeting enemy T".to_string(),
+                "end / e         end your turn".to_string(),
                 "use N           use potion N (targets first enemy)".to_string(),
                 "use N T         use potion N on enemy T".to_string(),
                 "↑ / W           scroll hand up".to_string(),
