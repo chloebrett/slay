@@ -1,5 +1,16 @@
 import init, { WasmTuiSession } from './pkg/slay_wasm.js';
 
+const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  || window.matchMedia('(pointer: coarse) and (max-width: 1024px)').matches;
+if (isMobile) {
+  const container = document.getElementById('terminal');
+  container.style.cssText =
+    'display:flex;align-items:center;justify-content:center;' +
+    'color:#e8e8e8;font-size:1.1rem;text-align:center;padding:2rem;line-height:1.6';
+  container.textContent = 'This game works best on a desktop browser 💻';
+  throw new Error('mobile');
+}
+
 await init();
 
 const term = new Terminal({
