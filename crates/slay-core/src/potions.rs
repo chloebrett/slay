@@ -1,4 +1,3 @@
-use crate::cards::CardType;
 use crate::combat::{CombatPhase, CombatState, Event, Target, apply_status, damage_all_enemies, deal_damage, draw_cards};
 use crate::rng::Rng;
 use crate::status::{StatusEffect, StatusMap, resolve_block, resolve_damage};

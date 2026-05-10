@@ -3688,14 +3688,14 @@
 
     #[test]
     fn purity_prompts_to_choose_card_from_hand() {
-        let mut state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert!(matches!(state.phase, CombatPhase::ChooseCard(crate::combat::ChooseCardContext::Purity { remaining: 3 })));
     }
 
     #[test]
     fn purity_exhaust_chosen_card_and_returns_to_player_turn_when_done() {
-        let mut state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Purity(Grade::Base), Card::Strike(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Choose the one remaining card (Strike)
         let (state, _) = apply_command(state, Command::ChooseHandCard(0), &mut rng()).unwrap();
@@ -3706,7 +3706,7 @@
 
     #[test]
     fn purity_allows_up_to_3_exhaust_choices() {
-        let mut state = combat_with_hand(vec![
+        let state = combat_with_hand(vec![
             Card::Purity(Grade::Base),
             Card::Strike(Grade::Base),
             Card::Strike(Grade::Base),
@@ -3730,7 +3730,7 @@
 
     #[test]
     fn purity_plus_allows_up_to_5_exhaust_choices() {
-        let mut state = combat_with_hand(vec![
+        let state = combat_with_hand(vec![
             Card::Purity(Grade::Plus),
             Card::Strike(Grade::Base), Card::Strike(Grade::Base),
             Card::Strike(Grade::Base), Card::Strike(Grade::Base),
@@ -3864,7 +3864,7 @@
     #[test]
     fn panache_plus_deals_14_aoe_on_5th_card() {
         use crate::status::get_stacks;
-        let mut state = combat_with_hand(vec![Card::Panache(Grade::Plus)]);
+        let state = combat_with_hand(vec![Card::Panache(Grade::Plus)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(get_stacks(&state.player.statuses, StatusEffect::Panache), 14);
     }
@@ -3936,7 +3936,7 @@
     #[test]
     fn artifact_blocks_debuff_applied_to_player() {
         use crate::combat::{apply_status, Target};
-        let mut state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
         let (mut state, mut events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Artifact = 2; apply a debuff to the player — it should be blocked
         let applied = apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Vulnerable, 2, &mut events);
@@ -3948,7 +3948,7 @@
     #[test]
     fn artifact_does_not_block_buffs() {
         use crate::combat::{apply_status, Target};
-        let mut state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
+        let state = combat_with_hand(vec![Card::Panacea(Grade::Base)]);
         let (mut state, mut events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let applied = apply_status(&mut state.player.statuses, Target::Player, StatusEffect::Strength, 2, &mut events);
         assert!(applied);

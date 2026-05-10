@@ -4,6 +4,7 @@ use slay_core::{AnyRng, GameState, NeowContext, NoOpRng, ThreadRng};
 
 mod command;
 mod engine;
+#[cfg(any(feature = "browser", test))]
 mod persist;
 mod render;
 mod wasm_backend;
