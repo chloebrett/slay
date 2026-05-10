@@ -432,6 +432,51 @@ fn crosses_edge(a: usize, b: usize, c: usize, d: usize) -> bool {
     (a < c && b > d) || (a > c && b < d)
 }
 
+fn choose_next_col(col: usize, floor_edges: &[(usize, usize)], config: &MapConfig, rng: &mut impl Rng) -> usize {
+    let mut candidates: Vec<usize> = Vec::new();
+    if col > 0 {
+        for _ in 0..config.side_weight { candidates.push(col - 1); }
+    }
+    for _ in 0..config.straight_weight { candidates.push(col); }
+    if col + 1 < config.num_cols {
+        for _ in 0..config.side_weight { candidates.push(col + 1); }
+    }
+    rng.shuffle(&mut candidates);
+    candidates.into_iter()
+        .find(|&next| !floor_edges.iter().any(|&(a, b)| crosses_edge(a, b, col, next)))
+        .unwrap_or(col)
+}
+
+fn trace_path(start: usize, existing_edges: &mut Vec<Vec<(usize, usize)>>, config: &MapConfig, rng: &mut impl Rng) -> Vec<usize> {
+    let mut path = vec![start];
+    for floor in 0..config.num_floors - 1 {
+        let col = *path.last().unwrap(); // SAFETY: path is always non-empty
+        let next = choose_next_col(col, &existing_edges[floor], config, rng);
+        existing_edges[floor].push((col, next));
+        path.push(next);
+    }
+    path
+}
+
+fn generate_raw_paths(config: &MapConfig, rng: &mut impl Rng) -> Vec<Vec<usize>> {
+    let mut existing_edges: Vec<Vec<(usize, usize)>> = vec![vec![]; config.num_floors - 1];
+    let mut paths: Vec<Vec<usize>> = Vec::new();
+
+    for path_idx in 0..config.num_paths {
+        let start = if path_idx == 1 {
+            let first = paths[0][0];
+            let mut candidates: Vec<usize> = (0..config.num_cols).filter(|&c| c != first).collect();
+            rng.choose(&mut candidates)
+        } else {
+            let mut candidates: Vec<usize> = (0..config.num_cols).collect();
+            rng.choose(&mut candidates)
+        };
+        paths.push(trace_path(start, &mut existing_edges, config, rng));
+    }
+
+    paths
+}
+
 pub fn generate_map(config: &MapConfig, rng: &mut impl Rng) -> MapGraph {
     let converge: Vec<Vec<usize>> = vec![vec![0], vec![0]];
     let single: Vec<Vec<usize>> = vec![vec![0]];
@@ -1923,6 +1968,120 @@ mod tests {
         assert!(!crosses_edge(1, 2, 1, 3), "same source doesn't cross");
         assert!(!crosses_edge(0, 0, 1, 1), "both going straight don't cross");
         assert!(!crosses_edge(3, 3, 3, 3), "identical edges don't cross");
+    }
+
+    // --- choose_next_col ---
+
+    fn default_config() -> MapConfig { MapConfig::default() }
+
+    #[test]
+    fn choose_next_col_at_left_edge_stays_in_bounds() {
+        let cfg = default_config();
+        let result = choose_next_col(0, &[], &cfg, &mut rng());
+        assert!(result < cfg.num_cols, "result {result} out of bounds");
+    }
+
+    #[test]
+    fn choose_next_col_at_right_edge_stays_in_bounds() {
+        let cfg = default_config();
+        let max = cfg.num_cols - 1;
+        let result = choose_next_col(max, &[], &cfg, &mut rng());
+        assert!(result < cfg.num_cols, "result {result} out of bounds");
+    }
+
+    #[test]
+    fn choose_next_col_avoids_crossing_existing_edge() {
+        // Existing edge (2→4). From col=3, going to 2 or 3 would cross it;
+        // only going to 4 is valid.
+        let cfg = default_config();
+        let floor_edges = vec![(2usize, 4usize)];
+        let result = choose_next_col(3, &floor_edges, &cfg, &mut rng());
+        assert_eq!(result, 4, "only col 4 avoids crossing (2→4) from col 3");
+    }
+
+    #[test]
+    fn choose_next_col_falls_back_to_straight_when_all_options_cross() {
+        // Edges (2→4) and (4→2) block all moves from col 3.
+        let cfg = default_config();
+        let floor_edges = vec![(2usize, 4usize), (4usize, 2usize)];
+        let result = choose_next_col(3, &floor_edges, &cfg, &mut rng());
+        assert_eq!(result, 3, "should fall back to straight when all options cross");
+    }
+
+    #[test]
+    fn choose_next_col_straight_weight_affects_candidate_count() {
+        // A config with straight_weight=0 and side_weight=1 never picks straight
+        // (unless forced by crossings). From col=3 with no constraints, must go sideways.
+        let cfg = MapConfig { straight_weight: 0, side_weight: 1, ..MapConfig::default() };
+        // With NoOpRng candidates=[2] (only left, since straight_weight=0 means no straight),
+        // well actually [2, 4] but shuffle is no-op so picks 2.
+        let result = choose_next_col(3, &[], &cfg, &mut rng());
+        assert_ne!(result, 3, "straight_weight=0 should never pick straight from mid col");
+    }
+
+    // --- generate_raw_paths ---
+
+    #[test]
+    fn raw_paths_returns_num_paths() {
+        let cfg = default_config();
+        let paths = generate_raw_paths(&cfg, &mut crate::rng::SeededRng::new(42));
+        assert_eq!(paths.len(), cfg.num_paths);
+    }
+
+    #[test]
+    fn raw_paths_each_has_num_floors_entries() {
+        let cfg = default_config();
+        let paths = generate_raw_paths(&cfg, &mut crate::rng::SeededRng::new(42));
+        for (i, path) in paths.iter().enumerate() {
+            assert_eq!(path.len(), cfg.num_floors, "path {i} has wrong length");
+        }
+    }
+
+    #[test]
+    fn raw_paths_all_cols_in_bounds() {
+        let cfg = default_config();
+        for seed in 0..20u64 {
+            let paths = generate_raw_paths(&cfg, &mut crate::rng::SeededRng::new(seed));
+            for (pi, path) in paths.iter().enumerate() {
+                for (fi, &col) in path.iter().enumerate() {
+                    assert!(col < cfg.num_cols,
+                        "path {pi} floor {fi} col {col} out of bounds (seed {seed})");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn raw_paths_first_two_start_distinct() {
+        let cfg = default_config();
+        for seed in 0..20u64 {
+            let paths = generate_raw_paths(&cfg, &mut crate::rng::SeededRng::new(seed));
+            assert_ne!(paths[0][0], paths[1][0],
+                "first two paths must start from different columns (seed {seed})");
+        }
+    }
+
+    #[test]
+    fn raw_paths_no_crossed_edges() {
+        let cfg = default_config();
+        for seed in 0..20u64 {
+            let paths = generate_raw_paths(&cfg, &mut crate::rng::SeededRng::new(seed));
+            for floor in 0..cfg.num_floors - 1 {
+                let edges: Vec<(usize, usize)> = paths.iter()
+                    .map(|p| (p[floor], p[floor + 1]))
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect();
+                for i in 0..edges.len() {
+                    for j in i + 1..edges.len() {
+                        let (a, b) = edges[i];
+                        let (c, d) = edges[j];
+                        assert!(!crosses_edge(a, b, c, d),
+                            "crossed edges ({a}→{b}) and ({c}→{d}) at floor {floor} (seed {seed})");
+                    }
+                }
+            }
+        }
     }
 
     // --- map generation ---
