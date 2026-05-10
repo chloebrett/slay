@@ -475,8 +475,17 @@ fn player_after_combat(player: Player, gold_gain: i32) -> Player {
     }
 }
 
-const GOLD_PER_COMBAT: i32 = 50;
-const GOLD_PER_ELITE: i32 = 30;
+fn roll_gold(lo: i32, hi: i32, rng: &mut impl Rng) -> i32 {
+    let mut values: Vec<i32> = (lo..=hi).collect();
+    rng.shuffle(&mut values);
+    values[0]
+}
+
+fn combat_gold(is_elite: bool, is_boss: bool, rng: &mut impl Rng) -> i32 {
+    if is_boss        { roll_gold(95, 105, rng) }
+    else if is_elite  { roll_gold(25,  35, rng) }
+    else              { roll_gold(10,  20, rng) }
+}
 
 pub fn apply_command(
     state: GameState,
@@ -513,7 +522,7 @@ pub fn apply_command(
                             combat_state.player.neow_lament_combats_remaining -= 1;
                         }
                         if combat_state.enemies.iter().all(|e| e.hp <= Hp(0)) {
-                            let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                            let gold = combat_gold(is_elite, is_boss, rng);
                             events.push(Event::GoldEarned { amount: gold });
                             let mut victory_player = combat_state.player;
                             apply_end_of_combat_relics(&mut victory_player, &mut events);
@@ -593,7 +602,7 @@ pub fn apply_command(
 
         GameState::Combat { state: mut combat_state, floor, is_boss, is_elite, graph, next_floor_cols, scenario } => match command {
             Command::WinCombat => {
-                let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                let gold = combat_gold(is_elite, is_boss, rng);
                 let mut events = vec![Event::EnemyDied, Event::GoldEarned { amount: gold }];
                 apply_end_of_combat_relics(&mut combat_state.player, &mut events);
                 let mut player = player_after_combat(combat_state.player, gold);
@@ -661,7 +670,7 @@ pub fn apply_command(
                 }
                 match new_combat.phase {
                     CombatPhase::Victory => {
-                        let gold = if is_elite { GOLD_PER_ELITE } else { GOLD_PER_COMBAT };
+                        let gold = combat_gold(is_elite, is_boss, rng);
                         events.push(Event::GoldEarned { amount: gold });
                         let mut victory_player = new_combat.player;
                         apply_end_of_combat_relics(&mut victory_player, &mut events);
@@ -1118,6 +1127,14 @@ mod tests {
         GameState::Combat { state: cs, floor, is_boss: false, is_elite: false, graph, next_floor_cols, scenario: Scenario::Main }
     }
 
+    fn elite_combat_at_floor(floor: usize) -> GameState {
+        match combat_at_floor(floor) {
+            GameState::Combat { state, floor, graph, next_floor_cols, scenario, .. } =>
+                GameState::Combat { state, floor, is_boss: false, is_elite: true, graph, next_floor_cols, scenario },
+            other => other,
+        }
+    }
+
     fn boss_combat() -> GameState {
         let player = make_player();
         let cs = CombatState {
@@ -1305,10 +1322,27 @@ mod tests {
     }
 
     #[test]
-    fn winning_combat_awards_50_gold() {
+    fn winning_normal_combat_awards_10_to_20_gold() {
         let state = combat_at_floor(0);
         let (_, events) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert!(events.contains(&Event::GoldEarned { amount: 50 }));
+        let gold = events.iter().find_map(|e| if let Event::GoldEarned { amount } = e { Some(*amount) } else { None }).unwrap();
+        assert!((10..=20).contains(&gold), "expected 10–20 gold, got {gold}");
+    }
+
+    #[test]
+    fn winning_elite_combat_awards_25_to_35_gold() {
+        let state = elite_combat_at_floor(5);
+        let (_, events) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let gold = events.iter().find_map(|e| if let Event::GoldEarned { amount } = e { Some(*amount) } else { None }).unwrap();
+        assert!((25..=35).contains(&gold), "expected 25–35 gold, got {gold}");
+    }
+
+    #[test]
+    fn winning_boss_combat_awards_95_to_105_gold() {
+        let state = boss_combat();
+        let (_, events) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
+        let gold = events.iter().find_map(|e| if let Event::GoldEarned { amount } = e { Some(*amount) } else { None }).unwrap();
+        assert!((95..=105).contains(&gold), "expected 95–105 gold, got {gold}");
     }
 
     #[test]
@@ -1668,17 +1702,16 @@ mod tests {
 
     #[test]
     fn player_gold_persists_after_multiple_combats() {
-        // Win two combats, check gold = 100
         let state = combat_at_floor(0);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
-        // Now on map floor 1 with 50 gold
-        if let GameState::Map(ref map) = state {
-            assert_eq!(map.player.gold, 50);
-        }
-        // Enter floor 1 combat
+        let gold_after_first = if let GameState::Map(ref map) = state {
+            assert!((10..=20).contains(&map.player.gold), "gold after first combat should be 10–20");
+            map.player.gold
+        } else {
+            panic!("expected Map");
+        };
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
-        // Manually kill the enemy
         let state = if let GameState::Combat { mut state, floor, is_boss, is_elite, graph, next_floor_cols, scenario: Scenario::Main } = state {
             state.enemies[0].hp = Hp(1);
             state.player.hand = vec![Card::Strike(Grade::Base)];
@@ -1689,7 +1722,8 @@ mod tests {
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         if let GameState::Map(map) = state {
-            assert_eq!(map.player.gold, 100);
+            assert!(map.player.gold >= gold_after_first + 10, "gold should increase by at least 10 after second combat");
+            assert!(map.player.gold <= gold_after_first + 20, "gold should increase by at most 20 after second combat");
         } else {
             panic!("expected Map");
         }
@@ -2232,10 +2266,11 @@ mod tests {
     }
 
     #[test]
-    fn win_combat_awards_gold() {
+    fn win_combat_awards_gold_in_range() {
         let state = combat_at_floor(0);
         let (_, events) = apply_command(state, Command::WinCombat, &mut rng()).unwrap();
-        assert!(events.contains(&Event::GoldEarned { amount: 50 }));
+        let gold = events.iter().find_map(|e| if let Event::GoldEarned { amount } = e { Some(*amount) } else { None }).unwrap();
+        assert!((10..=20).contains(&gold), "expected 10–20 gold, got {gold}");
     }
 
     #[test]
