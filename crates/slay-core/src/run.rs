@@ -355,6 +355,64 @@ fn pick_encounter(pool: &mut [Vec<EnemyKind>], rng: &mut impl Rng) -> Vec<EnemyK
     pool[0].clone() // SAFETY: all pools are non-empty
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum BucketKind {
+    Shop,
+    Rest,
+    Event,
+    Elite,
+    Normal,
+}
+
+fn node_bucket(count: usize) -> Vec<BucketKind> {
+    let shops = ((count as f64 * 0.05).round() as usize).max(1);
+    let rests = ((count as f64 * 0.12).round() as usize).max(1);
+    let events = (count as f64 * 0.22).round() as usize;
+    let elites = ((count as f64 * 0.08).round() as usize).max(1);
+    let normals = count.saturating_sub(shops + rests + events + elites);
+    let mut bucket = Vec::with_capacity(count);
+    for _ in 0..shops  { bucket.push(BucketKind::Shop); }
+    for _ in 0..rests  { bucket.push(BucketKind::Rest); }
+    for _ in 0..events { bucket.push(BucketKind::Event); }
+    for _ in 0..elites { bucket.push(BucketKind::Elite); }
+    for _ in 0..normals { bucket.push(BucketKind::Normal); }
+    bucket
+}
+
+fn bucket_kind_valid(kind: BucketKind, floor: usize, prev: Option<&MapNode>) -> bool {
+    match kind {
+        BucketKind::Elite | BucketKind::Rest if floor < 5 => return false,
+        BucketKind::Rest if floor == 13 => return false,
+        _ => {}
+    }
+    let same_as_prev = |prev_node: &MapNode| match (prev_node, kind) {
+        (MapNode::Merchant, BucketKind::Shop) => true,
+        (MapNode::RestSite, BucketKind::Rest) => true,
+        (MapNode::Elite(_), BucketKind::Elite) => true,
+        _ => false,
+    };
+    !prev.is_some_and(same_as_prev)
+}
+
+fn bucket_kind_to_node(kind: BucketKind, floor: usize, rng: &mut impl Rng) -> MapNode {
+    match kind {
+        BucketKind::Shop => MapNode::Merchant,
+        BucketKind::Rest => MapNode::RestSite,
+        BucketKind::Event => MapNode::Event,
+        BucketKind::Elite => MapNode::Elite(pick_encounter(&mut elite_encounters(), rng)),
+        BucketKind::Normal if floor <= 2 => MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+        BucketKind::Normal => MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
+    }
+}
+
+fn assign_bucket_node(floor: usize, prev: Option<&MapNode>, bucket: &mut Vec<BucketKind>, rng: &mut impl Rng) -> MapNode {
+    if let Some(i) = bucket.iter().position(|&k| bucket_kind_valid(k, floor, prev)) {
+        let kind = bucket.remove(i);
+        return bucket_kind_to_node(kind, floor, rng);
+    }
+    MapNode::Combat(pick_encounter(&mut hard_encounters(), rng))
+}
+
 pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
     let converge: Vec<Vec<usize>> = vec![vec![0], vec![0]];
     let single: Vec<Vec<usize>> = vec![vec![0]];
@@ -366,36 +424,33 @@ pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
         MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
         MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
     ]);
-    edges.push(converge); // both starting nodes converge to floor 1
+    edges.push(converge);
 
-    // Floors 1–7: single-column placeholder layout.
-    // Subtask 2 will replace this with probabilistic bucket assignment.
+    // Untyped floors: 1–7 and 9–13 (12 total), assigned from a shuffled bucket.
+    // Floor 8 = Treasure, floor 14 = RestSite, floor 15 = Boss are pre-typed.
+    let mut bucket = node_bucket(12);
+    rng.shuffle(&mut bucket);
+
     for floor in 1usize..=7 {
-        let node = match floor {
-            1 | 2 => MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
-            3 => MapNode::Event,
-            5 => MapNode::Merchant,
-            _ => MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
-        };
+        let prev = rows.last().and_then(|r| r.first());
+        let node = assign_bucket_node(floor, prev, &mut bucket, rng);
         rows.push(vec![node]);
         edges.push(single.clone());
     }
 
-    // Floor 8: fixed Treasure
     rows.push(vec![MapNode::Treasure]);
     edges.push(single.clone());
 
-    // Floors 9–13: single-column hard combat placeholders
-    for _ in 9usize..=13 {
-        rows.push(vec![MapNode::Combat(pick_encounter(&mut hard_encounters(), rng))]);
+    for floor in 9usize..=13 {
+        let prev = rows.last().and_then(|r| r.first());
+        let node = assign_bucket_node(floor, prev, &mut bucket, rng);
+        rows.push(vec![node]);
         edges.push(single.clone());
     }
 
-    // Floor 14: fixed Rest Site
     rows.push(vec![MapNode::RestSite]);
     edges.push(single.clone());
 
-    // Floor 15: Boss
     rows.push(vec![MapNode::Boss(pick_encounter(&mut boss_encounters(), rng))]);
     edges.push(vec![vec![]]);
 
@@ -1711,14 +1766,35 @@ mod tests {
         } else {
             panic!("expected Map");
         };
-        let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
-        let state = if let GameState::Combat { mut state, floor, is_boss, is_elite, graph, next_floor_cols, scenario: Scenario::Main } = state {
-            state.enemies[0].hp = Hp(1);
-            state.player.hand = vec![Card::Strike(Grade::Base)];
-            GameState::Combat { state, floor, is_boss, is_elite, graph, next_floor_cols, scenario: Scenario::Main }
-        } else {
-            panic!("expected Combat");
-        };
+        // Construct a second combat directly, carrying over the player with accumulated gold
+        let GameState::Map(map) = state else { panic!("expected Map") };
+        let state = wrap_combat(
+            CombatState {
+                player: Player {
+                    hand: vec![Card::Strike(Grade::Base)],
+                    draw_pile: Vec::new(),
+                    ..map.player
+                },
+                enemies: vec![Enemy {
+                    kind: EnemyKind::RedLouse,
+                    hp: Hp(1),
+                    max_hp: Hp(20),
+                    block: Block(0),
+                    move_: Move::LouseBite,
+                    move_history: vec![], stolen_gold: 0,
+                    statuses: StatusMap::new(),
+                }],
+                turn: 1,
+                phase: CombatPhase::PlayerTurn,
+                attacks_this_turn: 0,
+                skills_this_turn: 0,
+                attacks_this_combat: 0,
+                skills_this_combat: 0,
+                cards_played_this_turn: 0,
+                extra_draws_next_turn: 0, hand_cost_max: None, hand_cost_max_expires: false, block_locked_turns: 0, pending_bombs: Vec::new(), duplication_pending: false, zero_cost_cards: Vec::new(),
+            },
+            1,
+        );
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         let (state, _) = apply_command(state, Command::ChooseCardReward(0), &mut rng()).unwrap();
         if let GameState::Map(map) = state {
@@ -1858,6 +1934,80 @@ mod tests {
         let graph = test_graph();
         let has_event = graph.rows.iter().flatten().any(|n| matches!(n, MapNode::Event));
         assert!(has_event, "map should contain at least one Event node");
+    }
+
+    #[test]
+    fn map_has_at_least_one_shop() {
+        let graph = test_graph();
+        let has_shop = graph.rows.iter().flatten().any(|n| matches!(n, MapNode::Merchant));
+        assert!(has_shop, "map should contain at least one shop");
+    }
+
+    #[test]
+    fn map_has_at_least_one_elite() {
+        let graph = test_graph();
+        let has_elite = graph.rows.iter().flatten().any(|n| matches!(n, MapNode::Elite(_)));
+        assert!(has_elite, "map should contain at least one elite");
+    }
+
+    #[test]
+    fn no_elite_before_floor_index_5() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            for floor in 1..5usize {
+                for node in &graph.rows[floor] {
+                    assert!(!matches!(node, MapNode::Elite(_)),
+                        "elite at index {floor} (seed {seed}) — elites not allowed before floor 6 (1-indexed)");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn no_rest_before_floor_index_5() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            for floor in 1..5usize {
+                for node in &graph.rows[floor] {
+                    assert!(!matches!(node, MapNode::RestSite),
+                        "rest at index {floor} (seed {seed}) — rests not allowed before floor 6 (1-indexed)");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn no_rest_at_floor_index_13() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            for node in &graph.rows[13] {
+                assert!(!matches!(node, MapNode::RestSite),
+                    "rest at index 13 (seed {seed}) — forbidden directly before guaranteed rest at 14");
+            }
+        }
+    }
+
+    #[test]
+    fn no_consecutive_same_special_type() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            // Check contiguous segments: 1-7 and 9-13 (8 is fixed Treasure, breaks adjacency)
+            let check_pairs: &[(usize, usize)] = &[
+                (1,2),(2,3),(3,4),(4,5),(5,6),(6,7),
+                (9,10),(10,11),(11,12),(12,13),
+            ];
+            for &(a, b) in check_pairs {
+                let prev = &graph.rows[a][0];
+                let curr = &graph.rows[b][0];
+                let same = matches!((prev, curr),
+                    (MapNode::RestSite, MapNode::RestSite)
+                    | (MapNode::Merchant, MapNode::Merchant)
+                    | (MapNode::Elite(_), MapNode::Elite(_))
+                );
+                assert!(!same,
+                    "consecutive {:?} at floors {a}-{b} (seed {seed})", prev);
+            }
+        }
     }
 
     #[test]

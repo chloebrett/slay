@@ -256,39 +256,47 @@ fn set_instant_win(state: &mut GameState) {
 #[test]
 fn full_run_reaches_victory() {
     let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default()));
+    // NoOpRng bucket (unshuffled): [Shop, Rest×3-skipped, Event×3, Elite, Normal×6]
+    // Resulting layout: 0=Combat, 1=Merchant, 2-4=Event, 5=RestSite, 6=Elite,
+    //                   7=Combat, 8=Treasure, 9-13=Combat×5, 14=RestSite, 15=Boss
 
-    // Floors 0-2: 3 easy combats (Cultist)
-    for _ in 0..3 {
-        game.send("").unwrap(); // enter combat
-        set_instant_win(&mut game.state);
-        game.send("play 1").unwrap(); // kill → CardReward
-        game.send("skip").unwrap(); // skip → Map
-    }
-
-    game.send("").unwrap(); // floor 3: enter event room (Ssssserpent)
-    game.send("2").unwrap(); // skip event → Map floor 4
-
-    // Floor 4: 1 hard combat
+    // Floor 0: easy combat
     game.send("").unwrap(); // enter combat
     set_instant_win(&mut game.state);
     game.send("play 1").unwrap(); // kill → CardReward
-    game.send("skip").unwrap(); // skip → Map
+    game.send("skip").unwrap(); // skip → Map floor 1
 
-    game.send("").unwrap(); // floor 5: enter merchant
-    game.send("leave").unwrap(); // leave → Map floor 6
+    // Floor 1: merchant
+    game.send("").unwrap(); // enter shop
+    game.send("leave").unwrap(); // leave → Map floor 2
 
-    // Floors 6-7: 2 hard combats
-    for _ in 0..2 {
-        game.send("").unwrap(); // enter combat
-        set_instant_win(&mut game.state);
-        game.send("play 1").unwrap(); // kill → CardReward
-        game.send("skip").unwrap(); // skip → Map
+    // Floors 2-4: three events (Ssssserpent each time with NoOpRng — decline)
+    for _ in 0..3 {
+        game.send("").unwrap(); // enter event room
+        game.send("2").unwrap(); // decline → Map
     }
 
-    game.send("").unwrap(); // floor 8: enter treasure room
-    game.send("leave").unwrap(); // take relic → Map floor 9
+    // Floor 5: rest site
+    game.send("").unwrap(); // enter rest site
+    game.send("rest").unwrap(); // rest → Map floor 6
 
-    // Floors 9-13: 5 hard combats
+    // Floor 6: elite combat
+    game.send("").unwrap(); // enter elite
+    set_instant_win(&mut game.state);
+    game.send("play 1").unwrap(); // kill → CardReward
+    game.send("skip").unwrap(); // skip → Map floor 7
+
+    // Floor 7: hard combat
+    game.send("").unwrap(); // enter combat
+    set_instant_win(&mut game.state);
+    game.send("play 1").unwrap(); // kill → CardReward
+    game.send("skip").unwrap(); // skip → Map floor 8
+
+    // Floor 8: treasure
+    game.send("").unwrap(); // enter treasure room
+    game.send("leave").unwrap(); // leave → Map floor 9
+
+    // Floors 9-13: five hard combats
     for _ in 0..5 {
         game.send("").unwrap(); // enter combat
         set_instant_win(&mut game.state);
@@ -296,10 +304,12 @@ fn full_run_reaches_victory() {
         game.send("skip").unwrap(); // skip → Map
     }
 
-    game.send("").unwrap(); // floor 14: enter rest site
+    // Floor 14: rest site
+    game.send("").unwrap(); // enter rest site
     game.send("rest").unwrap(); // rest → Map floor 15
 
-    game.send("").unwrap(); // floor 15: enter boss (The Guardian)
+    // Floor 15: boss
+    game.send("").unwrap(); // enter boss
     set_instant_win(&mut game.state);
     game.send("play 1").unwrap(); // kill boss → GameOver
 
