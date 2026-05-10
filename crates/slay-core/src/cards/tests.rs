@@ -4336,3 +4336,113 @@
         assert_eq!(Card::from_id("metamorphosis"),      Some(Card::Metamorphosis(Grade::Base)));
         assert_eq!(Card::from_id("metamorphosis-plus"), Some(Card::Metamorphosis(Grade::Plus)));
     }
+
+    // --- Mayhem ---
+
+    #[test]
+    fn mayhem_costs_2() {
+        assert_eq!(Card::Mayhem(Grade::Base).energy_cost(), Energy(2));
+    }
+
+    #[test]
+    fn mayhem_is_a_power() {
+        assert_eq!(Card::Mayhem(Grade::Base).card_type(), CardType::Power);
+    }
+
+    #[test]
+    fn mayhem_does_not_exhaust() {
+        assert!(!Card::Mayhem(Grade::Base).exhausts());
+    }
+
+    #[test]
+    fn mayhem_auto_plays_top_card_of_draw_pile_at_turn_start() {
+        let mut state = combat_with_hand(vec![Card::Mayhem(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        // Put a Strike at the top of the draw pile (last element = top since vec uses pop)
+        state.player.draw_pile = vec![Card::Strike(Grade::Base)];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let state = full_turn(state);
+        // Strike (6 dmg) should have been auto-played by Mayhem
+        assert_eq!(state.enemies[0].hp.0, 94);
+    }
+
+    #[test]
+    fn mayhem_does_nothing_if_draw_pile_is_empty() {
+        let mut state = combat_with_hand(vec![Card::Mayhem(Grade::Base)]);
+        state.player.energy = Energy(10);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        state.player.draw_pile = vec![];
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        let state = full_turn(state);
+        assert_eq!(state.enemies[0].hp.0, 100);
+    }
+
+    #[test]
+    fn mayhem_id_round_trips() {
+        assert_eq!(Card::from_id("mayhem"),      Some(Card::Mayhem(Grade::Base)));
+        assert_eq!(Card::from_id("mayhem-plus"), Some(Card::Mayhem(Grade::Plus)));
+    }
+
+    // --- Ritual Dagger ---
+
+    #[test]
+    fn ritual_dagger_costs_1() {
+        assert_eq!(Card::RitualDagger(0).energy_cost(), Energy(1));
+    }
+
+    #[test]
+    fn ritual_dagger_is_an_attack() {
+        assert_eq!(Card::RitualDagger(0).card_type(), CardType::Attack);
+    }
+
+    #[test]
+    fn ritual_dagger_exhausts() {
+        assert!(Card::RitualDagger(0).exhausts());
+    }
+
+    #[test]
+    fn ritual_dagger_deals_15_damage() {
+        let mut state = combat_with_hand(vec![Card::RitualDagger(0)]);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp.0, 85);
+    }
+
+    #[test]
+    fn ritual_dagger_with_bonus_3_deals_18_damage() {
+        let mut state = combat_with_hand(vec![Card::RitualDagger(3)]);
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.enemies[0].hp.0, 82);
+    }
+
+    #[test]
+    fn ritual_dagger_upgrades_deck_permanently_on_kill() {
+        let mut state = combat_with_hand(vec![Card::RitualDagger(0)]);
+        state.player.deck = vec![Card::RitualDagger(0)];
+        state.enemies[0].hp = Hp(15); // exactly enough to kill
+        state.enemies[0].max_hp = Hp(15);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        // Deck should now have RitualDagger(3) — +3 for the kill
+        assert!(state.player.deck.contains(&Card::RitualDagger(3)));
+    }
+
+    #[test]
+    fn ritual_dagger_does_not_upgrade_if_no_kill() {
+        let mut state = combat_with_hand(vec![Card::RitualDagger(0)]);
+        state.player.deck = vec![Card::RitualDagger(0)];
+        state.enemies[0].hp = Hp(100);
+        state.enemies[0].max_hp = Hp(100);
+        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
+        assert!(state.player.deck.contains(&Card::RitualDagger(0)));
+    }
+
+    #[test]
+    fn ritual_dagger_id_round_trips() {
+        assert_eq!(Card::from_id("ritual-dagger"), Some(Card::RitualDagger(0)));
+    }

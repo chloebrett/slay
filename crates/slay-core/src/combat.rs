@@ -69,6 +69,7 @@ pub enum CombatPhase {
     ChooseCard(ChooseCardContext),
     Victory,
     Defeat,
+    Fled,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -426,7 +427,7 @@ pub(crate) fn apply_combat_command(
     command: Command,
     rng: &mut impl Rng,
 ) -> Result<(CombatState, Vec<Event>), CommandError> {
-    if matches!(state.phase, CombatPhase::Victory | CombatPhase::Defeat) {
+    if matches!(state.phase, CombatPhase::Victory | CombatPhase::Defeat | CombatPhase::Fled) {
         return Err(CommandError::CombatOver);
     }
 
@@ -784,6 +785,24 @@ pub(crate) fn apply_combat_command(
                 damage_player(&mut state, &mut events, 1);
                 draw_with_triggers(&mut state, 1, &mut events, rng);
                 events.push(Event::CardsDrawn { count: 1 });
+            }
+            let mayhem = get_stacks(&state.player.statuses, StatusEffect::Mayhem);
+            if mayhem > 0 && !state.player.draw_pile.is_empty() {
+                use crate::cards::CardType;
+                let card = state.player.draw_pile.pop().unwrap();
+                events.push(Event::CardPlayed { card: card.clone() });
+                let auto_target = state.enemies.iter().position(|e| e.hp > Hp(0)).unwrap_or(0);
+                crate::cards::apply(&card, &mut state, &mut events, auto_target, rng, 0);
+                if card.exhausts() {
+                    exhaust_card(card, &mut state, &mut events, rng);
+                } else if card.card_type() != CardType::Power {
+                    state.player.discard_pile.push(card);
+                }
+                if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
+                    state.phase = CombatPhase::Victory;
+                    events.push(Event::TurnStarted { turn: state.turn });
+                    return Ok((state, events));
+                }
             }
             draw_with_triggers(&mut state, 5, &mut events, rng);
             if extra > 0 {
@@ -2131,6 +2150,61 @@ mod tests {
     #[test]
     fn duplication_potion_is_not_targeted() {
         assert!(!Potion::DuplicationPotion.is_targeted());
+    }
+
+    // --- Distilled Chaos ---
+
+    #[test]
+    fn distilled_chaos_plays_top_3_draw_pile_cards() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base), Card::Defend(Grade::Base), Card::Defend(Grade::Base)];
+        state.enemies[0].hp = Hp(10);
+        state.enemies[0].max_hp = Hp(10);
+        state.player.potions = vec![Potion::DistilledChaosPotion];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block.0, 15, "3 Defend cards should give 15 block (3*5)");
+        assert!(state.player.draw_pile.is_empty(), "draw pile should be empty");
+    }
+
+    #[test]
+    fn distilled_chaos_plays_fewer_if_draw_pile_has_fewer_than_3() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.draw_pile = vec![Card::Defend(Grade::Base)];
+        state.player.discard_pile.clear();
+        state.player.potions = vec![Potion::DistilledChaosPotion];
+        let hp_before = state.enemies[0].hp;
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.player.block.0, 5, "only 1 Defend card played = 5 block");
+        let _ = hp_before;
+    }
+
+    #[test]
+    fn distilled_chaos_is_not_targeted() {
+        assert!(!Potion::DistilledChaosPotion.is_targeted());
+    }
+
+    // --- Smoke Bomb ---
+
+    #[test]
+    fn smoke_bomb_sets_combat_phase_to_fled() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.potions = vec![Potion::SmokeBomb];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        assert_eq!(state.phase, CombatPhase::Fled);
+    }
+
+    #[test]
+    fn fled_combat_rejects_further_commands() {
+        let mut state = combat_with_hand(vec![]);
+        state.player.potions = vec![Potion::SmokeBomb];
+        let (state, _) = apply_command(state, Command::UsePotion(0, 0), &mut rng()).unwrap();
+        let result = apply_command(state, Command::EndTurn, &mut rng());
+        assert_eq!(result, Err(CommandError::CombatOver));
+    }
+
+    #[test]
+    fn smoke_bomb_is_not_targeted() {
+        assert!(!Potion::SmokeBomb.is_targeted());
     }
 
     // --- Gambler's Brew ---

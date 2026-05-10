@@ -687,6 +687,11 @@ pub fn apply_command(
                         }
                     }
                     CombatPhase::Defeat => Ok((GameState::GameOver { victory: false }, events)),
+                    CombatPhase::Fled => {
+                        let mut player = player_after_combat(new_combat.player, 0);
+                        apply_end_of_combat_relics(&mut player, &mut events);
+                        Ok((GameState::Map(MapState { player, floor, graph, available_cols: next_floor_cols, next_enemies: None, scenario }), events))
+                    }
                     _ => Ok((GameState::Combat { state: new_combat, floor, is_boss, is_elite, graph, next_floor_cols, scenario }, events)),
                 }
             }

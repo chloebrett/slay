@@ -84,9 +84,9 @@ These appear as combat rewards and in shops regardless of character.
 | Apotheosis | Skill | 2 | Upgrade ALL your cards for the rest of combat. Exhaust. | ✅ |
 | Chrysalis | Skill | 2 | Add 3 random Skills that cost 0 to hand. Exhaust. | ✅ |
 | Master of Strategy | Skill | 0 | Draw 3 cards. Exhaust. | ✅ |
-| Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | |
+| Mayhem | Power | 2 | At the start of your turn, play the top card of your draw pile. | ✅ |
 | Metamorphosis | Skill | 2 | Add 3 random Attacks that cost 0 to hand. Exhaust. | ✅ |
-| Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | |
+| Ritual Dagger | Attack | 1 | Deal 15 damage. If this kills a non-minion, permanently increase its damage by 3. Exhaust. | ✅ |
 | Secret Technique | Skill | 0 | Put a Skill from your draw pile into your hand. Exhaust. | ✅ |
 | Secret Weapon | Skill | 0 | Put an Attack from your draw pile into your hand. Exhaust. | ✅ |
 

@@ -1,3 +1,4 @@
+use crate::cards::CardType;
 use crate::combat::{CombatPhase, CombatState, Event, Target, apply_status, damage_all_enemies, deal_damage, draw_cards};
 use crate::rng::Rng;
 use crate::status::{StatusEffect, StatusMap, resolve_block, resolve_damage};
@@ -28,6 +29,8 @@ pub enum Potion {
     DuplicationPotion,
     GamblersBrew,
     LiquidMemories,
+    DistilledChaosPotion,
+    SmokeBomb,
 }
 
 pub struct PotionDef {
@@ -46,6 +49,7 @@ pub fn random_potions(rng: &mut impl Rng, count: usize) -> Vec<Potion> {
         Potion::SteroidPotion, Potion::SpeedPotion,
         Potion::AncientPotion, Potion::DuplicationPotion,
         Potion::GamblersBrew, Potion::LiquidMemories,
+        Potion::DistilledChaosPotion, Potion::SmokeBomb,
     ];
     rng.shuffle(&mut pool);
     pool.into_iter().take(count).collect()
@@ -73,8 +77,10 @@ impl Potion {
             Potion::SpeedPotion      => PotionDef { name: "Speed Potion",        targeted: false },
             Potion::AncientPotion     => PotionDef { name: "Ancient Potion",      targeted: false },
             Potion::DuplicationPotion => PotionDef { name: "Duplication Potion",  targeted: false },
-            Potion::GamblersBrew      => PotionDef { name: "Gambler's Brew",      targeted: false },
-            Potion::LiquidMemories    => PotionDef { name: "Liquid Memories",     targeted: false },
+            Potion::GamblersBrew         => PotionDef { name: "Gambler's Brew",      targeted: false },
+            Potion::LiquidMemories       => PotionDef { name: "Liquid Memories",     targeted: false },
+            Potion::DistilledChaosPotion => PotionDef { name: "Distilled Chaos",     targeted: false },
+            Potion::SmokeBomb            => PotionDef { name: "Smoke Bomb",           targeted: false },
         }
     }
 
@@ -102,8 +108,10 @@ impl Potion {
             Potion::SpeedPotion       => "speed-potion",
             Potion::AncientPotion     => "ancient-potion",
             Potion::DuplicationPotion => "duplication-potion",
-            Potion::GamblersBrew      => "gamblers-brew",
-            Potion::LiquidMemories    => "liquid-memories",
+            Potion::GamblersBrew         => "gamblers-brew",
+            Potion::LiquidMemories       => "liquid-memories",
+            Potion::DistilledChaosPotion => "distilled-chaos",
+            Potion::SmokeBomb            => "smoke-bomb",
         }
     }
 
@@ -118,6 +126,7 @@ impl Potion {
             Potion::SteroidPotion, Potion::SpeedPotion,
             Potion::AncientPotion, Potion::DuplicationPotion,
             Potion::GamblersBrew, Potion::LiquidMemories,
+            Potion::DistilledChaosPotion, Potion::SmokeBomb,
         ]
     }
 
@@ -144,6 +153,8 @@ impl Potion {
             "duplication-potion"  => Some(Potion::DuplicationPotion),
             "gamblers-brew"       => Some(Potion::GamblersBrew),
             "liquid-memories"     => Some(Potion::LiquidMemories),
+            "distilled-chaos"     => Some(Potion::DistilledChaosPotion),
+            "smoke-bomb"          => Some(Potion::SmokeBomb),
             _                     => None,
         }
     }
@@ -244,6 +255,25 @@ pub(crate) fn apply(potion: Potion, target_idx: usize, state: &mut CombatState, 
                 events.push(Event::CardAdded { card });
             }
         }
+        Potion::DistilledChaosPotion => {
+            use crate::cards::CardType;
+            let target = state.enemies.iter().position(|e| e.hp > crate::types::Hp(0)).unwrap_or(0);
+            for _ in 0..3 {
+                if state.player.draw_pile.is_empty() { break; }
+                let card = state.player.draw_pile.pop().unwrap();
+                events.push(Event::CardPlayed { card: card.clone() });
+                crate::cards::apply(&card, state, events, target, rng, 0);
+                if card.exhausts() {
+                    state.player.exhaust_pile.push(card);
+                } else if card.card_type() != CardType::Power {
+                    state.player.discard_pile.push(card);
+                }
+                if state.enemies.iter().all(|e| e.hp <= crate::types::Hp(0)) { break; }
+            }
+        }
+        Potion::SmokeBomb => {
+            state.phase = CombatPhase::Fled;
+        }
     }
     if state.enemies.iter().all(|e| e.hp <= Hp(0)) {
         state.phase = CombatPhase::Victory;
@@ -301,6 +331,7 @@ mod tests {
             Potion::SteroidPotion, Potion::SpeedPotion,
             Potion::AncientPotion, Potion::DuplicationPotion,
             Potion::GamblersBrew, Potion::LiquidMemories,
+            Potion::DistilledChaosPotion, Potion::SmokeBomb,
         ];
         for p in potions {
             assert_eq!(Potion::from_id(p.id()), Some(p), "round-trip failed for {:?}", p);

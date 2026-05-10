@@ -41,6 +41,7 @@ pub enum StatusEffect {
     Thorns,
     Artifact,
     SadisticNature,
+    Mayhem,
 }
 
 impl StatusEffect {

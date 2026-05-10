@@ -140,6 +140,7 @@ pub fn status_display(status: StatusEffect) -> (&'static str, &'static str) {
         StatusEffect::Thorns            => ("🌵", "Thorns"),
         StatusEffect::Artifact          => ("🏺", "Artifact"),
         StatusEffect::SadisticNature    => ("😈", "Sadistic Nature"),
+        StatusEffect::Mayhem            => ("💥", "Mayhem"),
     }
 }
 
