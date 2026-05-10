@@ -57,6 +57,7 @@ pub struct TuiState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PileView {
+    Deck,
     Draw,
     Discard,
     Exhaust,
@@ -131,6 +132,13 @@ impl TuiState {
         if trimmed == "relics" {
             self.show_relics = !self.show_relics;
             self.show_pile = None;
+            return;
+        }
+
+        // d = full deck, available in all states with a player
+        if trimmed == "d" && !matches!(self.game, GameState::GameOver { .. } | GameState::Neow(_)) {
+            self.show_pile = Some(PileView::Deck);
+            self.show_relics = false;
             return;
         }
 
@@ -911,6 +919,7 @@ fn help_lines(state: &GameState) -> Vec<String> {
                 "↑ / W           scroll hand up".to_string(),
                 "↓ / S           scroll hand down".to_string(),
             ];
+            lines.push("relics          view your relics".to_string());
             for (key, _, desc) in PILE_KEYS {
                 lines.push(format!("{key:<16}{desc}"));
             }
@@ -921,27 +930,39 @@ fn help_lines(state: &GameState) -> Vec<String> {
             "N               choose node N".to_string(),
             "↑ / W           scroll map up".to_string(),
             "↓ / S           scroll map down".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::RestSite(_) => vec![
             "rest            heal 30% of max HP".to_string(),
             "upgrade N       upgrade card N in your deck".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::TreasureRoom(_) => vec![
             "take            take the relic".to_string(),
             "skip            leave without taking".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::CardReward(_) => vec![
             "N               add card N to your deck".to_string(),
             "skip            skip the reward".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::Shop(_) => vec![
             "N               buy card N".to_string(),
             "r               buy the relic".to_string(),
             "p               buy the potion".to_string(),
             "leave           leave the shop".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::EventRoom(_) => vec![
             "N               choose option N".to_string(),
+            "d               view full deck".to_string(),
+            "relics          view your relics".to_string(),
         ],
         GameState::GameOver { .. } => vec![],
         GameState::Neow(_) => vec![
@@ -963,11 +984,29 @@ fn render_input(f: &mut Frame, area: Rect, tui: &TuiState) {
 }
 
 fn render_pile_overlay(f: &mut Frame, area: Rect, state: &GameState, view: PileView) {
-    let GameState::Combat { state: cs, .. } = state else { return };
-    let (label, pile) = match view {
-        PileView::Draw    => ("🎴 Draw pile",    &cs.player.draw_pile),
-        PileView::Discard => ("🗑️  Discard pile", &cs.player.discard_pile),
-        PileView::Exhaust => ("🔥 Exhaust pile", &cs.player.exhaust_pile),
+    let player = match state {
+        GameState::Map(m)               => Some(&m.player),
+        GameState::Combat { state, .. } => Some(&state.player),
+        GameState::RestSite(rs)         => Some(&rs.player),
+        GameState::TreasureRoom(tr)     => Some(&tr.player),
+        GameState::CardReward(cr)       => Some(&cr.player),
+        GameState::Shop(shop)           => Some(&shop.player),
+        GameState::EventRoom(er)        => Some(&er.player),
+        GameState::Neow(neow)           => Some(&neow.player),
+        GameState::GameOver { .. }      => None,
+    };
+    let Some(player) = player else { return };
+
+    let combat = match state {
+        GameState::Combat { state, .. } => Some(state),
+        _ => None,
+    };
+
+    let (label, pile): (&str, &[slay_core::Card]) = match view {
+        PileView::Deck    => ("🃏 Deck",          &player.deck),
+        PileView::Draw    => ("🎴 Draw pile",    combat.map_or(&[][..], |cs| &cs.player.draw_pile)),
+        PileView::Discard => ("🗑️  Discard pile", combat.map_or(&[][..], |cs| &cs.player.discard_pile)),
+        PileView::Exhaust => ("🔥 Exhaust pile", combat.map_or(&[][..], |cs| &cs.player.exhaust_pile)),
     };
     let title = format!(" {label} ({}) ", pile.len());
 
@@ -1126,6 +1165,13 @@ pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) ->
     }
     if tui.show_pile.is_some() {
         tui.show_pile = None;
+        return true;
+    }
+    if tui.show_relics {
+        match key {
+            Key::Esc | Key::Enter | Key::Char('r') => tui.show_relics = false,
+            _ => {}
+        }
         return true;
     }
     if tui.show_help {
@@ -1859,6 +1905,46 @@ mod tests {
         tui.input_buf = "z".to_string();
         tui.handle_enter(&mut r);
         assert_eq!(tui.show_pile, Some(PileView::Draw));
+    }
+
+    #[test]
+    fn handle_enter_d_in_map_shows_deck_overlay() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        tui.input_buf = "d".to_string();
+        tui.handle_enter(&mut r);
+        assert_eq!(tui.show_pile, Some(PileView::Deck));
+    }
+
+    #[test]
+    fn handle_enter_d_in_combat_shows_deck_overlay() {
+        let mut tui = make_combat_tui();
+        let mut r = rng();
+        tui.input_buf = "d".to_string();
+        tui.handle_enter(&mut r);
+        assert_eq!(tui.show_pile, Some(PileView::Deck));
+    }
+
+    #[test]
+    fn handle_enter_z_in_combat_still_shows_draw_pile() {
+        let mut tui = make_combat_tui();
+        let mut r = rng();
+        tui.input_buf = "z".to_string();
+        tui.handle_enter(&mut r);
+        assert_eq!(tui.show_pile, Some(PileView::Draw));
+    }
+
+    #[test]
+    fn deck_overlay_renders_card_names_from_player_deck() {
+        use slay_core::Card;
+        let mut tui = make_map_tui();
+        if let GameState::Map(ref mut m) = tui.game {
+            m.player.deck = vec![Card::Strike(slay_core::Grade::Base), Card::Defend(slay_core::Grade::Base)];
+        }
+        tui.show_pile = Some(PileView::Deck);
+        let out = render_to_string(&tui, 100, 30);
+        assert!(out.contains("Strike"), "expected Strike in deck overlay:\n{out}");
+        assert!(out.contains("Defend"), "expected Defend in deck overlay:\n{out}");
     }
 
     #[test]
