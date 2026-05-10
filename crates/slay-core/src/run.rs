@@ -356,62 +356,46 @@ fn pick_encounter(pool: &mut [Vec<EnemyKind>], rng: &mut impl Rng) -> Vec<EnemyK
 }
 
 pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
-    let both: Vec<Vec<usize>> = vec![vec![0, 1], vec![0, 1]];
     let converge: Vec<Vec<usize>> = vec![vec![0], vec![0]];
-    let from_one: Vec<Vec<usize>> = vec![vec![0, 1]];
+    let single: Vec<Vec<usize>> = vec![vec![0]];
     let mut rows: Vec<Vec<MapNode>> = Vec::new();
     let mut edges: Vec<Vec<Vec<usize>>> = Vec::new();
 
-    // Floors 0–2: easy combat section
-    // Floor 0: two easy combats
+    // Floor 0: two starting easy combat choices (eventually expandable to 4)
     rows.push(vec![
         MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
         MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
     ]);
-    edges.push(both.clone());
+    edges.push(converge); // both starting nodes converge to floor 1
 
-    // Floor 1: easy combat + event
-    rows.push(vec![MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)), MapNode::Event]);
-    edges.push(both.clone());
+    // Floors 1–7: single-column placeholder layout.
+    // Subtask 2 will replace this with probabilistic bucket assignment.
+    for floor in 1usize..=7 {
+        let node = match floor {
+            1 | 2 => MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+            3 => MapNode::Event,
+            5 => MapNode::Merchant,
+            _ => MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
+        };
+        rows.push(vec![node]);
+        edges.push(single.clone());
+    }
 
-    // Floor 2: two easy combats, then converge
-    rows.push(vec![
-        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
-        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
-    ]);
-    edges.push(converge.clone());
-
-    // Floor 3: Merchant
-    rows.push(vec![MapNode::Merchant]);
-    edges.push(from_one.clone());
-
-    // Floor 4: hard combat + event
-    rows.push(vec![MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)), MapNode::Event]);
-    edges.push(both.clone());
-
-    // Floor 5: hard combat + elite (first elite available)
-    rows.push(vec![
-        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
-        MapNode::Elite(pick_encounter(&mut elite_encounters(), rng)),
-    ]);
-    edges.push(converge.clone());
-
-    // Floor 6: Rest site
-    rows.push(vec![MapNode::RestSite]);
-    edges.push(from_one.clone());
-
-    // Floor 7: two hard combats
-    rows.push(vec![
-        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
-        MapNode::Combat(pick_encounter(&mut hard_encounters(), rng)),
-    ]);
-    edges.push(converge.clone());
-
-    // Floor 8: Treasure
+    // Floor 8: fixed Treasure
     rows.push(vec![MapNode::Treasure]);
-    edges.push(vec![vec![0]]);
+    edges.push(single.clone());
 
-    // Floor 9: Boss
+    // Floors 9–13: single-column hard combat placeholders
+    for _ in 9usize..=13 {
+        rows.push(vec![MapNode::Combat(pick_encounter(&mut hard_encounters(), rng))]);
+        edges.push(single.clone());
+    }
+
+    // Floor 14: fixed Rest Site
+    rows.push(vec![MapNode::RestSite]);
+    edges.push(single.clone());
+
+    // Floor 15: Boss
     rows.push(vec![MapNode::Boss(pick_encounter(&mut boss_encounters(), rng))]);
     edges.push(vec![vec![]]);
 
@@ -1309,7 +1293,7 @@ mod tests {
         let graph = test_graph();
         let state = GameState::Map(MapState {
             player: make_player(),
-            floor: 9,
+            floor: 15,
             graph,
             available_cols: vec![0],
             next_enemies: None,
@@ -1547,7 +1531,7 @@ mod tests {
 
     #[test]
     fn choosing_rest_site_enters_rest_state() {
-        let (state, _) = apply_command(map_at_floor(6), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (state, _) = apply_command(map_at_floor(14), Command::ChooseNode(0), &mut rng()).unwrap();
         assert!(matches!(state, GameState::RestSite(_)));
     }
 
@@ -1837,25 +1821,36 @@ mod tests {
     }
 
     #[test]
-    fn map_has_ten_floors() {
-        assert_eq!(test_graph().rows.len(), 10);
+    fn map_has_sixteen_floors() {
+        assert_eq!(test_graph().rows.len(), 16);
     }
 
     #[test]
-    fn convergence_floors_have_one_column() {
-        let graph = test_graph();
-        assert_eq!(graph.rows[3].len(), 1);
-        assert_eq!(graph.rows[6].len(), 1);
-        assert_eq!(graph.rows[8].len(), 1);
-        assert_eq!(graph.rows[9].len(), 1);
+    fn floor_0_has_two_starting_columns() {
+        assert_eq!(test_graph().rows[0].len(), 2);
     }
 
     #[test]
-    fn combat_floors_have_two_columns() {
+    fn floors_1_to_15_have_one_column() {
         let graph = test_graph();
-        for floor in [0usize, 1, 2, 4, 5, 7] {
-            assert_eq!(graph.rows[floor].len(), 2, "floor {floor} should have 2 columns");
+        for floor in 1..=15 {
+            assert_eq!(graph.rows[floor].len(), 1, "floor {floor} should have 1 column");
         }
+    }
+
+    #[test]
+    fn floor_8_is_treasure() {
+        assert!(test_graph().rows[8].iter().all(|n| matches!(n, MapNode::Treasure)));
+    }
+
+    #[test]
+    fn floor_14_is_rest_site() {
+        assert!(test_graph().rows[14].iter().all(|n| matches!(n, MapNode::RestSite)));
+    }
+
+    #[test]
+    fn floor_15_is_boss() {
+        assert!(test_graph().rows[15].iter().all(|n| matches!(n, MapNode::Boss(_))));
     }
 
     #[test]
@@ -1863,18 +1858,6 @@ mod tests {
         let graph = test_graph();
         let has_event = graph.rows.iter().flatten().any(|n| matches!(n, MapNode::Event));
         assert!(has_event, "map should contain at least one Event node");
-    }
-
-    #[test]
-    fn floor_1_has_an_event_node() {
-        let graph = test_graph();
-        assert!(graph.rows[1].iter().any(|n| matches!(n, MapNode::Event)));
-    }
-
-    #[test]
-    fn floor_4_has_an_event_node() {
-        let graph = test_graph();
-        assert!(graph.rows[4].iter().any(|n| matches!(n, MapNode::Event)));
     }
 
     #[test]
@@ -1913,24 +1896,6 @@ mod tests {
     }
 
     #[test]
-    fn boss_floor_node_is_boss_variant() {
-        let graph = test_graph();
-        assert!(matches!(graph.rows[9][0], MapNode::Boss(_)));
-    }
-
-    #[test]
-    fn merchant_floor_node_is_merchant_variant() {
-        let graph = test_graph();
-        assert!(matches!(graph.rows[3][0], MapNode::Merchant));
-    }
-
-    #[test]
-    fn rest_floor_node_is_restsite_variant() {
-        let graph = test_graph();
-        assert!(matches!(graph.rows[6][0], MapNode::RestSite));
-    }
-
-    #[test]
     fn edges_from_combat_floor_reach_next_floor_columns() {
         let graph = test_graph();
         for col in 0..graph.rows[0].len() {
@@ -1945,24 +1910,6 @@ mod tests {
     fn available_cols_starts_as_both_columns() {
         let GameState::Map(map) = run_after_neow() else { panic!("expected Map") };
         assert_eq!(map.available_cols, vec![0, 1]);
-    }
-
-    #[test]
-    fn segment_internal_floors_have_branching_edges() {
-        let graph = test_graph();
-        let both = vec![vec![0usize, 1], vec![0, 1]];
-        for floor in [0usize, 1, 4] {
-            assert_eq!(graph.edges[floor], both, "floor {floor} should have branching edges");
-        }
-    }
-
-    #[test]
-    fn segment_end_floors_have_converging_edges() {
-        let graph = test_graph();
-        let converge = vec![vec![0usize], vec![0]];
-        for floor in [2usize, 5, 7] {
-            assert_eq!(graph.edges[floor], converge, "floor {floor} should have converging edges");
-        }
     }
 
     #[test]
@@ -1990,15 +1937,33 @@ mod tests {
 
     // --- shop ---
 
+    fn map_with_merchant() -> GameState {
+        let graph = MapGraph {
+            rows: vec![
+                vec![MapNode::Merchant],
+                vec![MapNode::Combat(vec![EnemyKind::RedLouse])],
+            ],
+            edges: vec![vec![vec![0]], vec![vec![]]],
+        };
+        GameState::Map(MapState {
+            player: make_player(),
+            floor: 0,
+            graph,
+            available_cols: vec![0],
+            next_enemies: None,
+            scenario: Scenario::Main,
+        })
+    }
+
     #[test]
     fn entering_merchant_node_transitions_to_shop() {
-        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (next, _) = apply_command(map_with_merchant(), Command::ChooseNode(0), &mut rng()).unwrap();
         assert!(matches!(next, GameState::Shop(_)));
     }
 
     #[test]
     fn shop_has_two_cards_one_relic_one_potion() {
-        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (next, _) = apply_command(map_with_merchant(), Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Shop(shop) = next else { panic!("expected Shop") };
         assert_eq!(shop.cards.len(), 2);
         assert!(shop.relic.is_some());
@@ -2007,7 +1972,7 @@ mod tests {
 
     #[test]
     fn shop_items_start_as_not_purchased() {
-        let (next, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (next, _) = apply_command(map_with_merchant(), Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Shop(shop) = next else { panic!("expected Shop") };
         assert!(shop.cards.iter().all(|(_, purchased)| !purchased));
         assert!(shop.relic.as_ref().is_none_or(|(_, p)| !p));
@@ -2016,10 +1981,10 @@ mod tests {
 
     #[test]
     fn leave_shop_returns_to_map_at_next_floor() {
-        let (shop_state, _) = apply_command(map_at_floor(3), Command::ChooseNode(0), &mut rng()).unwrap();
+        let (shop_state, _) = apply_command(map_with_merchant(), Command::ChooseNode(0), &mut rng()).unwrap();
         let (next, _) = apply_command(shop_state, Command::LeaveShop, &mut rng()).unwrap();
         let GameState::Map(map) = next else { panic!("expected Map") };
-        assert_eq!(map.floor, 4);
+        assert_eq!(map.floor, 1);
     }
 
     #[test]
@@ -2341,7 +2306,7 @@ mod tests {
 
     #[test]
     fn boss_floor_has_the_guardian() {
-        let map = map_at_floor(9);
+        let map = map_at_floor(15);
         let (state, _) = apply_command(map, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.enemies.len(), 1);
@@ -2478,7 +2443,7 @@ mod tests {
         let mut player = make_player();
         player.hp = Hp(50);
         player.relics.push(Relic::Pantograph);
-        let state = GameState::Map(MapState { player, floor: 9, graph: test_graph(), available_cols: vec![0], next_enemies: None, scenario: Scenario::Main });
+        let state = GameState::Map(MapState { player, floor: 15, graph: test_graph(), available_cols: vec![0], next_enemies: None, scenario: Scenario::Main });
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut rng()).unwrap();
         let GameState::Combat { state: cs, .. } = state else { panic!("expected Combat") };
         assert_eq!(cs.player.hp, Hp(75));
@@ -2957,9 +2922,9 @@ mod tests {
     #[test]
     fn potion_not_awarded_on_boss_floor() {
         let state = run_after_neow();
-        // skip to boss floor (floor 9)
+        // skip to boss floor (floor 15)
         let mut state = state;
-        for _ in 0..9 {
+        for _ in 0..15 {
             let (s, _) = apply_command(state, Command::SkipFloor, &mut rng()).unwrap();
             state = s;
         }

@@ -257,7 +257,7 @@ fn set_instant_win(state: &mut GameState) {
 fn full_run_reaches_victory() {
     let mut game = TestHarness::with_state(new_run(&mut NoOpRng, &slay_core::NeowContext::default()));
 
-    // segment 1: floors 0-2 (3 combats)
+    // Floors 0-2: 3 easy combats (Cultist)
     for _ in 0..3 {
         game.send("").unwrap(); // enter combat
         set_instant_win(&mut game.state);
@@ -265,10 +265,19 @@ fn full_run_reaches_victory() {
         game.send("skip").unwrap(); // skip → Map
     }
 
-    game.send("").unwrap(); // floor 3: enter shop
-    game.send("leave").unwrap(); // leave → Map floor 4
+    game.send("").unwrap(); // floor 3: enter event room (Ssssserpent)
+    game.send("2").unwrap(); // skip event → Map floor 4
 
-    // segment 2: floors 4-5 (2 combats)
+    // Floor 4: 1 hard combat
+    game.send("").unwrap(); // enter combat
+    set_instant_win(&mut game.state);
+    game.send("play 1").unwrap(); // kill → CardReward
+    game.send("skip").unwrap(); // skip → Map
+
+    game.send("").unwrap(); // floor 5: enter merchant
+    game.send("leave").unwrap(); // leave → Map floor 6
+
+    // Floors 6-7: 2 hard combats
     for _ in 0..2 {
         game.send("").unwrap(); // enter combat
         set_instant_win(&mut game.state);
@@ -276,21 +285,23 @@ fn full_run_reaches_victory() {
         game.send("skip").unwrap(); // skip → Map
     }
 
-    game.send("").unwrap(); // floor 6: enter rest site
-    game.send("rest").unwrap(); // rest → Map floor 7
-
-    // segment 3: floor 7 (1 combat)
-    game.send("").unwrap(); // enter combat
-    set_instant_win(&mut game.state);
-    game.send("play 1").unwrap(); // kill → CardReward
-    game.send("skip").unwrap(); // skip → Map
-
     game.send("").unwrap(); // floor 8: enter treasure room
     game.send("leave").unwrap(); // take relic → Map floor 9
 
-    game.send("").unwrap(); // floor 9: enter boss (The Guardian)
+    // Floors 9-13: 5 hard combats
+    for _ in 0..5 {
+        game.send("").unwrap(); // enter combat
+        set_instant_win(&mut game.state);
+        game.send("play 1").unwrap(); // kill → CardReward
+        game.send("skip").unwrap(); // skip → Map
+    }
+
+    game.send("").unwrap(); // floor 14: enter rest site
+    game.send("rest").unwrap(); // rest → Map floor 15
+
+    game.send("").unwrap(); // floor 15: enter boss (The Guardian)
     set_instant_win(&mut game.state);
-    game.send("play 1").unwrap(); // kill Guardian → GameOver
+    game.send("play 1").unwrap(); // kill boss → GameOver
 
     assert!(matches!(game.state, GameState::GameOver { victory: true }));
 }

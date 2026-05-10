@@ -9,37 +9,48 @@ Items are roughly ordered by impact on feel.
 
 **Current:** 10-floor map (floors 0–9), boss at floor 9.
 
-**Real game:** Act 1 has exactly 16 floors. Three of them are fixed:
+### How the real map actually works (from community reverse-engineering)
 
-- **Floor 9:** Always a Treasure Room (guaranteed free relic, no combat)
-- **Floor 15:** Always a Rest Site (guaranteed campfire before boss)
-- **Floor 16:** Boss — one of Slime Boss, The Guardian, or Hexaghost
+The map is a 7×15 grid (7 columns, 15 traversal floors + 1 boss floor = 16 total).
+Layout and node-type assignment are two separate phases.
 
-The remaining floors (1–8, 10–14) are generated from a weighted distribution:
+**Phase 1 — Path layout:**
+6 paths are traced through the grid from bottom to top. The first and second paths must
+start from distinct columns; subsequent paths may reuse any starting column. Any two
+starting nodes that merge into a shared path have one removed (so each visible starting
+node fans out in exactly one direction).
 
-- 53% Normal Combat
-- 24% Unknown/Event (resolves randomly to event, combat, shop, or treasure on entry)
-- 15% Merchant
-- 8% Elite
+**Phase 2 — Node type assignment (bucket system):**
 
-**Additional constraint:** Elites cannot appear before floor 6, and no two
-consecutive floors on a path can be Elite + Rest Site, Elite + Merchant, or
-Rest Site + Merchant.
+Three nodes are pre-typed before the bucket is filled:
+- Floor 9 (1-indexed): Treasure
+- Floor 15 (1-indexed): Rest Site
+- Floor 1 (1-indexed): Normal enemy (the starting floor)
 
-**Changes needed (`slay-core/src/run.rs`):**
+Remaining untyped nodes are filled from a shuffled bucket. The bucket contains:
+- 5% Shops
+- 12% Rest Sites
+- 22% Events
+- 8% Elites
+- Remainder: Normal enemies
 
-- Expand `generate_map()` from 10 to 16 floors
-- Floor 9 = Treasure, floor 15 = Rest Site, floor 16 = Boss (all fixed)
-- Replace hardcoded floor layout with probability-weighted generation for floors 1–8, 10–14
-- Elites gated to floor 6+
-- Add Hexaghost and The Guardian to `boss_encounters()`
+The bucket is shuffled and nodes are assigned in order. If a type would violate a
+constraint, the next bucket entry is tried. If the bucket is exhausted the node
+becomes a Normal enemy.
+
+**Adjacency / placement constraints:**
+- No consecutive Rests, Shops, or Elites on the same path (if two nodes share a
+  parent, they can't both be the same special type — Normal enemies are exempt)
+- If a node has multiple exits, no two exits can be the same special type
+  (Normal enemies again exempted)
+- Elites and Rest Sites cannot appear before floor 6 (1-indexed)
+- Rest Sites cannot appear on floor 14 (the floor directly below the guaranteed
+  Rest Site on floor 15)
 
 **Corrections from earlier draft:**
-
-- ~~"17 nodes — 16 traversal floors and a boss floor"~~ — it's 16 floors total, boss is floor 16
-- ~~"Treasure room placed after at least one elite path"~~ — treasure is always floor 9, fixed
-- ~~"Rest site guaranteed in floors 15–16"~~ — rest site is always floor 15, fixed
-- ~~"Floor 5–6: Shop guaranteed somewhere"~~ — shops are probabilistic, not guaranteed on a specific floor
+- ~~"53/24/15/8% per-node probability roll"~~ — it's a bucket system, not per-node rolls
+- ~~"Elite+RestSite consecutive forbidden"~~ — Elite then Rest Site IS allowed (common path)
+- ~~"Floor 16 = Boss"~~ — Boss is floor 16 (1-indexed) = index 15
 
 ---
 
@@ -73,19 +84,9 @@ understanding is that Act 1 elites drop uncommon relics. Leaving as uncommon.
 
 ---
 
-## 4. Gold ranges
+## 4. Gold ranges ✅
 
-**Current:** Flat values — need to audit (`GOLD_PER_COMBAT`, `GOLD_PER_ELITE`).
-
-**Real game ranges:**
-
-- Normal combat: 10–20 gold
-- Elite combat: 25–35 gold
-- Boss: 95–105 gold
-
-**Changes needed (`slay-core/src/run.rs`):**
-
-- Replace flat constants with `rng`-based ranges
+**Current:** Implemented — `combat_gold(is_elite, is_boss, rng)` rolls 10–20 / 25–35 / 95–105.
 
 ## 5. Enemy encounter types ✅
 
