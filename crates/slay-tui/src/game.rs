@@ -1,6 +1,6 @@
 use crate::engine::{
     apply_and_drain, card_type_icon, connector_rows, describe_event, describe_intent, enemy_icon,
-    map_node_icon, map_node_name, relics_bar, statuses_inline,
+    map_node_icon, map_node_name, relics_bar, statuses_inline, MAP_COL_STRIDE,
 };
 use slay_core::{
     AnyRng, CardRewardState, CombatPhase, CombatState, Event, EventRoomState, GameState, MapState,
@@ -136,23 +136,22 @@ fn render_map(map: &MapState, w: &mut impl Write) {
 
     let max_cols = map.graph.rows.iter().map(|r| r.len()).max().unwrap_or(1);
     let max_floor = map.graph.rows.len().saturating_sub(1);
+    let offset_of = |row: &[_]| (max_cols - row.len()) / 2;
 
     for floor_idx in (0..=max_floor).rev() {
         let row = &map.graph.rows[floor_idx];
         let past = floor_idx < floor;
         let marker = if floor_idx == floor { "▶ " } else { "  " };
-        let mut icons: Vec<String> = Vec::new();
-        for col in 0..max_cols {
-            let icon = if past {
-                row.get(col).map_or("  ", |_| "·· ")
-            } else {
-                row.get(col).map_or("  ", |n| map_node_icon(n))
-            };
-            icons.push(icon.to_string());
-        }
-        let _ = writeln!(w, "{marker}{}", icons.join("    "));
+        let off = offset_of(row);
+        let padding = " ".repeat(off * MAP_COL_STRIDE);
+        let icons: Vec<String> = row.iter()
+            .map(|n| if past { "·· ".to_string() } else { map_node_icon(n).to_string() })
+            .collect();
+        let _ = writeln!(w, "{marker}{padding}{}", icons.join("    "));
         if floor_idx > 0 {
-            let (r0, r1) = connector_rows(&map.graph.edges[floor_idx - 1], max_cols);
+            let lower_off = offset_of(&map.graph.rows[floor_idx - 1]);
+            let upper_off = off;
+            let (r0, r1) = connector_rows(&map.graph.edges[floor_idx - 1], max_cols, lower_off, upper_off);
             let _ = writeln!(w, "  {r0}");
             let _ = writeln!(w, "  {r1}");
         }

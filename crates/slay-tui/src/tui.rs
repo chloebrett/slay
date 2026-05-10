@@ -1,6 +1,6 @@
 use crate::engine::{
     apply_and_drain, card_type_icon, connector_rows, describe_event, describe_intent, enemy_icon,
-    map_node_icon, map_node_name, relic_emoji, relics_bar, statuses_inline,
+    map_node_icon, map_node_name, relic_emoji, relics_bar, statuses_inline, MAP_COL_STRIDE,
 };
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
@@ -403,18 +403,23 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
     let max_cols = map.graph.rows.iter().map(|r| r.len()).max().unwrap_or(1).max(2);
     let max_floor = map.graph.rows.len().saturating_sub(1);
+    let offset_of = |row: &[_]| (max_cols - row.len()) / 2;
     let mut lines: Vec<Line> = Vec::new();
 
     for floor in (0..=max_floor).rev() {
         let row = &map.graph.rows[floor];
         let past = floor < map.floor;
         let current = floor == map.floor;
+        let off = offset_of(row);
 
-        // Node row: one span per column + padding spans between
+        // Node row: leading padding + one span per column + separators between
         use ratatui::text::Span;
         let mut spans: Vec<Span> = Vec::new();
-        for col in 0..max_cols {
-            let icon = row.get(col).map_or("  ", |n| map_node_icon(n));
+        if off > 0 {
+            spans.push(Span::raw(" ".repeat(off * MAP_COL_STRIDE)));
+        }
+        for col in 0..row.len() {
+            let icon = map_node_icon(&row[col]);
             let style = if past {
                 Style::default().fg(Color::DarkGray)
             } else if current && map.available_cols.contains(&col) {
@@ -422,9 +427,8 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
             } else {
                 Style::default()
             };
-            spans.push(Span::styled(icon.to_string(), style));
-            if col < max_cols - 1 {
-                // 4-space column padding (matches STRIDE=6: 2-wide emoji + 4 spaces)
+            spans.push(Span::styled(if past { "·· ".to_string() } else { icon.to_string() }, style));
+            if col < row.len() - 1 {
                 spans.push(Span::raw("    "));
             }
         }
@@ -432,8 +436,10 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
         // Connector rows between this floor and the one below
         if floor > 0 {
+            let lower_off = offset_of(&map.graph.rows[floor - 1]);
+            let upper_off = off;
             let conn_style = Style::default().fg(Color::DarkGray);
-            let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols);
+            let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols, lower_off, upper_off);
             lines.push(Line::styled(r0, conn_style));
             lines.push(Line::styled(r1, conn_style));
         }

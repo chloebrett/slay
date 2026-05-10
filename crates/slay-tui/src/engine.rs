@@ -225,19 +225,30 @@ pub fn map_node_name(node: &MapNode) -> &'static str {
 
 /// Builds two connector rows visualising edges FROM a floor to the floor above.
 /// `floor_edges[col]` = destination columns on the upper floor.
-/// `num_cols` is the total column count for alignment.
-/// Uses STRIDE=4: each column slot is 4 chars wide, icon center at col*4+1.
-pub fn connector_rows(floor_edges: &[Vec<usize>], num_cols: usize) -> (String, String) {
-    const STRIDE: usize = 6;
-    let width = num_cols * STRIDE;
+/// Characters per map column slot: 2-wide emoji + 4 spaces of padding.
+pub const MAP_COL_STRIDE: usize = 6;
+
+/// Builds two connector rows of box-drawing characters between two map floors.
+///
+/// `floor_edges[src]` lists the dense destination indices on the upper floor.
+/// `src_offset` / `dst_offset` are the centering offsets for the lower / upper floor.
+pub fn connector_rows(
+    floor_edges: &[Vec<usize>],
+    num_cols: usize,
+    src_offset: usize,
+    dst_offset: usize,
+) -> (String, String) {
+    let width = num_cols * MAP_COL_STRIDE;
     let mut r0: Vec<char> = vec![' '; width];
     let mut r1: Vec<char> = vec![' '; width];
 
     for (src, dsts) in floor_edges.iter().enumerate() {
         for &dst in dsts {
-            let sc = src * STRIDE + 1;
-            let dc = dst * STRIDE + 1;
-            match src.cmp(&dst) {
+            let vsrc = src + src_offset;
+            let vdst = dst + dst_offset;
+            let sc = vsrc * MAP_COL_STRIDE + 1;
+            let dc = vdst * MAP_COL_STRIDE + 1;
+            match vsrc.cmp(&vdst) {
                 std::cmp::Ordering::Equal => {
                     r0[sc] = '│';
                     r1[sc] = '│';
@@ -361,7 +372,7 @@ mod tests {
     fn connector_rows_straight_both_columns() {
         // both cols go straight up
         let edges = vec![vec![0usize], vec![1usize]];
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('│'), "row0 should contain │: {r0:?}");
         assert!(r1.contains('│'), "row1 should contain │: {r1:?}");
         assert!(!r0.contains('╲') && !r0.contains('╱'), "no diagonals in straight: {r0:?}");
@@ -371,7 +382,7 @@ mod tests {
     fn connector_rows_left_to_right_diagonal() {
         // src=0 → dst=1: connects bottom-left to top-right, so ╱ chars
         let edges = vec![vec![1usize], vec![]];
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('╱'), "row0 should have ╱: {r0:?}");
         assert!(r1.contains('╱'), "row1 should have ╱: {r1:?}");
         // ╱ in top row (r0) is right of ╱ in bottom row (r1): moves right going up
@@ -384,7 +395,7 @@ mod tests {
     fn connector_rows_right_to_left_diagonal() {
         // src=1 → dst=0: connects bottom-right to top-left, so ╲ chars
         let edges = vec![vec![], vec![0usize]];
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('╲'), "row0 should have ╲: {r0:?}");
         assert!(r1.contains('╲'), "row1 should have ╲: {r1:?}");
         // ╲ in top row (r0) is left of ╲ in bottom row (r1): moves left going up
@@ -396,7 +407,7 @@ mod tests {
     #[test]
     fn connector_rows_crossing_produces_x_shape() {
         let edges = vec![vec![1usize], vec![0usize]]; // 0→1 and 1→0
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('╲') && r0.contains('╱'), "row0 should have both diagonals: {r0:?}");
         assert!(r1.contains('╲') && r1.contains('╱'), "row1 should have both diagonals: {r1:?}");
     }
@@ -405,7 +416,7 @@ mod tests {
     fn connector_rows_convergence_both_to_col0() {
         // col 0 → col 0 (straight) and col 1 → col 0 (right-to-left ╲)
         let edges = vec![vec![0usize], vec![0usize]];
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('│'), "row0 straight: {r0:?}");
         assert!(r1.contains('│'), "row1 straight: {r1:?}");
         assert!(r0.contains('╲'), "row0 right-to-left diagonal: {r0:?}");
@@ -416,7 +427,7 @@ mod tests {
     fn connector_rows_divergence_col0_to_both() {
         // col 0 → col 0 (straight) and col 0 → col 1 (left-to-right ╱)
         let edges = vec![vec![0usize, 1usize]];
-        let (r0, r1) = connector_rows(&edges, 2);
+        let (r0, r1) = connector_rows(&edges, 2, 0, 0);
         assert!(r0.contains('│'), "row0 straight: {r0:?}");
         assert!(r0.contains('╱'), "row0 rightward diagonal: {r0:?}");
         assert!(r1.contains('│'), "row1 straight: {r1:?}");
