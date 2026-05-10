@@ -3,8 +3,8 @@ use crate::engine::{
     map_node_icon, map_node_name, relics_bar, statuses_inline, MAP_COL_STRIDE,
 };
 use slay_core::{
-    AnyRng, CardRewardState, CombatPhase, CombatState, Event, EventRoomState, GameState, MapState,
-    RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
+    AnyRng, CardRewardState, CombatPhase, CombatState, Event, EventRoomState, GameState, MapNode,
+    MapState, RestSiteState, ShopState, TreasureRoomState, StatusMap, CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::io::{BufRead, Write};
 use std::sync::mpsc::SyncSender;
@@ -140,6 +140,7 @@ fn render_map(map: &MapState, w: &mut impl Write) {
 
     for floor_idx in (0..=max_floor).rev() {
         let row = &map.graph.rows[floor_idx];
+        let is_boss = row.iter().any(|n| matches!(n, MapNode::Boss(_)));
         let past = floor_idx < floor;
         let marker = if floor_idx == floor { "▶ " } else { "  " };
         let off = offset_of(row);
@@ -147,13 +148,23 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         let icons: Vec<String> = row.iter()
             .map(|n| if past { "·· ".to_string() } else { map_node_icon(n).to_string() })
             .collect();
+        if is_boss { let _ = writeln!(w); }
         let _ = writeln!(w, "{marker}{padding}{}", icons.join("        "));
         if floor_idx > 0 {
-            let lower_off = offset_of(&map.graph.rows[floor_idx - 1]);
-            let upper_off = off;
-            let (r0, r1) = connector_rows(&map.graph.edges[floor_idx - 1], max_cols, lower_off, upper_off);
-            let _ = writeln!(w, "  {r0}");
-            let _ = writeln!(w, "  {r1}");
+            let lower_row = &map.graph.rows[floor_idx - 1];
+            let lower_off = offset_of(lower_row);
+            if is_boss {
+                let arrows_off = off.saturating_sub(lower_row.len() / 2);
+                let arrows_padding = " ".repeat(arrows_off * MAP_COL_STRIDE);
+                let arrows: Vec<&str> = lower_row.iter().map(|_| "🔺").collect();
+                let _ = writeln!(w);
+                let _ = writeln!(w, "  {arrows_padding}{}", arrows.join("        "));
+            } else {
+                let upper_off = off;
+                let (r0, r1) = connector_rows(&map.graph.edges[floor_idx - 1], max_cols, lower_off, upper_off);
+                let _ = writeln!(w, "  {r0}");
+                let _ = writeln!(w, "  {r1}");
+            }
         }
     }
 

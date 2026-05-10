@@ -13,7 +13,7 @@ use ratatui::{
 use ratatui::Terminal;
 use slay_core::{
     AnyRng, CardRewardState, CombatPhase, CombatState, EventKind, EventRoomState, GameState,
-    MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
+    MapNode, MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
     CARD_PRICE, RELIC_PRICE, POTION_PRICE,
 };
 use std::collections::VecDeque;
@@ -414,9 +414,12 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
     for floor in (0..=max_floor).rev() {
         let row = &map.graph.rows[floor];
+        let is_boss = row.iter().any(|n| matches!(n, MapNode::Boss(_)));
         let past = floor < map.floor;
         let current = floor == map.floor;
         let off = offset_of(row);
+
+        if is_boss { lines.push(Line::raw("")); }
 
         // Node row: left margin + centering offset + one span per column + separators
         use ratatui::text::Span;
@@ -442,12 +445,21 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
 
         // Connector rows between this floor and the one below
         if floor > 0 {
-            let lower_off = offset_of(&map.graph.rows[floor - 1]);
-            let upper_off = off;
-            let conn_style = Style::default().fg(Color::DarkGray);
-            let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols, lower_off, upper_off);
-            lines.push(Line::styled(format!("{margin}{r0}"), conn_style));
-            lines.push(Line::styled(format!("{margin}{r1}"), conn_style));
+            let lower_row = &map.graph.rows[floor - 1];
+            let lower_off = offset_of(lower_row);
+            if is_boss {
+                let arrows_off = off.saturating_sub(lower_row.len() / 2);
+                let pad = " ".repeat(left_margin + arrows_off * MAP_COL_STRIDE);
+                let arrows = lower_row.iter().map(|_| "🔺").collect::<Vec<_>>().join("        ");
+                lines.push(Line::raw(""));
+                lines.push(Line::raw(format!("{pad}{arrows}")));
+            } else {
+                let upper_off = off;
+                let conn_style = Style::default().fg(Color::DarkGray);
+                let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols, lower_off, upper_off);
+                lines.push(Line::styled(format!("{margin}{r0}"), conn_style));
+                lines.push(Line::styled(format!("{margin}{r1}"), conn_style));
+            }
         }
     }
 
