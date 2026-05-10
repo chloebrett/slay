@@ -296,7 +296,7 @@ fn player_relics(state: &GameState) -> &[Relic] {
 }
 
 /// Render one frame. Pure function over `TuiState`; safe to call from tests with `TestBackend`.
-pub fn render_frame(f: &mut Frame, tui: &TuiState) {
+pub fn render_frame(f: &mut Frame, tui: &mut TuiState) {
     let top_bar_height: u16 = if player_relics(&tui.game).is_empty() { 1 } else { 2 };
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -382,10 +382,11 @@ fn render_top_bar(f: &mut Frame, area: Rect, tui: &TuiState) {
     f.render_widget(para, area);
 }
 
-fn render_main(f: &mut Frame, area: Rect, tui: &TuiState) {
-    match &tui.game {
-        GameState::Map(map) => render_map(f, area, map, tui.map_scroll),
-        GameState::Combat { state, .. } => render_combat(f, area, state, &tui.event_log, &tui.enemy_flashes, tui.hand_scroll),
+fn render_main(f: &mut Frame, area: Rect, tui: &mut TuiState) {
+    let TuiState { game, map_scroll, event_log, enemy_flashes, hand_scroll, .. } = &mut *tui;
+    match game {
+        GameState::Map(map) => render_map(f, area, map, map_scroll),
+        GameState::Combat { state, .. } => render_combat(f, area, state, event_log, enemy_flashes, *hand_scroll),
         GameState::RestSite(rs) => render_rest(f, area, rs),
         GameState::TreasureRoom(tr) => render_treasure(f, area, tr),
         GameState::CardReward(cr) => render_card_reward(f, area, cr),
@@ -409,7 +410,7 @@ fn render_neow(f: &mut Frame, area: Rect, neow: &slay_core::NeowState) {
     f.render_widget(para, area);
 }
 
-fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
+fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: &mut usize) {
     let [map_area, choices_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
@@ -430,9 +431,10 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
     let (view_bottom, view_top) = if max_floor + 1 <= floors_per_screen {
         (0, max_floor)
     } else {
-        let view_bottom = map_scroll.min(max_floor.saturating_sub(floors_per_screen.saturating_sub(1)));
-        let view_top = (view_bottom + floors_per_screen - 1).min(max_floor);
-        (view_bottom, view_top)
+        let clamped = (*map_scroll).min(max_floor.saturating_sub(floors_per_screen.saturating_sub(1)));
+        *map_scroll = clamped;
+        let view_top = (clamped + floors_per_screen - 1).min(max_floor);
+        (clamped, view_top)
     };
 
     let mut lines: Vec<Line> = Vec::new();
@@ -1265,7 +1267,7 @@ pub fn run_tui(
 
     let result = (|| -> std::io::Result<()> {
         loop {
-            terminal.draw(|f| render_frame(f, &tui))?;
+            terminal.draw(|f| render_frame(f, &mut tui))?;
 
             if tui.should_quit {
                 // Wait for any key, then exit
@@ -1323,7 +1325,7 @@ pub fn run_tui(
 
 // Convenience for tests: render to a TestBackend and return the buffer as a String.
 #[cfg(test)]
-pub(crate) fn render_to_string(tui: &TuiState, width: u16, height: u16) -> String {
+pub(crate) fn render_to_string(tui: &mut TuiState, width: u16, height: u16) -> String {
     use ratatui::backend::TestBackend;
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -1395,15 +1397,15 @@ mod tests {
 
     #[test]
     fn combat_screen_shows_enemy_name() {
-        let tui = make_combat_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_combat_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Louse"), "expected 'Louse' in:\n{out}");
     }
 
     #[test]
     fn combat_screen_shows_player_hp_in_top_bar() {
-        let tui = make_combat_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_combat_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("80/80"), "expected '80/80' in:\n{out}");
     }
 
@@ -1424,7 +1426,8 @@ mod tests {
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,
         });
-        let out = render_to_string(&TuiState::new(state, false), 120, 30);
+        let mut tmp = TuiState::new(state, false);
+        let out = render_to_string(&mut tmp, 120, 30);
         // 40/80 with width 20 → 10 filled, 10 empty
         assert!(out.contains("[██████████░░░░░░░░░░]"), "expected half-full bar in:\n{out}");
     }
@@ -1438,16 +1441,16 @@ mod tests {
 
     #[test]
     fn combat_screen_shows_pile_counts() {
-        let tui = make_combat_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_combat_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Draw:"), "expected 'Draw:' in:\n{out}");
         assert!(out.contains("Discard:"), "expected 'Discard:' in:\n{out}");
     }
 
     #[test]
     fn combat_screen_shows_log_panel_title() {
-        let tui = make_combat_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_combat_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Log"), "expected 'Log' in:\n{out}");
     }
 
@@ -1455,8 +1458,8 @@ mod tests {
     fn map_screen_shows_node_icons() {
         // Use a tall terminal so all 15 floors fit without scrolling.
         // 15 floors × 3 lines + 4 boss lines + 2 borders + 9 fixed rows = ~60 minimum.
-        let tui = make_main_run_map_tui();
-        let out = render_to_string(&tui, 100, 65);
+        let mut tui = make_main_run_map_tui();
+        let out = render_to_string(&mut tui,100, 65);
         assert!(out.contains("⚔️"), "expected ⚔️ icon in:\n{out}");
         assert!(out.contains("💀"), "expected 💀 boss icon in:\n{out}");
     }
@@ -1469,7 +1472,7 @@ mod tests {
         for _ in 0..20 {
             handle_key(&mut tui, &mut rng, Key::Up);
         }
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("💀"), "expected 💀 boss icon after scrolling up in:\n{out}");
     }
 
@@ -1519,6 +1522,23 @@ mod tests {
         let mut tui = make_main_run_map_tui();
         handle_key(&mut tui, &mut rng, Key::Down);
         assert_eq!(tui.map_scroll, 0, "scrolling down at zero should stay at zero");
+    }
+
+    #[test]
+    fn map_scroll_clamped_after_render_so_s_always_moves_view() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        // Scroll up far beyond the effective max — raw value will be too high.
+        for _ in 0..100 {
+            handle_key(&mut tui, &mut rng, Key::Up);
+        }
+        // Render into a 100×30 frame; this should write back the clamped scroll.
+        let out_before = render_to_string(&mut tui, 100, 30);
+        // Now S should decrement by 1 and visibly change the view.
+        handle_key(&mut tui, &mut rng, Key::Down);
+        let out_after = render_to_string(&mut tui, 100, 30);
+        assert_ne!(out_before, out_after, "S should move the view after render has clamped map_scroll");
     }
 
     #[test]
@@ -1578,16 +1598,16 @@ mod tests {
 
     #[test]
     fn map_screen_choices_panel_shows_node_name() {
-        let tui = make_map_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_map_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Choose"), "expected 'Choose' panel in:\n{out}");
         assert!(out.contains("[Enter]") || out.contains("[1]"), "expected choices in:\n{out}");
     }
 
     #[test]
     fn map_screen_shows_available_choices() {
-        let tui = make_main_run_map_tui();
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = make_main_run_map_tui();
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("[1]"), "expected '[1]' choice in:\n{out}");
         assert!(out.contains("[2]"), "expected '[2]' choice in:\n{out}");
     }
@@ -1615,8 +1635,8 @@ mod tests {
             next_enemies: None,
             scenario: Scenario::Main,
         });
-        let tui = TuiState::new(state, false);
-        let out = render_to_string(&tui, 120, 30);
+        let mut tui = TuiState::new(state, false);
+        let out = render_to_string(&mut tui,120, 30);
         assert!(out.contains("⚔️"), "expected ⚔️ combat icon in:\n{out}");
         assert!(out.contains("🔥"), "expected 🔥 rest site icon in:\n{out}");
         let choices = out.lines().find(|l| l.contains("Combat")).expect("expected 'Combat' in choices panel");
@@ -1640,8 +1660,8 @@ mod tests {
             graph: slay_core::generate_map(&slay_core::MapConfig::default(), &mut r),
             available_cols: vec![0, 1],
         });
-        let tui = TuiState::new(rs_state, false);
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = TuiState::new(rs_state, false);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Rest Site"), "expected 'Rest Site' in:\n{out}");
         assert!(out.contains("Heal"), "expected 'Heal' in:\n{out}");
     }
@@ -1664,8 +1684,8 @@ mod tests {
             graph: slay_core::generate_map(&slay_core::MapConfig::default(), &mut r),
             available_cols: vec![0, 1],
         });
-        let tui = TuiState::new(cr, false);
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = TuiState::new(cr, false);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Card Reward"), "expected 'Card Reward' in:\n{out}");
         assert!(out.contains("Strike"), "expected 'Strike' in:\n{out}");
         assert!(out.contains("skip"), "expected 'skip' option in:\n{out}");
@@ -1673,15 +1693,15 @@ mod tests {
 
     #[test]
     fn game_over_victory_screen_shows_message() {
-        let tui = TuiState::new(GameState::GameOver { victory: true }, false);
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = TuiState::new(GameState::GameOver { victory: true }, false);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("conquered"), "expected 'conquered' in:\n{out}");
     }
 
     #[test]
     fn game_over_defeat_screen_shows_message() {
-        let tui = TuiState::new(GameState::GameOver { victory: false }, false);
-        let out = render_to_string(&tui, 100, 30);
+        let mut tui = TuiState::new(GameState::GameOver { victory: false }, false);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("slain"), "expected 'slain' in:\n{out}");
     }
 
@@ -1689,7 +1709,7 @@ mod tests {
     fn input_box_shows_typed_characters() {
         let mut tui = make_combat_tui();
         tui.input_buf = "play 1".to_string();
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("> play 1"), "expected '> play 1' in:\n{out}");
     }
 
@@ -1717,7 +1737,7 @@ mod tests {
         tui.input_buf = "relics".to_string();
         tui.handle_enter(&mut r);
         assert!(tui.show_relics, "show_relics should be true after 'relics' command");
-        let out = render_to_string(&tui, 120, 30);
+        let out = render_to_string(&mut tui,120, 30);
         assert!(out.contains("Anchor"), "expected Anchor name in relic overlay:\n{out}");
         assert!(out.contains("10 Block"), "expected Anchor description in relic overlay:\n{out}");
     }
@@ -1741,7 +1761,8 @@ mod tests {
             floor: 0, graph, available_cols: vec![0], next_enemies: None,
             scenario: Scenario::Main,
         });
-        let out = render_to_string(&TuiState::new(state, false), 120, 30);
+        let mut tmp = TuiState::new(state, false);
+        let out = render_to_string(&mut tmp, 120, 30);
         assert!(out.contains("⚓"), "expected Anchor emoji in:\n{out}");
         assert!(out.contains("🔥"), "expected BurningBlood emoji in:\n{out}");
     }
@@ -1765,7 +1786,8 @@ mod tests {
         });
         // Height 6 = 1 top bar + 1 main + 1 status + 3 input.
         // Row index 1 (second row, 0-indexed) is the first row of main area — should not be relic bar.
-        let out = render_to_string(&TuiState::new(state, false), 120, 6);
+        let mut tmp = TuiState::new(state, false);
+        let out = render_to_string(&mut tmp, 120, 6);
         let second_row = out.lines().nth(1).unwrap_or("");
         assert!(!second_row.contains("⚓"), "relic bar should not appear when no relics: {second_row}");
     }
@@ -1787,7 +1809,7 @@ mod tests {
         tui.push_log("👁  Enemy prepares: ⚔️ Attack 8.".to_string());
         tui.input_buf = "play 1".to_string();
 
-        eprintln!("{}", render_to_string(&tui, 100, 30));
+        eprintln!("{}", render_to_string(&mut tui,100, 30));
     }
 
     // ─── hp_color ─────────────────────────────────────────────────
@@ -1945,7 +1967,7 @@ mod tests {
             m.player.deck = vec![Card::Strike(slay_core::Grade::Base), Card::Defend(slay_core::Grade::Base)];
         }
         tui.show_pile = Some(PileView::Deck);
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Strike"), "expected Strike in deck overlay:\n{out}");
         assert!(out.contains("Defend"), "expected Defend in deck overlay:\n{out}");
     }
@@ -2077,15 +2099,15 @@ mod tests {
         let mut tui = make_combat_tui_with_many_cards();
         tui.hand_scroll = 2;
         // Height 20 gives hand panel ~6 inner rows — 10 cards definitely overflows
-        let out = render_to_string(&tui, 100, 20);
+        let out = render_to_string(&mut tui,100, 20);
         assert!(out.contains("above"), "should show 'above' hint when scrolled: {out}");
     }
 
     #[test]
     fn render_hand_shows_below_hint_when_cards_overflow() {
-        let tui = make_combat_tui_with_many_cards();
+        let mut tui = make_combat_tui_with_many_cards();
         // Height 20, 10 cards — will overflow
-        let out = render_to_string(&tui, 100, 20);
+        let out = render_to_string(&mut tui,100, 20);
         assert!(out.contains("more"), "should show 'more' hint when cards overflow: {out}");
     }
 
@@ -2093,9 +2115,9 @@ mod tests {
     fn render_hand_hides_first_card_when_scrolled_past_it() {
         let mut tui = make_combat_tui_with_many_cards();
         tui.hand_scroll = 0;
-        let out_unscrolled = render_to_string(&tui, 100, 20);
+        let out_unscrolled = render_to_string(&mut tui,100, 20);
         tui.hand_scroll = 4;
-        let out_scrolled = render_to_string(&tui, 100, 20);
+        let out_scrolled = render_to_string(&mut tui,100, 20);
         // First card [1] visible when scroll=0, hidden when scroll=4
         assert!(out_unscrolled.contains("[1]"), "card 1 should be visible at scroll=0");
         assert!(!out_scrolled.contains("[1]"), "card 1 should be hidden at scroll=4");
@@ -2230,7 +2252,7 @@ mod tests {
     fn wipe_active_blacks_out_frame() {
         let mut tui = make_combat_tui();
         tui.wipe_start = now();
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(!out.contains("Draw:"), "pile counts should not be visible during wipe");
         assert!(!out.contains("Hand"), "hand panel should not be visible during wipe");
     }
@@ -2239,7 +2261,7 @@ mod tests {
     fn wipe_shows_floor_number_and_room_type() {
         let mut tui = make_combat_tui();
         tui.wipe_start = now();
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Floor"), "should show floor label during wipe");
         assert!(out.contains("COMBAT"), "should show room type in caps during wipe");
     }
@@ -2248,7 +2270,7 @@ mod tests {
     fn wipe_shows_enemy_names_during_combat_transition() {
         let mut tui = make_combat_tui();
         tui.wipe_start = now();
-        let out = render_to_string(&tui, 100, 30);
+        let out = render_to_string(&mut tui,100, 30);
         assert!(out.contains("Louse"), "should show enemy name on title card during wipe");
     }
 
@@ -2258,7 +2280,7 @@ mod tests {
     fn help_overlay_visible_when_show_help_true() {
         let mut tui = make_combat_tui();
         tui.show_help = true;
-        let frame = render_to_string(&tui, 100, 30);
+        let frame = render_to_string(&mut tui,100, 30);
         assert!(frame.contains("Help"), "overlay should show Help title");
         assert!(frame.contains("play"), "overlay should list play command");
         assert!(frame.contains("end"), "overlay should list end command");
@@ -2266,8 +2288,8 @@ mod tests {
 
     #[test]
     fn help_overlay_hidden_when_show_help_false() {
-        let tui = make_combat_tui();
-        let frame = render_to_string(&tui, 100, 30);
+        let mut tui = make_combat_tui();
+        let frame = render_to_string(&mut tui,100, 30);
         assert!(!frame.contains("Help"), "overlay should not appear by default");
     }
 
