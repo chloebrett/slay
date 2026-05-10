@@ -15,11 +15,13 @@ await init();
 
 const term = new Terminal({
   theme: {
-    background: '#0d0d0d',
-    foreground: '#e8e8e8',
-    cursor: '#e94560',
+    background: '#0a0a0a',
+    foreground: '#c9a96e',
+    cursor: '#c0392b',
+    cursorAccent: '#0a0a0a',
+    selectionBackground: '#c9a96e33',
   },
-  fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+  fontFamily: '"Courier Prime", "Courier New", monospace',
   fontSize: 14,
   convertEol: false,
 });
