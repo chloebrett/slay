@@ -7,6 +7,7 @@ use crate::relics::{
     apply_combat_start_relics, apply_end_of_combat_relics, apply_rest_relics,
     apply_turn_end_relics, apply_turn_start_relics, Relic,
 };
+use crate::rewards::{award_potion, combat_gold, generate_rewards, player_after_combat, random_potion};
 use crate::rng::Rng;
 use crate::status::StatusMap;
 use crate::types::{Block, Energy, Hp};
@@ -394,19 +395,17 @@ fn node_bucket(count: usize) -> Vec<BucketKind> {
     bucket
 }
 
-fn bucket_kind_valid(kind: BucketKind, floor: usize, prev: Option<&MapNode>) -> bool {
+fn bucket_kind_valid(kind: BucketKind, floor: usize, related: &[&MapNode]) -> bool {
     match kind {
         BucketKind::Elite | BucketKind::Rest if floor < 5 => return false,
         BucketKind::Rest if floor == 13 => return false,
         _ => {}
     }
-    let same_as_prev = |prev_node: &MapNode| match (prev_node, kind) {
-        (MapNode::Merchant, BucketKind::Shop) => true,
-        (MapNode::RestSite, BucketKind::Rest) => true,
-        (MapNode::Elite(_), BucketKind::Elite) => true,
-        _ => false,
-    };
-    !prev.is_some_and(same_as_prev)
+    !related.iter().any(|&node| matches!((node, kind),
+        (MapNode::Merchant, BucketKind::Shop)
+        | (MapNode::RestSite, BucketKind::Rest)
+        | (MapNode::Elite(_), BucketKind::Elite)
+    ))
 }
 
 fn bucket_kind_to_node(kind: BucketKind, floor: usize, rng: &mut impl Rng) -> MapNode {
@@ -420,12 +419,27 @@ fn bucket_kind_to_node(kind: BucketKind, floor: usize, rng: &mut impl Rng) -> Ma
     }
 }
 
-fn assign_bucket_node(floor: usize, prev: Option<&MapNode>, bucket: &mut Vec<BucketKind>, rng: &mut impl Rng) -> MapNode {
-    if let Some(i) = bucket.iter().position(|&k| bucket_kind_valid(k, floor, prev)) {
+fn assign_bucket_node(floor: usize, related: &[&MapNode], bucket: &mut Vec<BucketKind>, rng: &mut impl Rng) -> MapNode {
+    if let Some(i) = bucket.iter().position(|&k| bucket_kind_valid(k, floor, related)) {
         let kind = bucket.remove(i);
         return bucket_kind_to_node(kind, floor, rng);
     }
     MapNode::Combat(pick_encounter(&mut hard_encounters(), rng))
+}
+
+fn trim_floor0_merges(paths: &[Vec<usize>]) -> Vec<(usize, usize)> {
+    let mut edges: Vec<(usize, usize)> = paths.iter().map(|p| (p[0], p[1])).collect();
+    edges.sort();
+    edges.dedup();
+    let mut result = Vec::new();
+    let mut claimed: Vec<usize> = Vec::new();
+    for (from, to) in edges {
+        if !claimed.contains(&to) {
+            claimed.push(to);
+            result.push((from, to));
+        }
+    }
+    result
 }
 
 fn crosses_edge(a: usize, b: usize, c: usize, d: usize) -> bool {
@@ -478,81 +492,117 @@ fn generate_raw_paths(config: &MapConfig, rng: &mut impl Rng) -> Vec<Vec<usize>>
 }
 
 pub fn generate_map(config: &MapConfig, rng: &mut impl Rng) -> MapGraph {
-    let converge: Vec<Vec<usize>> = vec![vec![0], vec![0]];
-    let single: Vec<Vec<usize>> = vec![vec![0]];
-    let mut rows: Vec<Vec<MapNode>> = Vec::new();
-    let mut edges: Vec<Vec<Vec<usize>>> = Vec::new();
+    let paths = generate_raw_paths(config, rng);
 
-    // Floor 0: two starting easy combat choices (eventually expandable to 4)
-    rows.push(vec![
-        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
-        MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
-    ]);
-    edges.push(converge);
+    // Collect unique edges per floor (floor f → floor f+1)
+    let mut edges_by_floor: Vec<Vec<(usize, usize)>> = vec![vec![]; config.num_floors - 1];
+    for path in &paths {
+        for floor in 0..config.num_floors - 1 {
+            let edge = (path[floor], path[floor + 1]);
+            if !edges_by_floor[floor].contains(&edge) {
+                edges_by_floor[floor].push(edge);
+            }
+        }
+    }
+    edges_by_floor[0] = trim_floor0_merges(&paths);
 
-    // Untyped floors: 1–7 and 9–13 (12 total), assigned from a shuffled bucket.
-    // Floor 8 = Treasure, floor 14 = RestSite, floor 15 = Boss are pre-typed.
-    let mut bucket = node_bucket(12);
+    // Occupied (sorted) columns per traversal floor.
+    // Floor 0: only cols that retained a floor-0 edge after trim.
+    let mut occupied: Vec<Vec<usize>> = Vec::new();
+    {
+        let mut cols: Vec<usize> = edges_by_floor[0].iter().map(|&(from, _)| from).collect();
+        cols.sort_unstable();
+        cols.dedup();
+        occupied.push(cols);
+    }
+    for floor in 1..config.num_floors {
+        let mut cols: Vec<usize> = paths.iter().map(|p| p[floor]).collect();
+        cols.sort_unstable();
+        cols.dedup();
+        occupied.push(cols);
+    }
+
+    // Pre-typed floors: 0 = Combat(easy), 8 = Treasure, 14 = RestSite.
+    let pre_typed = [0usize, 8, 14];
+    let untyped_count: usize = occupied.iter().enumerate()
+        .filter(|&(f, _)| !pre_typed.contains(&f))
+        .map(|(_, cols)| cols.len())
+        .sum();
+    let mut bucket = node_bucket(untyped_count);
     rng.shuffle(&mut bucket);
 
-    for floor in 1usize..=7 {
-        let prev = rows.last().and_then(|r| r.first());
-        let node = assign_bucket_node(floor, prev, &mut bucket, rng);
-        rows.push(vec![node]);
-        edges.push(single.clone());
+    let mut rows: Vec<Vec<MapNode>> = Vec::new();
+    let mut graph_edges: Vec<Vec<Vec<usize>>> = Vec::new();
+    let mut assigned_per_floor: Vec<Vec<MapNode>> = Vec::new();
+
+    for floor in 0..config.num_floors {
+        let mut floor_nodes: Vec<MapNode> = Vec::new();
+
+        for (col_idx, &grid_col) in occupied[floor].iter().enumerate() {
+            let node = match floor {
+                0 => MapNode::Combat(pick_encounter(&mut easy_encounters(), rng)),
+                8 => MapNode::Treasure,
+                14 => MapNode::RestSite,
+                f => {
+                    // Grid cols at floor f-1 that connect to this node
+                    let parent_grid_cols: Vec<usize> = edges_by_floor[f - 1].iter()
+                        .filter(|&&(_, to)| to == grid_col)
+                        .map(|&(from, _)| from)
+                        .collect();
+
+                    // Owned clones of parent nodes (avoids borrow conflict with floor_nodes push)
+                    let parents: Vec<MapNode> = parent_grid_cols.iter()
+                        .filter_map(|&from| {
+                            let idx = occupied[f - 1].iter().position(|&c| c == from)?;
+                            assigned_per_floor[f - 1].get(idx).cloned()
+                        })
+                        .collect();
+
+                    // Earlier nodes at this floor sharing a parent (siblings)
+                    let siblings: Vec<MapNode> = (0..col_idx)
+                        .filter(|&sib_idx| {
+                            let sib_col = occupied[floor][sib_idx];
+                            parent_grid_cols.iter().any(|&from| {
+                                edges_by_floor[f - 1].iter()
+                                    .any(|&(ef, et)| ef == from && et == sib_col)
+                            })
+                        })
+                        .map(|sib_idx| floor_nodes[sib_idx].clone())
+                        .collect();
+
+                    let related: Vec<&MapNode> = parents.iter().chain(siblings.iter()).collect();
+                    assign_bucket_node(floor, &related, &mut bucket, rng)
+                }
+            };
+            floor_nodes.push(node);
+        }
+
+        // Edges from this floor to the next
+        let floor_graph_edges: Vec<Vec<usize>> = if floor < config.num_floors - 1 {
+            occupied[floor].iter().map(|&grid_col| {
+                let mut targets: Vec<usize> = edges_by_floor[floor].iter()
+                    .filter(|&&(from, _)| from == grid_col)
+                    .filter_map(|&(_, to)| occupied[floor + 1].iter().position(|&c| c == to))
+                    .collect();
+                targets.sort_unstable();
+                targets.dedup();
+                targets
+            }).collect()
+        } else {
+            // Floor 14 (RestSite): every node points to the boss at row index 0
+            vec![vec![0]; occupied[floor].len()]
+        };
+
+        assigned_per_floor.push(floor_nodes.clone());
+        rows.push(floor_nodes);
+        graph_edges.push(floor_graph_edges);
     }
 
-    rows.push(vec![MapNode::Treasure]);
-    edges.push(single.clone());
-
-    for floor in 9usize..=13 {
-        let prev = rows.last().and_then(|r| r.first());
-        let node = assign_bucket_node(floor, prev, &mut bucket, rng);
-        rows.push(vec![node]);
-        edges.push(single.clone());
-    }
-
-    rows.push(vec![MapNode::RestSite]);
-    edges.push(single.clone());
-
+    // Boss floor (floor 15): single node, no exits
     rows.push(vec![MapNode::Boss(pick_encounter(&mut boss_encounters(), rng))]);
-    edges.push(vec![vec![]]);
+    graph_edges.push(vec![vec![]]);
 
-    MapGraph { rows, edges }
-}
-
-fn generate_rewards(rng: &mut impl Rng) -> Vec<Card> {
-    let mut pool = crate::cards::reward_pool();
-    rng.shuffle(&mut pool);
-    pool.into_iter().take(3).collect()
-}
-
-fn random_potion(rng: &mut impl Rng) -> Potion {
-    let mut pool = [
-        Potion::FirePotion, Potion::ExplosivePotion, Potion::BlockPotion,
-        Potion::StrengthPotion, Potion::SwiftPotion, Potion::FearPotion,
-        Potion::WeakPotion, Potion::BloodPotion, Potion::EnergyPotion,
-    ];
-    rng.shuffle(&mut pool);
-    pool[0]
-}
-
-fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &mut impl Rng) -> Option<Potion> {
-    let dropped = rng.gen_bool(player.potion_chance);
-    if dropped {
-        player.potion_chance = (player.potion_chance - 0.10).max(0.0);
-    } else {
-        player.potion_chance = (player.potion_chance + 0.10).min(1.0);
-        return None;
-    }
-    let potion = random_potion(rng);
-    if player.potions.len() < MAX_POTIONS {
-        player.potions.push(potion);
-        events.push(Event::PotionAwarded { potion });
-        None
-    } else {
-        Some(potion)
-    }
+    MapGraph { rows, edges: graph_edges }
 }
 
 fn generate_shop(player: Player, floor: usize, graph: MapGraph, available_cols: Vec<usize>, rng: &mut impl Rng) -> ShopState {
@@ -567,42 +617,6 @@ fn generate_shop(player: Player, floor: usize, graph: MapGraph, available_cols: 
     let potion = Some((random_potion(rng), false));
 
     ShopState { player, floor, cards, relic, potion, graph, available_cols }
-}
-
-fn player_after_combat(player: Player, gold_gain: i32) -> Player {
-    let mut deck = player.deck;
-    deck.extend(player.exhaust_pile);
-    // Lantern grants +1 max energy for the combat only; restore original value here.
-    let max_energy = if player.relics.contains(&Relic::Lantern) {
-        Energy(player.max_energy.0 - 1)
-    } else {
-        player.max_energy
-    };
-    Player {
-        block: Block(0),
-        energy: max_energy,
-        max_energy,
-        hand: Vec::new(),
-        draw_pile: Vec::new(),
-        discard_pile: Vec::new(),
-        exhaust_pile: Vec::new(),
-        statuses: StatusMap::new(),
-        gold: player.gold + gold_gain,
-        deck,
-        ..player
-    }
-}
-
-fn roll_gold(lo: i32, hi: i32, rng: &mut impl Rng) -> i32 {
-    let mut values: Vec<i32> = (lo..=hi).collect();
-    rng.shuffle(&mut values);
-    values[0]
-}
-
-fn combat_gold(is_elite: bool, is_boss: bool, rng: &mut impl Rng) -> i32 {
-    if is_boss        { roll_gold(95, 105, rng) }
-    else if is_elite  { roll_gold(25,  35, rng) }
-    else              { roll_gold(10,  20, rng) }
 }
 
 pub fn apply_command(
@@ -2084,6 +2098,46 @@ mod tests {
         }
     }
 
+    // --- trim_floor0_merges ---
+
+    #[test]
+    fn trim_keeps_unique_floor1_targets() {
+        // Two paths going to different floor-1 cols → both floor-0 edges kept
+        let paths = vec![
+            vec![2usize, 3, 0, 0],
+            vec![5usize, 6, 0, 0],
+        ];
+        let result = trim_floor0_merges(&paths);
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&(2, 3)));
+        assert!(result.contains(&(5, 6)));
+    }
+
+    #[test]
+    fn trim_removes_duplicate_floor1_targets() {
+        // Two paths both reaching floor-1 col 3 → only smallest floor-0 source kept
+        let paths = vec![
+            vec![2usize, 3, 0, 0],
+            vec![4usize, 3, 0, 0],
+        ];
+        let result = trim_floor0_merges(&paths);
+        assert_eq!(result.len(), 1, "duplicate target should leave only one edge");
+        assert!(result.contains(&(2, 3)), "smallest floor-0 source (2) should be kept");
+        assert!(!result.contains(&(4, 3)), "larger floor-0 source (4) should be removed");
+    }
+
+    #[test]
+    fn trim_handles_three_paths_to_same_target() {
+        let paths = vec![
+            vec![1usize, 2, 0],
+            vec![2usize, 2, 0],
+            vec![3usize, 2, 0],
+        ];
+        let result = trim_floor0_merges(&paths);
+        assert_eq!(result.len(), 1);
+        assert!(result.contains(&(1, 2)), "only smallest source (1) kept");
+    }
+
     // --- map generation ---
 
     fn map_at_floor(floor: usize) -> GameState {
@@ -2098,15 +2152,50 @@ mod tests {
     }
 
     #[test]
-    fn floor_0_has_two_starting_columns() {
-        assert_eq!(test_graph().rows[0].len(), 2);
+    fn floor_0_has_at_least_one_starting_column() {
+        // Trim can collapse paths so floor 0 may end up with 1–6 nodes depending on RNG.
+        assert!(!test_graph().rows[0].is_empty());
     }
 
     #[test]
-    fn floors_1_to_15_have_one_column() {
-        let graph = test_graph();
-        for floor in 1..=15 {
-            assert_eq!(graph.rows[floor].len(), 1, "floor {floor} should have 1 column");
+    fn floor_0_has_multiple_starting_columns_with_real_rng() {
+        // With a spread of seeds, floor 0 should have > 1 column on at least some runs.
+        let multi = (0..20u64).any(|seed| {
+            generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed))
+                .rows[0].len() > 1
+        });
+        assert!(multi, "some seeds should produce > 1 floor-0 starting column");
+    }
+
+    #[test]
+    fn traversal_floors_have_one_to_seven_columns() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
+            for floor in 0..15usize {
+                let len = graph.rows[floor].len();
+                assert!(len >= 1 && len <= 7,
+                    "floor {floor} has {len} columns (seed {seed}); expected 1–7");
+            }
+        }
+    }
+
+    #[test]
+    fn all_graph_edges_reference_valid_col_indices() {
+        for seed in 0..20u64 {
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
+            for (floor, floor_edges) in graph.edges.iter().enumerate() {
+                assert_eq!(floor_edges.len(), graph.rows[floor].len(),
+                    "edge list length mismatch at floor {floor} (seed {seed})");
+                for (src_idx, targets) in floor_edges.iter().enumerate() {
+                    let next = floor + 1;
+                    for &tgt in targets {
+                        assert!(next < graph.rows.len(),
+                            "edge from floor {floor} src {src_idx} points to non-existent floor {next} (seed {seed})");
+                        assert!(tgt < graph.rows[next].len(),
+                            "edge target {tgt} out of bounds at floor {next} (seed {seed})");
+                    }
+                }
+            }
         }
     }
 
@@ -2187,21 +2276,23 @@ mod tests {
     fn no_consecutive_same_special_type() {
         for seed in 0..20u64 {
             let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
-            // Check contiguous segments: 1-7 and 9-13 (8 is fixed Treasure, breaks adjacency)
-            let check_pairs: &[(usize, usize)] = &[
-                (1,2),(2,3),(3,4),(4,5),(5,6),(6,7),
-                (9,10),(10,11),(11,12),(12,13),
-            ];
-            for &(a, b) in check_pairs {
-                let prev = &graph.rows[a][0];
-                let curr = &graph.rows[b][0];
-                let same = matches!((prev, curr),
-                    (MapNode::RestSite, MapNode::RestSite)
-                    | (MapNode::Merchant, MapNode::Merchant)
-                    | (MapNode::Elite(_), MapNode::Elite(_))
-                );
-                assert!(!same,
-                    "consecutive {:?} at floors {a}-{b} (seed {seed})", prev);
+            for (floor, floor_edges) in graph.edges.iter().enumerate() {
+                let next = floor + 1;
+                if next >= graph.rows.len() { continue; }
+                for (src_idx, targets) in floor_edges.iter().enumerate() {
+                    let src = &graph.rows[floor][src_idx];
+                    for &tgt_idx in targets {
+                        let dst = &graph.rows[next][tgt_idx];
+                        let same = matches!((src, dst),
+                            (MapNode::RestSite, MapNode::RestSite)
+                            | (MapNode::Merchant, MapNode::Merchant)
+                            | (MapNode::Elite(_), MapNode::Elite(_))
+                        );
+                        assert!(!same,
+                            "consecutive {:?} via edge floor {floor}:{src_idx}→{next}:{tgt_idx} (seed {seed})",
+                            src);
+                    }
+                }
             }
         }
     }

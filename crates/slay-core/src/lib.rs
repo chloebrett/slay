@@ -1,5 +1,6 @@
 mod cards;
 mod combat;
+mod rewards;
 pub mod relics;
 mod enemies;
 pub mod neow;
