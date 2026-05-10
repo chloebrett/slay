@@ -16,6 +16,12 @@ use slay_core::{
 };
 use std::collections::VecDeque;
 
+// Instant::now() is unavailable on wasm32-unknown-unknown; animations are no-ops there.
+#[cfg(not(target_arch = "wasm32"))]
+fn now() -> Option<std::time::Instant> { Some(std::time::Instant::now()) }
+#[cfg(target_arch = "wasm32")]
+fn now() -> Option<std::time::Instant> { None }
+
 const LOG_CAPACITY: usize = 200;
 
 #[allow(dead_code)] // used in the event loop, not in test compilation
@@ -148,7 +154,7 @@ impl TuiState {
                 let enemy_hps_before = combat_enemy_hps(&self.game);
 
                 if matches!(&self.game, GameState::Map(_)) && !matches!(&new_state, GameState::Map(_)) {
-                    self.wipe_start = Some(std::time::Instant::now());
+                    self.wipe_start = now();
                 }
                 if let Some(banner) = phase_banner(&self.game, &new_state) {
                     self.push_log(banner);
@@ -167,13 +173,13 @@ impl TuiState {
                 // Set flashes for any HP that decreased
                 if let (Some(before), Some(after)) = (player_hp_before, combat_player_hp(&self.game)) {
                     if after < before {
-                        self.player_flash = Some(std::time::Instant::now());
+                        self.player_flash = now();
                     }
                 }
                 for (i, (&before, after)) in enemy_hps_before.iter().zip(combat_enemy_hps(&self.game)).enumerate() {
                     if after < before {
                         if let Some(slot) = self.enemy_flashes.get_mut(i) {
-                            *slot = Some(std::time::Instant::now());
+                            *slot = now();
                         }
                     }
                 }
@@ -1864,7 +1870,7 @@ mod tests {
     #[test]
     fn enemy_flashes_reset_on_new_combat_entry() {
         let mut tui = make_combat_tui();
-        tui.enemy_flashes = vec![Some(std::time::Instant::now())];
+        tui.enemy_flashes = vec![now()];
         // Leave combat by letting the enemy die isn't easy; instead synthesise a new combat state
         let mut r = rng();
         let mut state = new_simple_run();
@@ -1935,7 +1941,7 @@ mod tests {
     #[test]
     fn wipe_active_blacks_out_frame() {
         let mut tui = make_combat_tui();
-        tui.wipe_start = Some(std::time::Instant::now());
+        tui.wipe_start = now();
         let out = render_to_string(&tui, 100, 30);
         assert!(!out.contains("Draw:"), "pile counts should not be visible during wipe");
         assert!(!out.contains("Hand"), "hand panel should not be visible during wipe");
@@ -1944,7 +1950,7 @@ mod tests {
     #[test]
     fn wipe_shows_floor_number_and_room_type() {
         let mut tui = make_combat_tui();
-        tui.wipe_start = Some(std::time::Instant::now());
+        tui.wipe_start = now();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("Floor"), "should show floor label during wipe");
         assert!(out.contains("COMBAT"), "should show room type in caps during wipe");
@@ -1953,7 +1959,7 @@ mod tests {
     #[test]
     fn wipe_shows_enemy_names_during_combat_transition() {
         let mut tui = make_combat_tui();
-        tui.wipe_start = Some(std::time::Instant::now());
+        tui.wipe_start = now();
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("Louse"), "should show enemy name on title card during wipe");
     }
