@@ -15,6 +15,7 @@ const term = new Terminal({
 
 const container = document.getElementById('terminal');
 term.open(container);
+term.focus();
 
 // Measure a single character cell using a temporary off-screen element that
 // matches the terminal's font exactly. Returns { cellW, cellH } in pixels.
