@@ -9,5 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 wasm-bindgen = "0.2"
 slay-core = { path = "../slay-core" }
+slay-tui = { path = "../slay-tui", default-features = false }
+ratatui = { version = "=0.28.1", default-features = false }
 getrandom = { version = "0.2", features = ["js"] }
 rand = "0.8"

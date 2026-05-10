@@ -5,6 +5,9 @@ use slay_core::{AnyRng, GameState, NeowContext, NoOpRng, ThreadRng};
 mod command;
 mod engine;
 mod render;
+mod wasm_backend;
+
+pub use wasm_backend::WasmBackend;
 
 #[wasm_bindgen]
 pub struct WasmSession {
@@ -89,6 +92,97 @@ impl WasmSession {
             rng: AnyRng::NoOp(NoOpRng),
             debug,
         }
+    }
+
+    /// Creates a session that renders via the ratatui TUI (returns ANSI sequences).
+    pub fn new_tui(debug: bool) -> TuiSession {
+        let state = slay_core::new_simple_run();
+        let rng = AnyRng::NoOp(NoOpRng);
+        TuiSession::new(state, rng, debug)
+    }
+}
+
+/// A wasm-bindgen-exposed TUI session backed by ratatui + WasmBackend.
+/// Returns ANSI escape sequences; pass directly to `term.write()` in xterm.js.
+#[wasm_bindgen]
+pub struct WasmTuiSession(TuiSession);
+
+#[wasm_bindgen]
+impl WasmTuiSession {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> WasmTuiSession {
+        let mut rng = AnyRng::Thread(ThreadRng::new());
+        let ctx = NeowContext { runs_completed: 0, prev_run_reached_boss: false };
+        let state = slay_core::new_run(&mut rng, &ctx);
+        WasmTuiSession(TuiSession::new(state, rng, false))
+    }
+
+    pub fn send(&mut self, input: &str) -> String {
+        self.0.send(input)
+    }
+
+    pub fn send_key(&mut self, key: &str) -> String {
+        use slay_tui::key::Key;
+        let k = match key {
+            "Enter"     => Key::Enter,
+            "Backspace" => Key::Backspace,
+            "Esc"       => Key::Esc,
+            "Up"        => Key::Up,
+            "Down"      => Key::Down,
+            _           => return self.0.render(),
+        };
+        slay_tui::tui::handle_key(&mut self.0.tui, &mut self.0.rng, k);
+        self.0.render()
+    }
+
+    pub fn is_over(&self) -> bool {
+        self.0.is_over()
+    }
+}
+
+// Prevent duplicate impl block for WasmSession.
+impl WasmSession {
+}
+
+/// A game session that renders via the ratatui TUI, returning ANSI sequences
+/// suitable for display in xterm.js.
+pub struct TuiSession {
+    tui: slay_tui::tui::TuiState,
+    rng: AnyRng,
+    terminal: ratatui::Terminal<WasmBackend>,
+}
+
+impl TuiSession {
+    pub fn new(state: GameState, rng: AnyRng, debug: bool) -> Self {
+        let tui = slay_tui::tui::TuiState::new(state, debug);
+        let backend = WasmBackend::new(120, 40);
+        let terminal = ratatui::Terminal::new(backend).expect("terminal init");
+        TuiSession { tui, rng, terminal }
+    }
+
+    pub fn send(&mut self, input: &str) -> String {
+        use slay_tui::key::Key;
+
+        for c in input.chars() {
+            let key = match c {
+                '\n' | '\r' => Key::Enter,
+                '\x08' | '\x7f' => Key::Backspace,
+                '\x1b' => Key::Esc,
+                _ => Key::Char(c),
+            };
+            slay_tui::tui::handle_key(&mut self.tui, &mut self.rng, key);
+        }
+
+        self.render()
+    }
+
+    pub fn render(&mut self) -> String {
+        self.terminal.draw(|f| slay_tui::tui::render_frame(f, &self.tui)).ok();
+        self.terminal.backend_mut().take_output()
+    }
+
+    pub fn is_over(&self) -> bool {
+        matches!(self.tui.game, GameState::GameOver { .. })
     }
 }
 

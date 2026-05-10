@@ -1,9 +1,9 @@
-import init, { WasmSession } from './pkg/slay_wasm.js';
+import init, { WasmTuiSession } from './pkg/slay_wasm.js';
 
 await init();
 
 const term = new Terminal({
-  cols: 100,
+  cols: 120,
   rows: 40,
   theme: {
     background: '#0d0d0d',
@@ -12,47 +12,37 @@ const term = new Terminal({
   },
   fontFamily: 'Menlo, Monaco, "Courier New", monospace',
   fontSize: 14,
-  convertEol: true,
+  convertEol: false,
 });
 
 term.open(document.getElementById('terminal'));
 
-const session = new WasmSession();
+const session = new WasmTuiSession();
 
-function writeOutput(text) {
-  // Normalise LF → CRLF so xterm renders correctly.
-  term.write(text.replace(/\n/g, '\r\n'));
-}
-
-// Write initial state.
-writeOutput(session.send(''));
-
-// Line-buffer for keyboard input.
-let line = '';
+// Write initial render.
+term.write(session.send(''));
 
 term.onKey(({ key, domEvent }) => {
   if (session.is_over()) return;
 
   const code = domEvent.keyCode;
+  let output = '';
 
   if (code === 13) {
-    // Enter — submit line.
-    term.write('\r\n');
-    if (line.trim().length > 0) {
-      writeOutput('> ' + line + '\r\n');
-      const response = session.send(line);
-      writeOutput(response);
-    }
-    line = '';
+    output = session.send_key('Enter');
   } else if (code === 8) {
-    // Backspace.
-    if (line.length > 0) {
-      line = line.slice(0, -1);
-      term.write('\b \b');
-    }
+    output = session.send_key('Backspace');
+  } else if (code === 27) {
+    output = session.send_key('Esc');
+  } else if (code === 38) {
+    output = session.send_key('Up');
+  } else if (code === 40) {
+    output = session.send_key('Down');
   } else if (key.length === 1) {
-    // Printable character.
-    line += key;
-    term.write(key);
+    output = session.send(key);
+  }
+
+  if (output) {
+    term.write(output);
   }
 });

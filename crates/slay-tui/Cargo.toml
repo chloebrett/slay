@@ -3,15 +3,19 @@ name = "slay-tui"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["terminal"]
+terminal = ["dep:crossterm", "dep:dirs", "dep:ctrlc", "ratatui/crossterm"]
+
 [dependencies]
 indexmap = { workspace = true }
 slay-core = { path = "../slay-core" }
-ratatui = "=0.28.1"
-crossterm = "=0.28.1"
+ratatui = { version = "=0.28.1", default-features = false }
+crossterm = { version = "=0.28.1", optional = true }
 serde = { workspace = true }
 ron = "0.8"
-dirs = "5"
-ctrlc = "3"
+dirs = { version = "5", optional = true }
+ctrlc = { version = "3", optional = true }
 rand = "0.8"
 
 [dev-dependencies]

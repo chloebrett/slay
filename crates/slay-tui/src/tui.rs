@@ -42,6 +42,7 @@ pub struct TuiState {
     pub hand_scroll: usize,
     pub debug: bool,
     pub should_quit: bool,
+    #[cfg(feature = "terminal")]
     save_tx: Option<std::sync::mpsc::SyncSender<Option<(GameState, u64)>>>,
 }
 
@@ -54,14 +55,24 @@ pub enum PileView {
 
 impl TuiState {
     pub fn new(game: GameState, debug: bool) -> Self {
-        Self::new_with_save(game, debug, None)
+        #[cfg(feature = "terminal")]
+        return Self::new_with_save(game, debug, None);
+        #[cfg(not(feature = "terminal"))]
+        return Self::new_inner(game, debug);
     }
 
+    #[cfg(feature = "terminal")]
     pub fn new_with_save(
         game: GameState,
         debug: bool,
         save_tx: Option<std::sync::mpsc::SyncSender<Option<(GameState, u64)>>>,
     ) -> Self {
+        let mut s = Self::new_inner(game, debug);
+        s.save_tx = save_tx;
+        s
+    }
+
+    fn new_inner(game: GameState, debug: bool) -> Self {
         let enemy_flashes = match &game {
             GameState::Combat { state: cs, .. } => vec![None; cs.enemies.len()],
             _ => vec![],
@@ -80,7 +91,8 @@ impl TuiState {
             hand_scroll: 0,
             debug,
             should_quit: false,
-            save_tx,
+            #[cfg(feature = "terminal")]
+            save_tx: None,
         };
         s.push_log(slay_core::welcome().to_string());
         if debug {
@@ -172,13 +184,19 @@ impl TuiState {
                     self.push_log(msg);
                 }
                 self.last_error = None;
-                if let GameState::GameOver { victory } = &self.game {
-                    let victory = *victory;
-                    crate::game::on_run_end_tui(victory, &self.save_tx);
+                if let GameState::GameOver { .. } = &self.game {
+                    #[cfg(feature = "terminal")]
+                    {
+                        let victory = matches!(&self.game, GameState::GameOver { victory } if *victory);
+                        crate::game::on_run_end_tui(victory, &self.save_tx);
+                    }
                     self.should_quit = true;
-                } else if let Some(tx) = &self.save_tx {
-                    let seed = rng.seed().unwrap_or(0);
-                    let _ = tx.try_send(Some((self.game.clone(), seed)));
+                } else {
+                    #[cfg(feature = "terminal")]
+                    if let Some(tx) = &self.save_tx {
+                        let seed = rng.seed().unwrap_or(0);
+                        let _ = tx.try_send(Some((self.game.clone(), seed)));
+                    }
                 }
             }
             Err(e) => {
@@ -1036,8 +1054,47 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     f.render_widget(para, popup);
 }
 
+/// Processes one key, updating TuiState in place.
+/// Returns `false` if the user requested quit (Esc / Ctrl-C); `true` otherwise.
+pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) -> bool {
+    use crate::key::Key;
+
+    if tui.wipe_start.is_some() {
+        tui.wipe_start = None;
+        return true;
+    }
+    if tui.show_pile.is_some() {
+        tui.show_pile = None;
+        return true;
+    }
+    if tui.show_help {
+        match key {
+            Key::Esc | Key::Enter | Key::Char('?') => tui.show_help = false,
+            _ => {}
+        }
+        return true;
+    }
+
+    match key {
+        Key::Esc | Key::CtrlC => { tui.should_quit = true; false }
+        Key::Char('?') => { tui.show_help = true; true }
+        Key::Char(c) => { tui.input_buf.push(c); true }
+        Key::Backspace => { tui.input_buf.pop(); true }
+        Key::Enter => { tui.handle_enter(rng); true }
+        Key::Up => { tui.hand_scroll = tui.hand_scroll.saturating_sub(1); true }
+        Key::Down => {
+            if let GameState::Combat { state: cs, .. } = &tui.game {
+                let max = cs.player.hand.len().saturating_sub(1);
+                tui.hand_scroll = (tui.hand_scroll + 1).min(max);
+            }
+            true
+        }
+        Key::Other => true,
+    }
+}
+
 // Public entry point: take over the terminal and run the ratatui event loop.
-#[cfg(not(test))]
+#[cfg(all(not(test), feature = "terminal"))]
 pub fn run_tui(
     state: GameState,
     rng: &mut AnyRng,
@@ -1098,48 +1155,23 @@ pub fn run_tui(
             if !event::poll(Duration::from_millis(100))? {
                 continue;
             }
-            let CxEvent::Key(key) = event::read()? else { continue };
-            if key.kind != KeyEventKind::Press {
-                continue;
-            }
-
-            // Dismiss wipe / pile overlay on any key
-            if tui.wipe_start.is_some() {
-                tui.wipe_start = None;
-                continue;
-            }
-            if tui.show_pile.is_some() {
-                tui.show_pile = None;
-                continue;
-            }
-
-            // Dismiss help overlay on esc/enter/?; swallow all other keys
-            if tui.show_help {
-                match key.code {
-                    KeyCode::Esc | KeyCode::Enter => tui.show_help = false,
-                    KeyCode::Char('?') => tui.show_help = false,
-                    _ => {}
+            let CxEvent::Key(cx_key) = event::read()? else { continue };
+            if cx_key.kind != KeyEventKind::Press { continue; }
+            let key = {
+                use crate::key::Key;
+                match cx_key.code {
+                    KeyCode::Char('c') if cx_key.modifiers.contains(KeyModifiers::CONTROL) => Key::CtrlC,
+                    KeyCode::Char(c) => Key::Char(c),
+                    KeyCode::Enter => Key::Enter,
+                    KeyCode::Backspace => Key::Backspace,
+                    KeyCode::Esc => Key::Esc,
+                    KeyCode::Up => Key::Up,
+                    KeyCode::Down => Key::Down,
+                    _ => Key::Other,
                 }
-                continue;
-            }
-
-            match key.code {
-                KeyCode::Esc => break,
-                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => break,
-                KeyCode::Char('?') => tui.show_help = true,
-                KeyCode::Char(c) => tui.input_buf.push(c),
-                KeyCode::Backspace => { tui.input_buf.pop(); }
-                KeyCode::Enter => tui.handle_enter(rng),
-                KeyCode::Up => {
-                    tui.hand_scroll = tui.hand_scroll.saturating_sub(1);
-                }
-                KeyCode::Down => {
-                    if let GameState::Combat { state: cs, .. } = &tui.game {
-                        let max = cs.player.hand.len().saturating_sub(1);
-                        tui.hand_scroll = (tui.hand_scroll + 1).min(max);
-                    }
-                }
-                _ => {}
+            };
+            if !handle_key(&mut tui, rng, key) {
+                break;
             }
         }
         Ok(())
@@ -1943,6 +1975,58 @@ mod tests {
         let tui = make_combat_tui();
         let frame = render_to_string(&tui, 100, 30);
         assert!(!frame.contains("Help"), "overlay should not appear by default");
+    }
+
+    // ─── handle_key ────────────────────────────────────────────────
+
+    #[test]
+    fn handle_key_char_appends_to_input_buf() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        handle_key(&mut tui, &mut r, crate::key::Key::Char('1'));
+        assert_eq!(tui.input_buf, "1");
+    }
+
+    #[test]
+    fn handle_key_backspace_removes_last_char() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        tui.input_buf = "12".to_string();
+        handle_key(&mut tui, &mut r, crate::key::Key::Backspace);
+        assert_eq!(tui.input_buf, "1");
+    }
+
+    #[test]
+    fn handle_key_question_mark_opens_help() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        handle_key(&mut tui, &mut r, crate::key::Key::Char('?'));
+        assert!(tui.show_help);
+    }
+
+    #[test]
+    fn handle_key_esc_sets_should_quit() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        handle_key(&mut tui, &mut r, crate::key::Key::Esc);
+        assert!(tui.should_quit);
+    }
+
+    #[test]
+    fn handle_key_enter_submits_input() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        tui.input_buf = "1".to_string();
+        handle_key(&mut tui, &mut r, crate::key::Key::Enter);
+        assert!(tui.input_buf.is_empty());
+    }
+
+    #[test]
+    fn handle_key_other_is_no_op() {
+        let mut tui = make_map_tui();
+        let mut r = rng();
+        handle_key(&mut tui, &mut r, crate::key::Key::Other);
+        assert!(tui.input_buf.is_empty());
     }
 
 }

@@ -1,8 +1,12 @@
 pub mod command;
 pub mod engine;
-pub mod game;
-pub mod save;
+pub mod key;
 pub mod tui;
+
+#[cfg(feature = "terminal")]
+pub mod game;
+#[cfg(feature = "terminal")]
+pub mod save;
 
 #[cfg(test)]
 mod tests {
@@ -26,7 +30,6 @@ mod tests {
 
         let mut rng = AnyRng::NoOp(NoOpRng);
         let mut state = new_simple_run();
-        // Spawn a louse and enter combat
         state = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut rng).unwrap().0;
         state = apply_command(state, Command::ChooseNode(0), &mut rng).unwrap().0;
 
