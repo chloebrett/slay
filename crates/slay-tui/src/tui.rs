@@ -907,6 +907,8 @@ fn help_lines(state: &GameState) -> Vec<String> {
                 "end             end your turn".to_string(),
                 "use N           use potion N (targets first enemy)".to_string(),
                 "use N T         use potion N on enemy T".to_string(),
+                "↑ / W           scroll hand up".to_string(),
+                "↓ / S           scroll hand down".to_string(),
             ];
             for (key, _, desc) in PILE_KEYS {
                 lines.push(format!("{key:<16}{desc}"));
@@ -916,6 +918,8 @@ fn help_lines(state: &GameState) -> Vec<String> {
         GameState::Combat { .. } => vec![],
         GameState::Map(_) => vec![
             "N               choose node N".to_string(),
+            "↑ / W           scroll map up".to_string(),
+            "↓ / S           scroll map down".to_string(),
         ],
         GameState::RestSite(_) => vec![
             "rest            heal 30% of max HP".to_string(),
@@ -1134,6 +1138,23 @@ pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) ->
     match key {
         Key::Esc | Key::CtrlC => { tui.should_quit = true; false }
         Key::Char('?') => { tui.show_help = true; true }
+        Key::Char('w') | Key::Char('W') if tui.input_buf.is_empty() => {
+            if matches!(&tui.game, GameState::Map(_)) {
+                tui.map_scroll += 1;
+            } else {
+                tui.hand_scroll = tui.hand_scroll.saturating_sub(1);
+            }
+            true
+        }
+        Key::Char('s') | Key::Char('S') if tui.input_buf.is_empty() => {
+            if matches!(&tui.game, GameState::Map(_)) {
+                tui.map_scroll = tui.map_scroll.saturating_sub(1);
+            } else if let GameState::Combat { state: cs, .. } = &tui.game {
+                let max = cs.player.hand.len().saturating_sub(1);
+                tui.hand_scroll = (tui.hand_scroll + 1).min(max);
+            }
+            true
+        }
         Key::Char(c) => { tui.input_buf.push(c); true }
         Key::Backspace => { tui.input_buf.pop(); true }
         Key::Enter => { tui.handle_enter(rng); true }
@@ -1396,12 +1417,114 @@ mod tests {
         use crate::key::Key;
         let mut rng = seeded_rng(1);
         let mut tui = make_main_run_map_tui();
-        // Scroll up many times to reach the boss floor.
         for _ in 0..20 {
             handle_key(&mut tui, &mut rng, Key::Up);
         }
         let out = render_to_string(&tui, 100, 30);
         assert!(out.contains("💀"), "expected 💀 boss icon after scrolling up in:\n{out}");
+    }
+
+    #[test]
+    fn map_scroll_w_key_same_as_up() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui_up = make_main_run_map_tui();
+        let mut tui_w = make_main_run_map_tui();
+        for _ in 0..20 {
+            handle_key(&mut tui_up, &mut rng, Key::Up);
+            handle_key(&mut tui_w, &mut rng, Key::Char('w'));
+        }
+        assert_eq!(tui_up.map_scroll, tui_w.map_scroll);
+    }
+
+    #[test]
+    fn map_scroll_s_key_decrements_after_scrolling_up() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        for _ in 0..5 {
+            handle_key(&mut tui, &mut rng, Key::Up);
+        }
+        let scroll_after_up = tui.map_scroll;
+        handle_key(&mut tui, &mut rng, Key::Char('s'));
+        assert_eq!(tui.map_scroll, scroll_after_up - 1);
+    }
+
+    #[test]
+    fn map_scroll_down_key_decrements_after_scrolling_up() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        for _ in 0..5 {
+            handle_key(&mut tui, &mut rng, Key::Up);
+        }
+        let scroll_after_up = tui.map_scroll;
+        handle_key(&mut tui, &mut rng, Key::Down);
+        assert_eq!(tui.map_scroll, scroll_after_up - 1);
+    }
+
+    #[test]
+    fn map_scroll_down_does_not_underflow_at_zero() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        handle_key(&mut tui, &mut rng, Key::Down);
+        assert_eq!(tui.map_scroll, 0, "scrolling down at zero should stay at zero");
+    }
+
+    #[test]
+    fn w_s_do_not_scroll_when_input_buf_nonempty() {
+        use crate::key::Key;
+        let mut rng = seeded_rng(1);
+        let mut tui = make_main_run_map_tui();
+        for _ in 0..5 {
+            handle_key(&mut tui, &mut rng, Key::Up);
+        }
+        let scroll_before = tui.map_scroll;
+        tui.input_buf = "1".to_string();
+        handle_key(&mut tui, &mut rng, Key::Char('w'));
+        handle_key(&mut tui, &mut rng, Key::Char('s'));
+        assert_eq!(tui.map_scroll, scroll_before, "w/s should not scroll when input_buf is non-empty");
+    }
+
+    #[test]
+    fn combat_w_key_scrolls_hand_up() {
+        use crate::key::Key;
+        let mut rng = rng();
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 3;
+        handle_key(&mut tui, &mut rng, Key::Char('w'));
+        assert_eq!(tui.hand_scroll, 2);
+    }
+
+    #[test]
+    fn combat_s_key_scrolls_hand_down() {
+        use crate::key::Key;
+        let mut rng = rng();
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 0;
+        handle_key(&mut tui, &mut rng, Key::Char('s'));
+        assert_eq!(tui.hand_scroll, 1);
+    }
+
+    #[test]
+    fn combat_up_key_scrolls_hand_up() {
+        use crate::key::Key;
+        let mut rng = rng();
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 3;
+        handle_key(&mut tui, &mut rng, Key::Up);
+        assert_eq!(tui.hand_scroll, 2);
+    }
+
+    #[test]
+    fn combat_down_key_scrolls_hand_down() {
+        use crate::key::Key;
+        let mut rng = rng();
+        let mut tui = make_combat_tui_with_many_cards();
+        tui.hand_scroll = 0;
+        handle_key(&mut tui, &mut rng, Key::Down);
+        assert_eq!(tui.hand_scroll, 1);
     }
 
     #[test]

@@ -1270,11 +1270,11 @@ mod tests {
     // --- HP clamping ---
 
     #[test]
-    fn enemy_hp_does_not_go_below_zero() {
+    fn killing_enemy_removes_it_from_list() {
         let mut state = combat_with_hand(vec![Card::Strike(Grade::Base)]);
         state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(0));
+        assert!(state.enemies.is_empty());
     }
 
     #[test]
@@ -1679,11 +1679,11 @@ mod tests {
     }
 
     #[test]
-    fn play_card_auto_targets_living_enemy_when_specified_is_dead() {
+    fn targeting_out_of_bounds_after_enemy_removed_returns_error() {
         let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base)]);
-        state.enemies[0].hp = Hp(0);
-        let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[1].hp, Hp(14));
+        state.enemies.remove(0); // one enemy remains at index 0
+        let result = apply_command(state, Command::PlayCard(0, 1), &mut rng());
+        assert_eq!(result, Err(CommandError::InvalidCard));
     }
 
     #[test]
@@ -1702,9 +1702,9 @@ mod tests {
     }
 
     #[test]
-    fn dead_enemy_skips_their_turn() {
+    fn removed_enemy_does_not_attack() {
         let mut state = combat_with_two_enemies(Vec::new());
-        state.enemies[0].hp = Hp(0); // first enemy already dead
+        state.enemies.remove(0); // first enemy removed from combat
         state.player.draw_pile = vec![Card::Strike(Grade::Base); 5];
         let (state, _) = end_turn_full(state, &mut rng()).unwrap();
         assert_eq!(state.player.hp, Hp(74)); // only one attack (6 dmg)
@@ -1712,9 +1712,9 @@ mod tests {
 
     #[test]
     fn killing_last_enemy_wins_combat() {
-        let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base), Card::Strike(Grade::Base)]);
-        state.enemies[0].hp = Hp(0); // first already dead
-        state.enemies[1].hp = Hp(1);
+        let mut state = combat_with_two_enemies(vec![Card::Strike(Grade::Base)]);
+        state.enemies.remove(0); // one enemy remains at index 0
+        state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::Victory);
     }
@@ -1725,7 +1725,7 @@ mod tests {
         state.enemies[0].hp = Hp(1);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
         assert_eq!(state.phase, CombatPhase::PlayerTurn);
-        assert_eq!(state.enemies[1].hp, Hp(20));
+        assert_eq!(state.enemies[0].hp, Hp(20)); // formerly enemies[1], now at index 0
     }
 
     #[test]
@@ -2820,9 +2820,9 @@ mod tests {
             s.player.hand = vec![Card::Strike(Grade::Base); 5];
             s
         };
-        // Play Strike on enemy 0 and 1
+        // Kill first slime; second shifts to index 0
         let (s, _) = apply_command(state.clone(), Command::PlayCard(0, 0), &mut rng()).unwrap();
-        let (s, _) = apply_command(s, Command::PlayCard(0, 1), &mut rng()).unwrap();
+        let (s, _) = apply_command(s, Command::PlayCard(0, 0), &mut rng()).unwrap();
         // Both should be dead (HP=1 each, Strike deals 6)
         assert_eq!(s.phase, CombatPhase::Victory);
     }

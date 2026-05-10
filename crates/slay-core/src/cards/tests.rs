@@ -1839,8 +1839,8 @@
             Card::Strike(Grade::Base),
         ]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        // 2 × 10 = 20 damage
-        assert_eq!(state.enemies[0].hp, Hp(0));
+        // 2 × 10 = 20 damage — enemy had 20 HP, so it dies and is removed
+        assert!(state.enemies.is_empty());
     }
 
     #[test]
@@ -3760,10 +3760,10 @@
     // --- Hand of Greed ---
 
     #[test]
-    fn hand_of_greed_deals_20_damage() {
+    fn hand_of_greed_deals_20_damage_and_kills_enemy() {
         let state = combat_with_hand(vec![Card::HandOfGreed(Grade::Base)]);
         let (state, _) = apply_command(state, Command::PlayCard(0, 0), &mut rng()).unwrap();
-        assert_eq!(state.enemies[0].hp, Hp(0));
+        assert!(state.enemies.is_empty());
     }
 
     #[test]

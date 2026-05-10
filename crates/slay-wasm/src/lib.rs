@@ -154,6 +154,8 @@ impl WasmTuiSession {
             "Esc"       => Key::Esc,
             "Up"        => Key::Up,
             "Down"      => Key::Down,
+            "w" | "W"   => Key::Up,
+            "s" | "S"   => Key::Down,
             _           => return self.inner.render(),
         };
         slay_tui::tui::handle_key(&mut self.inner.tui, &mut self.inner.rng, k);
