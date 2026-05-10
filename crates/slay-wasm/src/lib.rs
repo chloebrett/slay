@@ -145,6 +145,11 @@ impl WasmTuiSession {
         self.after_action()
     }
 
+    pub fn resize(&mut self, cols: u16, rows: u16) -> String {
+        self.inner.resize(cols, rows);
+        self.inner.render()
+    }
+
     pub fn is_over(&self) -> bool {
         self.inner.is_over()
     }
@@ -214,6 +219,11 @@ impl TuiSession {
     pub fn render(&mut self) -> String {
         self.terminal.draw(|f| slay_tui::tui::render_frame(f, &self.tui)).ok();
         self.terminal.backend_mut().take_output()
+    }
+
+    pub fn resize(&mut self, cols: u16, rows: u16) {
+        self.terminal.backend_mut().resize(cols, rows);
+        let _ = self.terminal.resize(ratatui::layout::Rect::new(0, 0, cols, rows));
     }
 
     pub fn is_over(&self) -> bool {

@@ -3,8 +3,6 @@ import init, { WasmTuiSession } from './pkg/slay_wasm.js';
 await init();
 
 const term = new Terminal({
-  cols: 120,
-  rows: 40,
   theme: {
     background: '#0d0d0d',
     foreground: '#e8e8e8',
@@ -15,12 +13,44 @@ const term = new Terminal({
   convertEol: false,
 });
 
-term.open(document.getElementById('terminal'));
+const container = document.getElementById('terminal');
+term.open(container);
+
+// Measure a single character cell using a temporary off-screen element that
+// matches the terminal's font exactly. Returns { cellW, cellH } in pixels.
+function measureCell() {
+  const probe = document.createElement('span');
+  probe.style.cssText =
+    `position:absolute;visibility:hidden;white-space:pre;` +
+    `font-family:${term.options.fontFamily};font-size:${term.options.fontSize}px`;
+  probe.textContent = 'W';
+  document.body.appendChild(probe);
+  const rect = probe.getBoundingClientRect();
+  document.body.removeChild(probe);
+  return { cellW: rect.width, cellH: rect.height };
+}
 
 const session = new WasmTuiSession();
 
-// Write initial render.
+function fit() {
+  const { cellW, cellH } = measureCell();
+  // Leave a small gutter so scroll bars never appear.
+  const cols = Math.max(80, Math.floor((window.innerWidth  - 32) / cellW));
+  const rows = Math.max(24, Math.floor((window.innerHeight - 80) / cellH));
+
+  if (cols !== term.cols || rows !== term.rows) {
+    term.resize(cols, rows);
+    const output = session.resize(cols, rows);
+    term.write(output);
+  }
+}
+
+fit();
+
+// Write initial render after first fit.
 term.write(session.send(''));
+
+window.addEventListener('resize', fit);
 
 term.onKey(({ key, domEvent }) => {
   if (session.is_over()) return;

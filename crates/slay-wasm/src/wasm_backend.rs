@@ -28,6 +28,11 @@ impl WasmBackend {
     pub fn take_output(&mut self) -> String {
         std::mem::take(&mut self.buf)
     }
+
+    pub fn resize(&mut self, width: u16, height: u16) {
+        self.width = width;
+        self.height = height;
+    }
 }
 
 impl Backend for WasmBackend {
