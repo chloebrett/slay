@@ -41,9 +41,9 @@ pub(crate) fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &m
 }
 
 pub(crate) fn player_after_combat(player: Player, gold_gain: i32) -> Player {
-    let mut deck = player.deck;
-    deck.extend(player.exhaust_pile);
-    // Lantern grants +1 max energy for the combat only; restore original value here.
+    // player.deck is the permanent collection and is never modified during combat —
+    // draw_pile is initialised from player.deck.clone(). exhaust_pile is a working
+    // subset, not new cards, so we must NOT extend deck with it here.
     let max_energy = if player.relics.contains(&Relic::Lantern) {
         Energy(player.max_energy.0 - 1)
     } else {
@@ -59,7 +59,6 @@ pub(crate) fn player_after_combat(player: Player, gold_gain: i32) -> Player {
         exhaust_pile: Vec::new(),
         statuses: StatusMap::new(),
         gold: player.gold + gold_gain,
-        deck,
         ..player
     }
 }
@@ -74,4 +73,84 @@ pub(crate) fn combat_gold(is_elite: bool, is_boss: bool, rng: &mut impl Rng) -> 
     if is_boss        { roll_gold(95, 105, rng) }
     else if is_elite  { roll_gold(25,  35, rng) }
     else              { roll_gold(10,  20, rng) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cards::Grade;
+    use crate::types::Hp;
+
+    fn base_player(deck: Vec<Card>) -> Player {
+        Player {
+            hp: Hp(80), max_hp: Hp(80),
+            block: Block(0),
+            energy: Energy(3), max_energy: Energy(3),
+            hand: Vec::new(),
+            draw_pile: Vec::new(),
+            discard_pile: Vec::new(),
+            exhaust_pile: Vec::new(),
+            statuses: StatusMap::new(),
+            deck,
+            gold: 0,
+            relics: Vec::new(),
+            potions: Vec::new(),
+            neow_lament_combats_remaining: 0,
+            reached_boss: false,
+            potion_chance: 0.40,
+        }
+    }
+
+    #[test]
+    fn deck_size_unchanged_after_combat_with_exhausted_cards() {
+        let deck = vec![
+            Card::Strike(Grade::Base),
+            Card::Strike(Grade::Base),
+            Card::Defend(Grade::Base),
+        ];
+        let mut player = base_player(deck.clone());
+        // Simulate a card being exhausted during combat.
+        player.exhaust_pile.push(Card::Strike(Grade::Base));
+
+        let after = player_after_combat(player, 10);
+
+        assert_eq!(
+            after.deck.len(), deck.len(),
+            "deck should not grow when cards were exhausted during combat"
+        );
+    }
+
+    #[test]
+    fn deck_size_unchanged_after_combat_three_times() {
+        // Regression: exhaust_pile cards were appended to deck each combat,
+        // causing a card to appear multiple times after several runs.
+        let deck = vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base)];
+        let mut player = base_player(deck.clone());
+
+        for _ in 0..3 {
+            player.exhaust_pile.push(Card::Strike(Grade::Base));
+            player = player_after_combat(player, 0);
+        }
+
+        assert_eq!(
+            player.deck.len(), deck.len(),
+            "deck must not accumulate exhausted cards across multiple combats"
+        );
+    }
+
+    #[test]
+    fn combat_piles_cleared_after_combat() {
+        let mut player = base_player(vec![Card::Strike(Grade::Base)]);
+        player.hand = vec![Card::Defend(Grade::Base)];
+        player.draw_pile = vec![Card::Strike(Grade::Base)];
+        player.discard_pile = vec![Card::Strike(Grade::Base)];
+        player.exhaust_pile = vec![Card::Strike(Grade::Base)];
+
+        let after = player_after_combat(player, 0);
+
+        assert!(after.hand.is_empty());
+        assert!(after.draw_pile.is_empty());
+        assert!(after.discard_pile.is_empty());
+        assert!(after.exhaust_pile.is_empty());
+    }
 }
