@@ -196,7 +196,7 @@ mod tests {
     fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
 
     fn map_state() -> GameState {
-        let graph = slay_core::run::generate_map(&mut rng());
+        let graph = slay_core::run::generate_map(&slay_core::MapConfig::default(), &mut rng());
         let available_cols = vec![0, 1];
         GameState::Map(MapState {
             player: Player {
@@ -321,7 +321,7 @@ mod tests {
             floor: 0,
             is_boss: false,
             is_elite: false,
-            graph: slay_core::run::generate_map(&mut rng()),
+            graph: slay_core::run::generate_map(&slay_core::MapConfig::default(), &mut rng()),
             next_floor_cols: vec![0, 1],
             scenario: Scenario::Main,
         }
@@ -397,7 +397,7 @@ mod tests {
                 potion_chance: 0.40,
             },
             floor: 3,
-            graph: slay_core::run::generate_map(&mut rng()),
+            graph: slay_core::run::generate_map(&slay_core::MapConfig::default(), &mut rng()),
             available_cols: vec![0],
         })
     }
@@ -424,7 +424,7 @@ mod tests {
             cards: vec![],
             relic: None,
             potion: None,
-            graph: slay_core::run::generate_map(&mut rng()),
+            graph: slay_core::run::generate_map(&slay_core::MapConfig::default(), &mut rng()),
             available_cols: vec![0],
         })
     }
@@ -469,7 +469,7 @@ mod tests {
             floor: 1,
             options: vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Bash(Grade::Base)],
             offered_potion: None,
-            graph: slay_core::run::generate_map(&mut rng()),
+            graph: slay_core::run::generate_map(&slay_core::MapConfig::default(), &mut rng()),
             available_cols: vec![0, 1],
         })
     }

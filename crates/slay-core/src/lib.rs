@@ -18,7 +18,7 @@ pub use rng::{AnyRng, NoOpRng, Rng, ThreadRng};
 pub use neow::{NeowBlessing, NeowContext, NeowState};
 pub use run::{
     apply_command, Command, CommandError, CardRewardState, EventKind, EventRoomState, GameState,
-    MapGraph, MapNode, MapState, RestSiteState, Scenario, ShopState, TreasureRoomState,
+    MapConfig, MapGraph, MapNode, MapState, RestSiteState, Scenario, ShopState, TreasureRoomState,
     CARD_PRICE, RELIC_PRICE, POTION_PRICE, new_run, new_simple_run, generate_map,
 };
 pub use status::{StatusEffect, StatusMap};

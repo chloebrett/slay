@@ -75,7 +75,7 @@ impl TestHarness {
             floor: 0,
             is_boss: false,
             is_elite: false,
-            graph: slay_core::generate_map(&mut AnyRng::NoOp(NoOpRng)),
+            graph: slay_core::generate_map(&slay_core::MapConfig::default(), &mut AnyRng::NoOp(NoOpRng)),
             next_floor_cols: vec![0, 1],
             scenario: slay_core::Scenario::Main,
         };
@@ -231,7 +231,7 @@ fn rest_heals_player_hp() {
             potion_chance: 0.40,
         },
         floor: 3,
-        graph: generate_map(&mut AnyRng::NoOp(NoOpRng)),
+        graph: generate_map(&slay_core::MapConfig::default(), &mut AnyRng::NoOp(NoOpRng)),
         available_cols: vec![0, 1],
     });
     let mut game = TestHarness::with_state(state);
@@ -408,7 +408,7 @@ fn upgrade_at_rest_site_replaces_card_in_deck() {
         reached_boss: false,
         potion_chance: 0.40,
     };
-    let state = GameState::RestSite(RestSiteState { player, floor: 3, graph: generate_map(&mut AnyRng::NoOp(NoOpRng)), available_cols: vec![0, 1] });
+    let state = GameState::RestSite(RestSiteState { player, floor: 3, graph: generate_map(&slay_core::MapConfig::default(), &mut AnyRng::NoOp(NoOpRng)), available_cols: vec![0, 1] });
     let mut game = TestHarness::with_state(state);
     game.send("upgrade 1").unwrap(); // upgrade deck[0] = Strike → StrikePlus
     let GameState::Map(map) = &game.state else { panic!("expected Map") };

@@ -119,6 +119,21 @@ pub struct MapGraph {
     pub edges: Vec<Vec<Vec<usize>>>,
 }
 
+#[derive(Debug, Clone)]
+pub struct MapConfig {
+    pub num_paths: usize,
+    pub num_cols: usize,
+    pub num_floors: usize,
+    pub straight_weight: u32,
+    pub side_weight: u32,
+}
+
+impl Default for MapConfig {
+    fn default() -> Self {
+        Self { num_paths: 6, num_cols: 7, num_floors: 15, straight_weight: 2, side_weight: 1 }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MapState {
     pub player: Player,
@@ -205,7 +220,7 @@ pub fn new_run(rng: &mut impl Rng, ctx: &NeowContext) -> GameState {
         reached_boss: false,
         potion_chance: 0.40,
     };
-    let graph = generate_map(rng);
+    let graph = generate_map(&MapConfig::default(), rng);
     let blessings = generate_blessings(rng, ctx);
     GameState::Neow(NeowState { player, graph, blessings })
 }
@@ -413,7 +428,11 @@ fn assign_bucket_node(floor: usize, prev: Option<&MapNode>, bucket: &mut Vec<Buc
     MapNode::Combat(pick_encounter(&mut hard_encounters(), rng))
 }
 
-pub fn generate_map(rng: &mut impl Rng) -> MapGraph {
+fn crosses_edge(a: usize, b: usize, c: usize, d: usize) -> bool {
+    (a < c && b > d) || (a > c && b < d)
+}
+
+pub fn generate_map(config: &MapConfig, rng: &mut impl Rng) -> MapGraph {
     let converge: Vec<Vec<usize>> = vec![vec![0], vec![0]];
     let single: Vec<Vec<usize>> = vec![vec![0]];
     let mut rows: Vec<Vec<MapNode>> = Vec::new();
@@ -1144,7 +1163,7 @@ mod tests {
     }
 
     fn test_graph() -> MapGraph {
-        generate_map(&mut rng())
+        generate_map(&MapConfig::default(), &mut rng())
     }
 
     fn all_cols(graph: &MapGraph, floor: usize) -> Vec<usize> {
@@ -1888,6 +1907,24 @@ mod tests {
         assert!(cs.player.exhaust_pile.is_empty());
     }
 
+    // --- crosses_edge ---
+
+    #[test]
+    fn crossing_edges_are_detected() {
+        assert!(crosses_edge(0, 2, 1, 0), "(0→2) and (1→0) should cross");
+        assert!(crosses_edge(2, 0, 1, 2), "(2→0) and (1→2) should cross");
+        assert!(crosses_edge(2, 3, 3, 2), "(2→3) and (3→2) should cross");
+    }
+
+    #[test]
+    fn non_crossing_edges_are_not_detected() {
+        assert!(!crosses_edge(0, 1, 2, 3), "parallel same-direction edges don't cross");
+        assert!(!crosses_edge(0, 2, 1, 2), "converging to same target doesn't cross");
+        assert!(!crosses_edge(1, 2, 1, 3), "same source doesn't cross");
+        assert!(!crosses_edge(0, 0, 1, 1), "both going straight don't cross");
+        assert!(!crosses_edge(3, 3, 3, 3), "identical edges don't cross");
+    }
+
     // --- map generation ---
 
     fn map_at_floor(floor: usize) -> GameState {
@@ -1953,7 +1990,7 @@ mod tests {
     #[test]
     fn no_elite_before_floor_index_5() {
         for seed in 0..20u64 {
-            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
             for floor in 1..5usize {
                 for node in &graph.rows[floor] {
                     assert!(!matches!(node, MapNode::Elite(_)),
@@ -1966,7 +2003,7 @@ mod tests {
     #[test]
     fn no_rest_before_floor_index_5() {
         for seed in 0..20u64 {
-            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
             for floor in 1..5usize {
                 for node in &graph.rows[floor] {
                     assert!(!matches!(node, MapNode::RestSite),
@@ -1979,7 +2016,7 @@ mod tests {
     #[test]
     fn no_rest_at_floor_index_13() {
         for seed in 0..20u64 {
-            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
             for node in &graph.rows[13] {
                 assert!(!matches!(node, MapNode::RestSite),
                     "rest at index 13 (seed {seed}) — forbidden directly before guaranteed rest at 14");
@@ -1990,7 +2027,7 @@ mod tests {
     #[test]
     fn no_consecutive_same_special_type() {
         for seed in 0..20u64 {
-            let graph = generate_map(&mut crate::rng::SeededRng::new(seed));
+            let graph = generate_map(&MapConfig::default(), &mut crate::rng::SeededRng::new(seed));
             // Check contiguous segments: 1-7 and 9-13 (8 is fixed Treasure, breaks adjacency)
             let check_pairs: &[(usize, usize)] = &[
                 (1,2),(2,3),(3,4),(4,5),(5,6),(6,7),

@@ -1283,7 +1283,7 @@ mod tests {
     fn top_bar_hp_bar_reflects_current_health() {
         use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
         let mut r = rng();
-        let graph = slay_core::generate_map(&mut r);
+        let graph = slay_core::generate_map(&slay_core::MapConfig::default(), &mut r);
         let state = GameState::Map(MapState {
             player: Player {
                 hp: Hp(40), max_hp: Hp(80), block: Block(0),
@@ -1391,7 +1391,7 @@ mod tests {
         let rs_state = GameState::RestSite(slay_core::RestSiteState {
             player,
             floor: 3,
-            graph: slay_core::generate_map(&mut r),
+            graph: slay_core::generate_map(&slay_core::MapConfig::default(), &mut r),
             available_cols: vec![0, 1],
         });
         let tui = TuiState::new(rs_state, false);
@@ -1415,7 +1415,7 @@ mod tests {
             floor: 1,
             options: vec![Card::Strike(Grade::Base), Card::Defend(Grade::Base), Card::Bash(Grade::Base)],
             offered_potion: None,
-            graph: slay_core::generate_map(&mut r),
+            graph: slay_core::generate_map(&slay_core::MapConfig::default(), &mut r),
             available_cols: vec![0, 1],
         });
         let tui = TuiState::new(cr, false);
@@ -1451,7 +1451,7 @@ mod tests {
     fn relics_command_opens_relic_overlay() {
         use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
         let mut r = rng();
-        let graph = slay_core::generate_map(&mut r);
+        let graph = slay_core::generate_map(&slay_core::MapConfig::default(), &mut r);
         let state = GameState::Map(MapState {
             player: Player {
                 hp: Hp(80), max_hp: Hp(80), block: Block(0),
@@ -1480,7 +1480,7 @@ mod tests {
     fn top_bar_shows_relic_emoji_when_player_has_relics() {
         use slay_core::{Block, Energy, Hp, MapState, Player, Relic, Scenario, StatusMap};
         let mut r = rng();
-        let graph = slay_core::generate_map(&mut r);
+        let graph = slay_core::generate_map(&slay_core::MapConfig::default(), &mut r);
         let state = GameState::Map(MapState {
             player: Player {
                 hp: Hp(80), max_hp: Hp(80), block: Block(0),
@@ -1504,7 +1504,7 @@ mod tests {
     fn top_bar_omits_relic_row_when_no_relics() {
         use slay_core::{Block, Energy, Hp, MapState, Player, Scenario, StatusMap};
         let mut r = rng();
-        let graph = slay_core::generate_map(&mut r);
+        let graph = slay_core::generate_map(&slay_core::MapConfig::default(), &mut r);
         let state = GameState::Map(MapState {
             player: Player {
                 hp: Hp(80), max_hp: Hp(80), block: Block(0),
