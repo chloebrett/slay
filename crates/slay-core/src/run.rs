@@ -309,18 +309,28 @@ fn easy_encounters() -> Vec<Vec<EnemyKind>> {
         vec![EnemyKind::Cultist],
         vec![EnemyKind::JawWorm],
         vec![EnemyKind::RedLouse, EnemyKind::GreenLouse],
-        vec![EnemyKind::SmallSpikeSlime, EnemyKind::SmallAcidSlime],
+        vec![EnemyKind::MediumSpike, EnemyKind::SmallAcidSlime], // Small Slimes
     ]
 }
 
 fn hard_encounters() -> Vec<Vec<EnemyKind>> {
     vec![
+        // weight ~2
         vec![EnemyKind::BlueSlaver],
-        vec![EnemyKind::RedSlaver],
-        vec![EnemyKind::FatGremlin, EnemyKind::MadGremlin, EnemyKind::ShieldGremlin, EnemyKind::SneakyGremlin, EnemyKind::GremlinWizard],
         vec![EnemyKind::Fungibeast, EnemyKind::Fungibeast],
-        vec![EnemyKind::RedLouse, EnemyKind::RedLouse, EnemyKind::GreenLouse],
-        vec![EnemyKind::SmallSpikeSlime, EnemyKind::SmallSpikeSlime, EnemyKind::SmallAcidSlime],
+        vec![EnemyKind::RedLouse, EnemyKind::GreenLouse, EnemyKind::RedLouse], // 3 Louses
+        vec![EnemyKind::LargeSpike],   // Large Slime — spike variant
+        vec![EnemyKind::LargeAcid],    // Large Slime — acid variant
+        vec![EnemyKind::Looter],
+        // weight ~1.5
+        vec![EnemyKind::Looter, EnemyKind::Mugger],         // Exordium Thugs
+        vec![EnemyKind::JawWorm, EnemyKind::GreenLouse],    // Exordium Wildlife
+        vec![EnemyKind::Fungibeast, EnemyKind::RedLouse],   // Exordium Wildlife
+        vec![EnemyKind::JawWorm, EnemyKind::MediumSpike],   // Exordium Wildlife
+        // weight ~1
+        vec![EnemyKind::RedSlaver],
+        vec![EnemyKind::FatGremlin, EnemyKind::MadGremlin, EnemyKind::SneakyGremlin, EnemyKind::ShieldGremlin], // Gremlin Gang (4 of 5)
+        vec![EnemyKind::SmallSpikeSlime, EnemyKind::SmallSpikeSlime, EnemyKind::SmallSpikeSlime, EnemyKind::SmallAcidSlime, EnemyKind::SmallAcidSlime], // Swarm of Slimes
     ]
 }
 
@@ -335,7 +345,8 @@ fn elite_encounters() -> Vec<Vec<EnemyKind>> {
 fn boss_encounters() -> Vec<Vec<EnemyKind>> {
     vec![
         vec![EnemyKind::TheGuardian],
-        // TODO: SlimeBoss, Hexaghost when implemented
+        vec![EnemyKind::SlimeBoss],
+        vec![EnemyKind::Hexaghost],
     ]
 }
 

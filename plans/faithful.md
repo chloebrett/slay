@@ -43,9 +43,10 @@ Rest Site + Merchant.
 
 ---
 
-## 2. Potion drop rate — 40% base with adaptive pity
+## 2. Potion drop rate — 40% base with adaptive pity ✅
 
-**Current:** Implemented as a flat 40% after all combats (done). ✅
+**Current:** Implemented. `potion_chance: f64` on `Player` (starts at 0.40).
+`award_potion()` adjusts ±0.10 after each roll and clamps to [0.0, 1.0].
 
 **Real game:** 40% base, but with an adaptive pity mechanic:
 
@@ -58,10 +59,7 @@ Rest Site + Merchant.
 - ~~"Elites and bosses have a higher chance (~50%)"~~ — the same adaptive mechanic
   applies to all combat types; there is no separate elite/boss rate
 
-**Changes needed (`slay-core/src/run.rs`):**
-
-- Track `potion_chance: f64` on the player or run state (starts at 0.40)
-- After each combat, adjust ±0.10 based on whether a potion dropped
+**Note:** Per-act reset not yet implemented (no multi-act support).
 
 ---
 
@@ -89,11 +87,24 @@ understanding is that Act 1 elites drop uncommon relics. Leaving as uncommon.
 
 - Replace flat constants with `rng`-based ranges
 
-## 5. Enemy encounter types
+## 5. Enemy encounter types ✅
 
-Enemies should appear in pairs, etc. The common encounter types are shown in the wiki: https://slay-the-spire.fandom.com/wiki/Act_1
+**Easy pool** (first 3 combats): Cultist, JawWorm, 2 Louses, Small Slimes (MediumSpike + SmallAcid).
 
-<FILL THIS OUT WITH MORE INFO>
+**Hard pool** (remaining combats): BlueSlaver, 2 FungiBeasts, 3 Louses, LargeSpike, LargeAcid,
+Looter, Exordium Thugs (Looter + Mugger), Exordium Wildlife (JawWorm+GreenLouse /
+Fungibeast+RedLouse / JawWorm+MediumSpike), RedSlaver, Gremlin Gang (4 of 5 gremlins),
+Swarm of Slimes (3 SmallSpike + 2 SmallAcid).
+
+**Elite pool**: GremlinNob, Lagavulin, 3 Sentries.
+
+**Boss pool**: TheGuardian, SlimeBoss, Hexaghost (all three now included).
+
+**Known gaps:**
+- Encounter weights (wiki: 1/1.5/2) are approximated as uniform; pick_encounter shuffles and picks first
+- Gremlin Gang should be 4 random of 5 gremlins each time; currently fixed to same 4
+- Small Slimes internal randomness (MediumSpike+SmallAcid vs MediumAcid+SmallSpike) not implemented
+- Louse color randomness (each louse independently 50% red/green) not implemented
 
 ---
 
