@@ -202,7 +202,7 @@ pub fn enemy_icon(enemy: &Enemy) -> &'static str {
 pub fn map_node_icon(node: &MapNode) -> &'static str {
     match node {
         MapNode::Combat(_) => "⚔️",
-        MapNode::Elite(_)  => "⚡",
+        MapNode::Elite(_)  => "😈",
         MapNode::RestSite  => "🔥",
         MapNode::Boss(_)   => "💀",
         MapNode::Merchant  => "🛒",
@@ -225,8 +225,8 @@ pub fn map_node_name(node: &MapNode) -> &'static str {
 
 /// Builds two connector rows visualising edges FROM a floor to the floor above.
 /// `floor_edges[col]` = destination columns on the upper floor.
-/// Characters per map column slot: 2-wide emoji + 4 spaces of padding.
-pub const MAP_COL_STRIDE: usize = 6;
+/// Characters per map column slot: 2-wide emoji + 8 spaces of padding.
+pub const MAP_COL_STRIDE: usize = 10;
 
 /// Builds two connector rows of box-drawing characters between two map floors.
 ///
@@ -254,15 +254,19 @@ pub fn connector_rows(
                     r1[sc] = '│';
                 }
                 std::cmp::Ordering::Less => {
-                    // bottom-left → top-right: ╱ centred between the two columns
+                    // bottom-left → top-right: two ╱ chars per row for a wider stroke
                     let mid = (sc + dc) / 2;
+                    r1[mid - 2] = '╱';
                     r1[mid - 1] = '╱';
                     r0[mid + 1] = '╱';
+                    r0[mid + 2] = '╱';
                 }
                 std::cmp::Ordering::Greater => {
-                    // bottom-right → top-left: ╲ centred between the two columns
+                    // bottom-right → top-left: two ╲ chars per row for a wider stroke
                     let mid = (sc + dc) / 2;
                     r1[mid + 1] = '╲';
+                    r1[mid + 2] = '╲';
+                    r0[mid - 2] = '╲';
                     r0[mid - 1] = '╲';
                 }
             }

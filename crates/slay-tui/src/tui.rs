@@ -404,6 +404,12 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
     let max_cols = map.graph.rows.iter().map(|r| r.len()).max().unwrap_or(1).max(2);
     let max_floor = map.graph.rows.len().saturating_sub(1);
     let offset_of = |row: &[_]| (max_cols - row.len()) / 2;
+
+    let map_content_width = max_cols * MAP_COL_STRIDE;
+    let inner_width = map_area.width.saturating_sub(2) as usize;
+    let left_margin = inner_width.saturating_sub(map_content_width) / 2;
+    let margin = " ".repeat(left_margin);
+
     let mut lines: Vec<Line> = Vec::new();
 
     for floor in (0..=max_floor).rev() {
@@ -412,12 +418,12 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
         let current = floor == map.floor;
         let off = offset_of(row);
 
-        // Node row: leading padding + one span per column + separators between
+        // Node row: left margin + centering offset + one span per column + separators
         use ratatui::text::Span;
-        let mut spans: Vec<Span> = Vec::new();
-        if off > 0 {
-            spans.push(Span::raw(" ".repeat(off * MAP_COL_STRIDE)));
-        }
+        let mut spans: Vec<Span> = vec![Span::raw(format!(
+            "{margin}{}",
+            " ".repeat(off * MAP_COL_STRIDE)
+        ))];
         for col in 0..row.len() {
             let icon = map_node_icon(&row[col]);
             let style = if past {
@@ -429,7 +435,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
             };
             spans.push(Span::styled(if past { "·· ".to_string() } else { icon.to_string() }, style));
             if col < row.len() - 1 {
-                spans.push(Span::raw("    "));
+                spans.push(Span::raw("        "));
             }
         }
         lines.push(Line::from(spans));
@@ -440,8 +446,8 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState) {
             let upper_off = off;
             let conn_style = Style::default().fg(Color::DarkGray);
             let (r0, r1) = connector_rows(&map.graph.edges[floor - 1], max_cols, lower_off, upper_off);
-            lines.push(Line::styled(r0, conn_style));
-            lines.push(Line::styled(r1, conn_style));
+            lines.push(Line::styled(format!("{margin}{r0}"), conn_style));
+            lines.push(Line::styled(format!("{margin}{r1}"), conn_style));
         }
     }
 

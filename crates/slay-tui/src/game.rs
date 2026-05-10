@@ -147,7 +147,7 @@ fn render_map(map: &MapState, w: &mut impl Write) {
         let icons: Vec<String> = row.iter()
             .map(|n| if past { "·· ".to_string() } else { map_node_icon(n).to_string() })
             .collect();
-        let _ = writeln!(w, "{marker}{padding}{}", icons.join("    "));
+        let _ = writeln!(w, "{marker}{padding}{}", icons.join("        "));
         if floor_idx > 0 {
             let lower_off = offset_of(&map.graph.rows[floor_idx - 1]);
             let upper_off = off;

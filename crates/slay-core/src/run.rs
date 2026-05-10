@@ -215,7 +215,7 @@ pub fn new_run(rng: &mut impl Rng, ctx: &NeowContext) -> GameState {
         statuses: StatusMap::new(),
         deck,
         gold: 99,
-        relics: Vec::new(),
+        relics: vec![Relic::BurningBlood],
         potions: Vec::new(),
         neow_lament_combats_remaining: 0,
         reached_boss: false,

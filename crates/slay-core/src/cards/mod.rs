@@ -1007,7 +1007,7 @@ pub fn apply(card: &Card, state: &mut crate::combat::CombatState, events: &mut V
 pub fn reward_pool() -> Vec<Card> {
     use Grade::Base;
     vec![
-        Card::Bash(Base), Card::Clothesline(Base), Card::Inflame(Base), Card::DeadlyPoison(Base),
+        Card::Bash(Base), Card::Clothesline(Base), Card::Inflame(Base),
         Card::Cleave(Base), Card::IronWave(Base), Card::TwinStrike(Base), Card::Bludgeon(Base),
         Card::Impervious(Base), Card::SeeingRed(Base), Card::Pummel(Base), Card::Uppercut(Base),
         Card::SpotWeakness(Base), Card::Thunderclap(Base),
@@ -1031,13 +1031,10 @@ pub fn starter_deck() -> Vec<Card> {
     for _ in 0..5 {
         deck.push(Card::Strike(Base));
     }
-    for _ in 0..3 {
+    for _ in 0..4 {
         deck.push(Card::Defend(Base));
     }
     deck.push(Card::Bash(Base));
-    deck.push(Card::Inflame(Base));
-    deck.push(Card::DeadlyPoison(Base));
-    deck.push(Card::Disarm);
     deck
 }
 

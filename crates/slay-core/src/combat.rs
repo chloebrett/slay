@@ -1111,9 +1111,9 @@ mod tests {
     }
 
     #[test]
-    fn new_combat_leaves_7_cards_in_draw_pile() {
+    fn new_combat_leaves_5_cards_in_draw_pile() {
         let state = CombatState::new(&mut rng());
-        assert_eq!(state.player.draw_pile.len(), 7);
+        assert_eq!(state.player.draw_pile.len(), 5);
     }
 
     #[test]
