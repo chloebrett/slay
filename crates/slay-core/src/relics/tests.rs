@@ -1229,3 +1229,18 @@ fn pocketwatch_does_not_fire_when_4_cards_played() {
     apply_turn_end_relics(&mut state, &mut events, 0);
     assert_eq!(state.extra_draws_next_turn, 0);
 }
+
+#[test]
+fn uncommon_pool_is_non_empty_and_excludes_starter_relics() {
+    let pool = Relic::uncommon_pool();
+    assert!(!pool.is_empty());
+    assert!(!pool.contains(&Relic::BurningBlood), "starter relic should not be in uncommon pool");
+    assert!(!pool.contains(&Relic::BlackBlood),   "boss relic should not be in uncommon pool");
+}
+
+#[test]
+fn random_uncommon_relic_returns_an_uncommon() {
+    let pool = Relic::uncommon_pool();
+    let relic = random_uncommon_relic(&mut NoOpRng);
+    assert!(pool.contains(&relic), "{relic:?} is not in the uncommon pool");
+}

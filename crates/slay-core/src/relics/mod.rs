@@ -164,6 +164,16 @@ impl Relic {
         vec![Relic::Strawberry, Relic::Pear, Relic::Mango, Relic::OldCoin, Relic::Whetstone, Relic::WarPaint]
     }
 
+    pub fn uncommon_pool() -> Vec<Relic> {
+        vec![
+            Relic::Anchor, Relic::Vajra, Relic::Lantern, Relic::BloodVial,
+            Relic::BagOfMarbles, Relic::RedMask, Relic::FestivePopper,
+            Relic::Pantograph, Relic::BagOfPreparation, Relic::MercuryHourglass,
+            Relic::HappyFlower, Relic::Pendulum, Relic::Orichalcum,
+            Relic::CloakClasp, Relic::RegalPillow,
+        ]
+    }
+
     fn rare_pool() -> Vec<Relic> {
         vec![Relic::Nunchaku, Relic::OrnamentalFan, Relic::Kunai, Relic::Shuriken, Relic::Kusarigama, Relic::LetterOpener, Relic::TuningFork, Relic::GremlinHorn, Relic::Pocketwatch]
     }
@@ -227,6 +237,12 @@ pub fn random_common_relic(rng: &mut impl Rng) -> Relic {
     let mut pool = Relic::common_pool();
     rng.shuffle(&mut pool);
     pool.into_iter().next().unwrap() // SAFETY: common_pool() is non-empty
+}
+
+pub fn random_uncommon_relic(rng: &mut impl Rng) -> Relic {
+    let mut pool = Relic::uncommon_pool();
+    rng.shuffle(&mut pool);
+    pool.into_iter().next().unwrap() // SAFETY: uncommon_pool() is non-empty
 }
 
 pub fn random_rare_relic(rng: &mut impl Rng) -> Relic {

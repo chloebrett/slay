@@ -421,7 +421,12 @@ fn random_potion(rng: &mut impl Rng) -> Potion {
     pool[0]
 }
 
+const POTION_DROP_CHANCE: f64 = 0.40;
+
 fn award_potion(player: &mut Player, events: &mut Vec<Event>, rng: &mut impl Rng) -> Option<Potion> {
+    if !rng.gen_bool(POTION_DROP_CHANCE) {
+        return None;
+    }
     let potion = random_potion(rng);
     if player.potions.len() < MAX_POTIONS {
         player.potions.push(potion);
@@ -598,7 +603,7 @@ pub fn apply_command(
                     Ok((GameState::Map(MapState { player, floor, graph, available_cols: next_floor_cols, next_enemies: None, scenario }), events))
                 } else {
                     if is_elite {
-                        let relic = crate::relics::random_common_relic(rng);
+                        let relic = crate::relics::random_uncommon_relic(rng);
                         player.relics.push(relic.clone());
                         events.push(Event::RelicObtained { relic });
                     }

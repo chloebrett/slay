@@ -1,5 +1,6 @@
 pub trait Rng {
     fn shuffle<T>(&mut self, slice: &mut [T]);
+    fn gen_bool(&mut self, probability: f64) -> bool;
 
     fn choose<T: Copy>(&mut self, slice: &mut [T]) -> T {
         self.shuffle(slice);
@@ -26,12 +27,18 @@ impl Rng for SeededRng {
         use rand::seq::SliceRandom;
         slice.shuffle(&mut self.rng);
     }
+
+    fn gen_bool(&mut self, probability: f64) -> bool {
+        use rand::Rng as _;
+        self.rng.gen_bool(probability)
+    }
 }
 
 pub struct NoOpRng;
 
 impl Rng for NoOpRng {
     fn shuffle<T>(&mut self, _: &mut [T]) {}
+    fn gen_bool(&mut self, _: f64) -> bool { true }
 }
 
 pub struct ThreadRng(rand::rngs::ThreadRng);
@@ -52,6 +59,11 @@ impl Rng for ThreadRng {
     fn shuffle<T>(&mut self, slice: &mut [T]) {
         use rand::seq::SliceRandom;
         slice.shuffle(&mut self.0);
+    }
+
+    fn gen_bool(&mut self, probability: f64) -> bool {
+        use rand::Rng as _;
+        self.0.gen_bool(probability)
     }
 }
 
@@ -82,11 +94,34 @@ impl Rng for AnyRng {
             AnyRng::NoOp(r)    => r.shuffle(slice),
         }
     }
+
+    fn gen_bool(&mut self, probability: f64) -> bool {
+        match self {
+            AnyRng::Thread(r)  => r.gen_bool(probability),
+            AnyRng::Seeded(r)  => r.gen_bool(probability),
+            AnyRng::NoOp(r)    => r.gen_bool(probability),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gen_bool_noop_always_returns_true() {
+        let mut rng = AnyRng::NoOp(NoOpRng);
+        assert!(rng.gen_bool(0.0), "NoOpRng should always return true");
+    }
+
+    #[test]
+    fn gen_bool_seeded_gives_correct_rate() {
+        let mut rng = AnyRng::seeded(42);
+        let trials = 10_000;
+        let hits = (0..trials).filter(|_| rng.gen_bool(0.40)).count();
+        let rate = hits as f64 / trials as f64;
+        assert!((rate - 0.40).abs() < 0.02, "expected ~40% but got {rate:.2}");
+    }
 
     #[test]
     fn any_rng_noop_does_not_shuffle() {

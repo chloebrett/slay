@@ -59,8 +59,9 @@ function fit() {
 
 fit();
 
-// Write initial render after first fit.
+// Write initial render after first fit, then reveal now that cols/rows are correct.
 term.write(session.send(''));
+container.style.visibility = 'visible';
 
 window.addEventListener('resize', fit);
 
