@@ -1221,6 +1221,7 @@ mod tests {
     };
 
     fn rng() -> AnyRng { AnyRng::NoOp(NoOpRng) }
+    fn seeded_rng(seed: u64) -> AnyRng { AnyRng::seeded(seed) }
 
     fn make_combat_tui() -> TuiState {
         let mut state = new_simple_run();
@@ -1256,10 +1257,10 @@ mod tests {
     }
 
     fn make_main_run_map_tui() -> TuiState {
-        let mut noop = AnyRng::NoOp(NoOpRng);
+        let mut r = seeded_rng(1);
         let ctx = NeowContext::default();
-        let state = new_run(&mut noop, &ctx);
-        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut noop).unwrap();
+        let state = new_run(&mut r, &ctx);
+        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         TuiState::new(state, false)
     }
 
