@@ -2,6 +2,7 @@
 members = [
     "crates/slay-core",
     "crates/slay-tui",
+    "crates/slay-wasm",
 ]
 resolver = "2"
 
