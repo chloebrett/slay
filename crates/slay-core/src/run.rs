@@ -223,14 +223,15 @@ pub fn new_run(rng: &mut impl Rng, ctx: &NeowContext) -> GameState {
         potion_chance: 0.40,
     };
     let graph = generate_map(&MapConfig::default(), rng);
+    if ctx.runs_completed == 0 {
+        let available_cols = (0..graph.rows.first().map_or(0, |r| r.len())).collect();
+        return GameState::Map(MapState { player, floor: 0, graph, available_cols, next_enemies: None, scenario: Scenario::Main });
+    }
     let blessings = generate_blessings(rng, ctx);
     GameState::Neow(NeowState { player, graph, blessings })
 }
 
 fn generate_blessings(rng: &mut impl Rng, ctx: &NeowContext) -> Vec<NeowBlessing> {
-    if ctx.runs_completed == 0 {
-        return vec![NeowBlessing::GainMaxHp(8), NeowBlessing::NeowsLament];
-    }
     let mut blessings = vec![
         pick_category_1(rng),
         pick_category_2(rng),
@@ -1101,15 +1102,16 @@ mod tests {
     // --- Neow ---
 
     #[test]
-    fn new_run_starts_in_neow_phase() {
+    fn first_run_skips_neow_and_starts_on_map() {
         let state = new_run(&mut rng(), &NeowContext::default());
-        assert!(matches!(state, GameState::Neow(_)));
+        assert!(matches!(state, GameState::Map(_)));
     }
 
     #[test]
-    fn first_run_neow_offers_two_blessings() {
-        let GameState::Neow(neow) = new_run(&mut rng(), &NeowContext::default()) else { panic!("expected Neow") };
-        assert_eq!(neow.blessings.len(), 2);
+    fn subsequent_run_starts_in_neow_phase() {
+        let ctx = NeowContext { runs_completed: 1, prev_run_reached_boss: false };
+        let state = new_run(&mut rng(), &ctx);
+        assert!(matches!(state, GameState::Neow(_)));
     }
 
     #[test]
@@ -1126,10 +1128,14 @@ mod tests {
         assert_eq!(neow.blessings.len(), 4);
     }
 
+    fn neow_ctx() -> NeowContext {
+        NeowContext { runs_completed: 1, prev_run_reached_boss: false }
+    }
+
     #[test]
     fn choosing_neow_blessing_transitions_to_map() {
         let mut r = rng();
-        let state = new_run(&mut r, &NeowContext::default());
+        let state = new_run(&mut r, &neow_ctx());
         let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         assert!(matches!(state, GameState::Map(_)));
     }
@@ -1137,7 +1143,7 @@ mod tests {
     #[test]
     fn neow_gain_max_hp_increases_player_max_hp() {
         let mut r = rng();
-        let state = new_run(&mut r, &NeowContext::default());
+        let state = new_run(&mut r, &neow_ctx());
         let GameState::Neow(ref neow) = state else { panic!() };
         let hp_before = neow.player.max_hp.0;
         let gain_hp_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::GainMaxHp(_))).expect("should have GainMaxHp");
@@ -1146,13 +1152,22 @@ mod tests {
         assert!(map.player.max_hp.0 > hp_before);
     }
 
+    fn neow_state_with(blessing: NeowBlessing) -> GameState {
+        let mut r = rng();
+        let map_state = new_run(&mut r, &NeowContext::default());
+        let GameState::Map(map) = map_state else { panic!("expected Map") };
+        GameState::Neow(crate::neow::NeowState {
+            player: map.player,
+            graph: map.graph,
+            blessings: vec![blessing],
+        })
+    }
+
     #[test]
     fn neow_lament_sets_lament_counter_on_player() {
         let mut r = rng();
-        let state = new_run(&mut r, &NeowContext::default());
-        let GameState::Neow(ref neow) = state else { panic!() };
-        let lament_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::NeowsLament)).expect("should have NeowsLament");
-        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(lament_idx), &mut r).unwrap();
+        let state = neow_state_with(NeowBlessing::NeowsLament);
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         let GameState::Map(map) = state else { panic!() };
         assert_eq!(map.player.neow_lament_combats_remaining, 3);
     }
@@ -1160,11 +1175,8 @@ mod tests {
     #[test]
     fn neow_lament_sets_enemies_to_one_hp_in_combat() {
         let mut r = rng();
-        // Give lament, then enter combat
-        let state = new_run(&mut r, &NeowContext::default());
-        let GameState::Neow(ref neow) = state else { panic!() };
-        let lament_idx = neow.blessings.iter().position(|b| matches!(b, NeowBlessing::NeowsLament)).expect("should have NeowsLament");
-        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(lament_idx), &mut r).unwrap();
+        let state = neow_state_with(NeowBlessing::NeowsLament);
+        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
         let (state, _) = apply_command(state, Command::Spawn(vec![EnemyKind::RedLouse]), &mut r).unwrap();
         let (state, _) = apply_command(state, Command::ChooseNode(0), &mut r).unwrap();
         let GameState::Combat { state: ref cs, .. } = state else { panic!() };
@@ -1197,9 +1209,7 @@ mod tests {
     }
 
     fn run_after_neow() -> GameState {
-        let state = new_run(&mut rng(), &NeowContext::default());
-        let (state, _) = apply_command(state, Command::ChooseNeowBlessing(0), &mut rng()).unwrap();
-        state
+        new_run(&mut rng(), &NeowContext::default())
     }
 
     fn make_player() -> Player {

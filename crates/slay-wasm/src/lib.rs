@@ -128,7 +128,11 @@ impl WasmTuiSession {
             let ctx = NeowContext { runs_completed: 0, prev_run_reached_boss: false };
             slay_core::new_run(&mut rng, &ctx)
         }, false);
-        WasmTuiSession { inner: TuiSession::new(state, rng, false), game_over_recorded: false, save_prompt }
+        let mut inner = TuiSession::new(state, rng, false);
+        if !save_prompt {
+            inner.tui.show_splash = true;
+        }
+        WasmTuiSession { inner, game_over_recorded: false, save_prompt }
     }
 
     pub fn send(&mut self, input: &str) -> String {
@@ -156,7 +160,7 @@ impl WasmTuiSession {
             "Down"      => Key::Down,
             "w" | "W"   => Key::Up,
             "s" | "S"   => Key::Down,
-            _           => return self.inner.render(),
+            _           => Key::Other,
         };
         slay_tui::tui::handle_key(&mut self.inner.tui, &mut self.inner.rng, k);
         self.after_action()
@@ -175,6 +179,7 @@ impl WasmTuiSession {
 impl WasmTuiSession {
     fn start_game(&mut self) -> String {
         self.save_prompt = false;
+        self.inner.tui.show_splash = true;
         let _ = self.inner.terminal.clear();
         self.after_action()
     }
@@ -192,6 +197,7 @@ impl WasmTuiSession {
         };
         let state = slay_core::new_run(&mut rng, &ctx);
         self.inner = TuiSession::new(state, rng, false);
+        self.inner.tui.show_splash = true;
         self.inner.resize(size.width, size.height);
         self.game_over_recorded = false;
         self.save_prompt = false;
@@ -308,7 +314,7 @@ impl TuiSession {
     }
 
     pub fn render(&mut self) -> String {
-        self.terminal.draw(|f| slay_tui::tui::render_frame(f, &self.tui)).ok();
+        self.terminal.draw(|f| slay_tui::tui::render_frame(f, &mut self.tui)).ok();
         self.terminal.backend_mut().take_output()
     }
 

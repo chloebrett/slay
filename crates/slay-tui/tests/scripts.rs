@@ -13,7 +13,6 @@ fn run_script(script_content: &str) -> String {
 fn run_seeded_map_script(seed: u64, script_content: &str) -> String {
     let mut rng = AnyRng::seeded(seed);
     let state = new_run(&mut rng, &NeowContext::default());
-    let (state, _) = slay_core::apply_command(state, Command::ChooseNeowBlessing(0), &mut rng).unwrap();
     let mut output = Vec::<u8>::new();
     slay_tui::game::run_game(state, script_content.as_bytes(), &mut output, &mut rng, false, None);
     String::from_utf8(output).expect("output is valid utf8")

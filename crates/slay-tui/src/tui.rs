@@ -42,6 +42,7 @@ pub struct TuiState {
     pub event_log: VecDeque<String>,
     pub last_error: Option<String>,
     pub show_pile: Option<PileView>,
+    pub show_splash: bool,
     pub show_help: bool,
     pub show_relics: bool,
     pub wipe_start: Option<std::time::Instant>,
@@ -93,6 +94,7 @@ impl TuiState {
             event_log: VecDeque::new(),
             last_error: None,
             show_pile: None,
+            show_splash: false,
             show_help: false,
             show_relics: false,
             wipe_start: None,
@@ -314,6 +316,10 @@ pub fn render_frame(f: &mut Frame, tui: &mut TuiState) {
     render_input(f, chunks[3], tui);
 
     // Overlays (drawn last, on top)
+    if tui.show_splash {
+        render_splash_overlay(f, f.area());
+        return;
+    }
     if let Some(view) = tui.show_pile {
         render_pile_overlay(f, f.area(), &tui.game, view);
     }
@@ -1137,6 +1143,91 @@ fn render_wipe_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     f.render_widget(para, card_area);
 }
 
+fn render_splash_overlay(f: &mut Frame, area: Rect) {
+    use ratatui::text::Span;
+
+    f.render_widget(ratatui::widgets::Clear, area);
+    f.render_widget(Block::default().style(Style::default().bg(Color::Black)), area);
+
+    let title_lines: Vec<Line> = vec![
+        Line::from(Span::styled(
+            "  ███████╗██╗      █████╗ ██╗   ██╗",
+            Style::default().fg(Color::LightRed).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  ██╔════╝██║     ██╔══██╗╚██╗ ██╔╝",
+            Style::default().fg(Color::LightRed).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  ███████╗██║     ███████║ ╚████╔╝ ",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  ╚════██║██║     ██╔══██║  ╚██╔╝  ",
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  ███████║███████╗██║  ██║   ██║   ",
+            Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "  ╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝   ",
+            Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD),
+        )),
+    ];
+
+    let instructions: Vec<Line> = vec![
+        Line::raw(""),
+        Line::from(Span::styled(
+            "An unofficial Slay the Spire clone",
+            Style::default().fg(Color::DarkGray),
+        )),
+        Line::raw(""),
+        Line::from(Span::styled(
+            "Climb the Spire. Defeat monsters. Build your deck.",
+            Style::default().fg(Color::Gray),
+        )),
+        Line::raw(""),
+        Line::from(vec![
+            Span::styled("  Type commands and press ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Enter", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" to act.  Press ", Style::default().fg(Color::DarkGray)),
+            Span::styled("?", Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+            Span::styled(" at any time for help.  ", Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::from(vec![
+            Span::styled("  Combat: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("1", Style::default().fg(Color::White)),
+            Span::styled(" play card, ", Style::default().fg(Color::DarkGray)),
+            Span::styled("end", Style::default().fg(Color::White)),
+            Span::styled(" end turn.  Map: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("1", Style::default().fg(Color::White)),
+            Span::styled(" choose path.  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Esc", Style::default().fg(Color::White)),
+            Span::styled(" to quit.  ", Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::raw(""),
+        Line::from(Span::styled(
+            "─── Press any key to start ───",
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        )),
+    ];
+
+    let all_lines: Vec<Line> = title_lines.into_iter().chain(instructions).collect();
+    let content_height = all_lines.len() as u16;
+    let y_pad = area.height.saturating_sub(content_height) / 2;
+    let content_area = Rect {
+        x: area.x,
+        y: area.y + y_pad,
+        width: area.width,
+        height: content_height.min(area.height),
+    };
+    let para = Paragraph::new(all_lines)
+        .alignment(Alignment::Center)
+        .style(Style::default().bg(Color::Black));
+    f.render_widget(para, content_area);
+}
+
 fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
     let lines: Vec<Line> = help_lines(state)
         .into_iter()
@@ -1163,6 +1254,12 @@ fn render_help_overlay(f: &mut Frame, area: Rect, state: &GameState) {
 pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) -> bool {
     use crate::key::Key;
 
+    if tui.show_splash {
+        match key {
+            Key::Esc | Key::CtrlC => { tui.should_quit = true; return false; }
+            _ => { tui.show_splash = false; return true; }
+        }
+    }
     if tui.wipe_start.is_some() {
         tui.wipe_start = None;
         return true;
@@ -1264,6 +1361,7 @@ pub fn run_tui(
     let mut terminal = Terminal::new(backend)?;
 
     let mut tui = TuiState::new_with_save(state, debug, save_tx);
+    tui.show_splash = true;
 
     let result = (|| -> std::io::Result<()> {
         loop {
@@ -1387,9 +1485,7 @@ mod tests {
 
     fn make_main_run_map_tui() -> TuiState {
         let mut r = seeded_rng(1);
-        let ctx = NeowContext::default();
-        let state = new_run(&mut r, &ctx);
-        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
+        let state = new_run(&mut r, &NeowContext::default());
         TuiState::new(state, false)
     }
 
@@ -1646,10 +1742,7 @@ mod tests {
     #[test]
     fn rest_site_screen_shows_heal_amount() {
         let mut r = AnyRng::NoOp(NoOpRng);
-        let ctx = NeowContext::default();
-        let state = new_run(&mut r, &ctx);
-        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
-        // Force into rest site by hand
+        let state = new_run(&mut r, &NeowContext::default());
         let player = match state {
             GameState::Map(m) => m.player,
             _ => panic!(),
@@ -1669,9 +1762,7 @@ mod tests {
     #[test]
     fn card_reward_screen_shows_card_options() {
         let mut r = AnyRng::NoOp(NoOpRng);
-        let ctx = NeowContext::default();
-        let state = new_run(&mut r, &ctx);
-        let (state, _) = apply_and_drain(state, Command::ChooseNeowBlessing(0), &mut r).unwrap();
+        let state = new_run(&mut r, &NeowContext::default());
         let player = match state {
             GameState::Map(m) => m.player,
             _ => panic!(),

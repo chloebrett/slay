@@ -2,16 +2,9 @@
 
 A Slay the Spire ⚔️ clone that lives in your terminal 👾, written in Rust 🦀
 
+**Play in browser:** [slay.chloe.casa](https://slay.chloe.casa)
+
 ![1-day-demo](docs/1-day-demo.gif)
-
-Interactive TUI with:
-
-- live event log
-- enemy intents
-- HP bars
-- hand of cards
-
-Falls back to plain text automatically if you pipe stdin or run it in a script.
 
 The demo you see above was built in just one day! This was an experiment for me to play around with Claude Code, including a modified version of [citypaul's configuration](https://github.com/citypaul/.dotfiles/blob/main/claude) which pushes for TDD and good engineering practices.
 
@@ -20,19 +13,34 @@ The demo you see above was built in just one day! This was an experiment for me 
 **Combat**
 
 - [x] Turn-based combat — draw 5, spend energy, discard, repeat
-- [x] Statuses: Block, Vulnerable, Weak, Poison, Strength, Dexterity, Entangle
-- [x] 27 Ironclad cards, most with + upgrades (Strike, Bash, Inflame, Impervious, Body Slam, Cleave, Bludgeon, ...)
-- [x] 10 enemies, each with their own move patterns and probabilistic AI (Louse, Red/Green Louse, Fungibeast, Cultist, Jaw Worm, Small Spike Slime, Small Acid Slime, Blue Slaver, Red Slaver)
-- [x] 9 potions (Fire, Explosive, Block, Strength, Swift, Fear, Weak, Blood, Energy) — carry up to 3, discard anytime
+- [x] Statuses: Vulnerable, Weak, Poison, Strength, Dexterity, Entangle, Frail, Combust, Metallicize, Regen, Thorns, Panache, Evolve, Fire Breathing, Mayhem, and more
+- [x] 37 Ironclad cards, most with + upgrades (Strike, Bash, Inflame, Impervious, Body Slam, Cleave, Bludgeon, Whirlwind, Reaper, Fiend Fire, ...)
+- [x] 20+ enemies with their own move patterns and probabilistic AI — Act 1 regulars, elites (Gremlin Nob, Lagavulin, Sentries), and three bosses (The Guardian, Slime Boss, Hexaghost)
+- [x] 23 potions (Fire, Explosive, Block, Strength, Swift, Regen, Liquid Bronze, Duplication, Smoke Bomb, ...) — carry up to 3, discard anytime
 
 **Run structure**
 
-- [x] Branching map: 10-floor graph — Combats (floors 0–2, 4–5, 7–8 with 2 branches each), Shop (floor 3), Rest Site (floor 6), Boss (floor 9)
+- [x] Branching 15-floor map with probabilistic node placement — Combats, Elites, Rest Sites, Shop, Treasure, Events, Boss
+- [x] Map shows your path through visited floors
 - [x] Card rewards after combat (pick 1 of 3)
 - [x] Rest site: heal 30% HP or upgrade a card
-- [x] Gold drops, persistent across floors
+- [x] Gold drops with adaptive pity, persistent across floors
 - [x] Shop — buy cards, relics, and potions
-- [x] 28 relics with real effects (Burning Blood, Orichalcum, Mercury Hourglass, Bag of Preparation, ...)
+- [x] Treasure rooms
+- [x] Events — Ssssserpent, Big Fish, Mushrooms, Golden Idol
+- [x] 37 relics with real effects (Burning Blood, Orichalcum, Mercury Hourglass, Bag of Preparation, ...)
+- [x] Neow's blessings at the start of each run — 4 tiers of upgrades and trade-offs
+- [x] Meta-progression: run count, win count, and Neow blessing tier persist across runs
+
+**UI**
+
+- [x] Player HP, block, energy, gold, statuses, relics, and potions in the top bar
+- [x] Enemy HP bars, block, intent, and statuses
+- [x] Event log panel during combat
+- [x] Relic, deck, draw, discard, and exhaust pile overlays
+- [x] Help overlay (`?`)
+- [x] Room transition wipe animation
+- [x] HP damage flash for player and enemies
 
 ## How to run
 
@@ -49,11 +57,20 @@ Commands during combat:
 - `e` to end your turn
 - `use 1` to use your first potion
 - `z`/`x`/`c` peek at your draw, discard, and exhaust piles
+- `w`/`s` or `↑`/`↓` to scroll through a large hand
 
 Commands on the map:
 
 - `1`/`2` to choose a branch at a combat floor
 - `enter` or `1` at single-option floors (Shop, Rest Site, Boss)
+- `w`/`s` or `↑`/`↓` to scroll the map
+
+Commands everywhere:
+
+- `d` to view your deck
+- `relics` to view your relics
+- `?` to open the help overlay
+- `esc` to close any overlay
 
 Commands in the shop:
 
@@ -64,7 +81,7 @@ Commands in the shop:
 
 ## Browser (WASM)
 
-The full game also runs in the browser. The ratatui TUI compiles to WASM via a custom `WasmBackend` that implements ratatui's `Backend` trait and accumulates ANSI escape sequences instead of writing to a real terminal. xterm.js in the browser consumes those sequences directly — full colour support, cursor positioning, all the visual formatting, no special browser UI needed.
+The full game also runs in the browser at [slay.chloe.casa](https://slay.chloe.casa). The ratatui TUI compiles to WASM via a custom `WasmBackend` that implements ratatui's `Backend` trait and accumulates ANSI escape sequences instead of writing to a real terminal. xterm.js in the browser consumes those sequences directly — full colour support, cursor positioning, all the visual formatting.
 
 Run state and meta-progression (runs completed, wins, Neow blessing tier) are saved to `localStorage` after every keystroke using RON serialization. Closing the tab mid-run resumes right where you left off.
 
@@ -86,17 +103,16 @@ After code changes: `make wasm` then refresh the browser.
 **Limitations vs native**
 
 - Wipe/flash animations (room transition blackout, HP damage flashes) are disabled — `std::time::Instant::now()` is unavailable on `wasm32-unknown-unknown`
-- Terminal is hardcoded to 120x40 and doesn't resize to fit the window
 - No debug mode
-- No "new run" button after game over — refresh the page to start again
 
 ## What's next
 
 The big things that would make runs feel more like the real game:
 
-- More cards — the Ironclad set has a lot more interesting decisions to make (exhaust synergies, multi-hit attacks, more powers). The full card list is mapped out in `plans/ironclad_cards.json`.
-- More relics — 28 are live, another ~60 are planned. The remaining tiers need card-play counters, HP-change hooks, and a couple of new status types (Thorns, Plating).
-- TUI polish — colour-coded statuses, card cost colouring, mouse support.
+- More relics — 37 are live, more are planned. The remaining tiers need card-play counters, HP-change hooks, and a couple of new status types.
+- More events — only 4 are implemented; Act 1 has around 17.
+- Act 2 and Act 3 — new enemy sets, map layouts, and a final boss.
+- Play as other characters, including Silent.
 
 ## Legal disclaimer
 
