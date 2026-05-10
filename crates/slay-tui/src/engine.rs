@@ -254,20 +254,25 @@ pub fn connector_rows(
                     r1[sc] = '│';
                 }
                 std::cmp::Ordering::Less => {
-                    // bottom-left → top-right: two ╱ chars per row for a wider stroke
-                    let mid = (sc + dc) / 2;
-                    r1[mid - 2] = '╱';
-                    r1[mid - 1] = '╱';
-                    r0[mid + 1] = '╱';
-                    r0[mid + 2] = '╱';
+                    // bottom-left → top-right: place chars ¼ of the span from each end
+                    // so the stroke visually reaches from near source (r1) to near dest (r0)
+                    let quarter = (dc - sc) / 4;
+                    let r1_pos = sc + quarter;
+                    let r0_pos = dc - quarter - 1;
+                    r1[r1_pos]     = '╱';
+                    r1[r1_pos + 1] = '╱';
+                    r0[r0_pos]     = '╱';
+                    r0[r0_pos + 1] = '╱';
                 }
                 std::cmp::Ordering::Greater => {
-                    // bottom-right → top-left: two ╲ chars per row for a wider stroke
-                    let mid = (sc + dc) / 2;
-                    r1[mid + 1] = '╲';
-                    r1[mid + 2] = '╲';
-                    r0[mid - 2] = '╲';
-                    r0[mid - 1] = '╲';
+                    // bottom-right → top-left: place chars ¼ of the span from each end
+                    let quarter = (sc - dc) / 4;
+                    let r1_pos = sc - quarter - 1;
+                    let r0_pos = dc + quarter;
+                    r1[r1_pos]     = '╲';
+                    r1[r1_pos + 1] = '╲';
+                    r0[r0_pos]     = '╲';
+                    r0[r0_pos + 1] = '╲';
                 }
             }
         }
