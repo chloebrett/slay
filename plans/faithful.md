@@ -10,11 +10,13 @@ Items are roughly ordered by impact on feel.
 **Current:** 10-floor map (floors 0–9), boss at floor 9.
 
 **Real game:** Act 1 has exactly 16 floors. Three of them are fixed:
+
 - **Floor 9:** Always a Treasure Room (guaranteed free relic, no combat)
 - **Floor 15:** Always a Rest Site (guaranteed campfire before boss)
 - **Floor 16:** Boss — one of Slime Boss, The Guardian, or Hexaghost
 
 The remaining floors (1–8, 10–14) are generated from a weighted distribution:
+
 - 53% Normal Combat
 - 24% Unknown/Event (resolves randomly to event, combat, shop, or treasure on entry)
 - 15% Merchant
@@ -25,6 +27,7 @@ consecutive floors on a path can be Elite + Rest Site, Elite + Merchant, or
 Rest Site + Merchant.
 
 **Changes needed (`slay-core/src/run.rs`):**
+
 - Expand `generate_map()` from 10 to 16 floors
 - Floor 9 = Treasure, floor 15 = Rest Site, floor 16 = Boss (all fixed)
 - Replace hardcoded floor layout with probability-weighted generation for floors 1–8, 10–14
@@ -32,6 +35,7 @@ Rest Site + Merchant.
 - Add Hexaghost and The Guardian to `boss_encounters()`
 
 **Corrections from earlier draft:**
+
 - ~~"17 nodes — 16 traversal floors and a boss floor"~~ — it's 16 floors total, boss is floor 16
 - ~~"Treasure room placed after at least one elite path"~~ — treasure is always floor 9, fixed
 - ~~"Rest site guaranteed in floors 15–16"~~ — rest site is always floor 15, fixed
@@ -44,15 +48,18 @@ Rest Site + Merchant.
 **Current:** Implemented as a flat 40% after all combats (done). ✅
 
 **Real game:** 40% base, but with an adaptive pity mechanic:
+
 - If a potion drops: next combat's chance decreases by 10%
 - If no potion drops: next combat's chance increases by 10%
 - Resets to 40% at the start of each Act
 
 **Also wrong in earlier draft:**
+
 - ~~"Elites and bosses have a higher chance (~50%)"~~ — the same adaptive mechanic
   applies to all combat types; there is no separate elite/boss rate
 
 **Changes needed (`slay-core/src/run.rs`):**
+
 - Track `potion_chance: f64` on the player or run state (starts at 0.40)
 - After each combat, adjust ±0.10 based on whether a potion dropped
 
@@ -73,12 +80,20 @@ understanding is that Act 1 elites drop uncommon relics. Leaving as uncommon.
 **Current:** Flat values — need to audit (`GOLD_PER_COMBAT`, `GOLD_PER_ELITE`).
 
 **Real game ranges:**
+
 - Normal combat: 10–20 gold
 - Elite combat: 25–35 gold
 - Boss: 95–105 gold
 
 **Changes needed (`slay-core/src/run.rs`):**
+
 - Replace flat constants with `rng`-based ranges
+
+## 5. Enemy encounter types
+
+Enemies should appear in pairs, etc. The common encounter types are shown in the wiki: https://slay-the-spire.fandom.com/wiki/Act_1
+
+<FILL THIS OUT WITH MORE INFO>
 
 ---
 

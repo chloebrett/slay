@@ -1,22 +1,22 @@
 # Plan: Lagavulin Elite
 
 **Branch**: main
-**Status**: Active
-
-## Goal
-
-Implement Lagavulin as an Act 1 elite encounter with its sleeping state machine, Metallicize status, and attack cycle.
+**Status**: In progress — steps 1–3 and the map node portion of step 6 are done; steps 4, 5, and initial-statuses (step 6) remain.
 
 ## Acceptance Criteria
 
-- [ ] Lagavulin has 109 HP and appears as an Elite node on the map
-- [ ] Lagavulin starts with Metallicize 8 (gains 8 block at end of each of its turns while sleeping)
-- [ ] Lagavulin sleeps for up to 3 turns; if the player deals no HP damage in that time, it wakes without stunning
-- [ ] If the player deals HP damage while Lagavulin is sleeping, it wakes immediately and is Stunned for 1 turn (does nothing)
-- [ ] On waking, Metallicize is removed
-- [ ] Awake attack cycle: Attack 18 → Attack 18 → SiphonSoul → repeat
-- [ ] SiphonSoul applies -1 Strength and -1 Dexterity to the player
+- [x] Lagavulin has 109 HP and appears as an Elite node on the map
+- [ ] Lagavulin starts with Metallicize 8 and Sleep 3 when spawned into combat (**gap**: `initial_statuses()` not implemented)
+- [ ] Lagavulin sleeps for up to 3 turns; if the player deals no HP damage in that time, it wakes without stunning (**gap**: auto-wake-without-stun not implemented)
+- [ ] If the player deals HP damage while Lagavulin is sleeping, it wakes immediately and is Stunned for 1 turn (**gap**: `on_player_attack_damage` not implemented for Lagavulin)
+- [ ] On waking, Metallicize is removed (**gap**: tied to the two items above)
+- [x] Awake attack cycle: Attack 18 → Attack 18 → SiphonSoul → repeat
+- [x] SiphonSoul applies -1 Strength and -1 Dexterity to the player
 - [ ] When spawned awake (Dead Adventurer event path), cycle begins with SiphonSoul
+
+## Implementation Note: Sleep vs SleepCounter
+
+The plan specifies `StatusEffect::SleepCounter`, but the implementation uses `StatusEffect::Sleep` (a plain decrementing debuff). This is functionally equivalent for the counter/decrement behaviour. The remaining steps below use `Sleep` to match what's in the code.
 
 ## Architecture Notes
 
@@ -33,7 +33,7 @@ Every step follows RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR. No production code wi
 
 ---
 
-### Step 1: Add Metallicize status effect
+### ~~Step 1: Add Metallicize status effect~~ ✅ DONE
 
 **Acceptance criteria**: An enemy with `StatusEffect::Metallicize(N)` gains N block at the end of its turn (after its move resolves), visible via the block value on the enemy state.
 
@@ -51,7 +51,7 @@ Every step follows RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR. No production code wi
 
 ---
 
-### Step 2: Add Stunned status effect
+### ~~Step 2: Add Stunned status effect~~ ✅ DONE
 
 **Acceptance criteria**: An enemy with `StatusEffect::Stunned` (≥1 stack) skips its move on that turn; Stunned decrements at end of turn (same as other debuff ticks).
 
@@ -69,7 +69,7 @@ Every step follows RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR. No production code wi
 
 ---
 
-### Step 3: Implement Lagavulin enemy module
+### ~~Step 3: Implement Lagavulin enemy module~~ ✅ DONE
 
 **Acceptance criteria**: `EnemyKind::Lagavulin` exists with HP 109, named "Lagavulin". Sleep state is encoded via `SleepCounter` status (starts at 3). Moves: `LagavulinSleep` (no effects, placeholder), `LagavulinStunned` (no effects), `LagavulinAttack` (18 damage), `LagavulinSiphonSoul` (-1 Str, -1 Dex to player). Move sequence when awake: Attack → Attack → SiphonSoul → repeat.
 
@@ -128,9 +128,9 @@ Every step follows RED-GREEN-MUTATE-KILL MUTANTS-REFACTOR. No production code wi
 
 ---
 
-### Step 6: Add Elite map node and place Lagavulin
+### Step 6: Add Elite map node and place Lagavulin — ⚠️ PARTIALLY DONE
 
-**Acceptance criteria**: `MapNode::Elite(Vec<EnemyKind>)` exists. `generate_map` places one Elite node (containing Lagavulin) at a fixed row. The run correctly processes Elite nodes as combat encounters. Lagavulin starts with SleepCounter 3 and Metallicize 8 when spawned into combat.
+**Acceptance criteria**: `MapNode::Elite(Vec<EnemyKind>)` exists ✅. `generate_map` places one Elite node (containing Lagavulin) at a fixed row ✅. The run correctly processes Elite nodes as combat encounters ✅. Lagavulin starts with Sleep 3 and Metallicize 8 when spawned into combat ❌ (`initial_statuses()` not yet implemented).
 
 **RED**: Tests — generated map contains exactly one Elite node; Elite node round-trips through the run command flow; Lagavulin combat starts with correct initial statuses.
 
