@@ -5,72 +5,93 @@ Items are roughly ordered by impact on feel.
 
 ---
 
-## 1. Act 1 map structure — 16 floors + boss
+## 1. Act 1 map structure — 16 floors
 
 **Current:** 10-floor map (floors 0–9), boss at floor 9.
 
-**Real game:** Act 1 has 17 nodes — 16 traversal floors and a boss floor.
-Typical structure guarantees:
-- Floors 1–4: Easy combats, events
-- Floor 5–6: Shop guaranteed somewhere in here
-- Floors 6–10: Mix of hard combats, events, elites (2–3 elite rooms)
-- Treasure room placed after at least one elite path
-- Floor 15–16: Rest site guaranteed before boss
-- Floor 17: Boss (Slime Boss, Hexaghost, or The Guardian — chosen at run start)
+**Real game:** Act 1 has exactly 16 floors. Three of them are fixed:
+- **Floor 9:** Always a Treasure Room (guaranteed free relic, no combat)
+- **Floor 15:** Always a Rest Site (guaranteed campfire before boss)
+- **Floor 16:** Boss — one of Slime Boss, The Guardian, or Hexaghost
+
+The remaining floors (1–8, 10–14) are generated from a weighted distribution:
+- 53% Normal Combat
+- 24% Unknown/Event (resolves randomly to event, combat, shop, or treasure on entry)
+- 15% Merchant
+- 8% Elite
+
+**Additional constraint:** Elites cannot appear before floor 6, and no two
+consecutive floors on a path can be Elite + Rest Site, Elite + Merchant, or
+Rest Site + Merchant.
 
 **Changes needed (`slay-core/src/run.rs`):**
-- Expand `generate_map()` from 10 to 17 rows
-- Add more branching paths (the real game has 2–6 options per floor in some spots)
-- Guarantee ≥ 2 elite rooms in the act
-- Guarantee a rest site in the last 2–3 floors before the boss
+- Expand `generate_map()` from 10 to 16 floors
+- Floor 9 = Treasure, floor 15 = Rest Site, floor 16 = Boss (all fixed)
+- Replace hardcoded floor layout with probability-weighted generation for floors 1–8, 10–14
+- Elites gated to floor 6+
 - Add Hexaghost and The Guardian to `boss_encounters()`
-- Treasure room should follow elite paths, not be hardcoded at floor 8
+
+**Corrections from earlier draft:**
+- ~~"17 nodes — 16 traversal floors and a boss floor"~~ — it's 16 floors total, boss is floor 16
+- ~~"Treasure room placed after at least one elite path"~~ — treasure is always floor 9, fixed
+- ~~"Rest site guaranteed in floors 15–16"~~ — rest site is always floor 15, fixed
+- ~~"Floor 5–6: Shop guaranteed somewhere"~~ — shops are probabilistic, not guaranteed on a specific floor
 
 ---
 
-## 2. Potion drop rate — 40% chance after normal combat
+## 2. Potion drop rate — 40% base with adaptive pity
 
-**Current:** `award_potion()` is called unconditionally after every combat
-(`run.rs` lines ~605, ~674). Every fight gives a potion.
+**Current:** Implemented as a flat 40% after all combats (done). ✅
 
-**Real game:** Potions drop with 40% base chance after normal combats.
-Elites and bosses have a higher chance (~50%). The `Alchemize` relic and
-`White Beast Statue` give guaranteed drops but those are out of scope for now.
+**Real game:** 40% base, but with an adaptive pity mechanic:
+- If a potion drops: next combat's chance decreases by 10%
+- If no potion drops: next combat's chance increases by 10%
+- Resets to 40% at the start of each Act
+
+**Also wrong in earlier draft:**
+- ~~"Elites and bosses have a higher chance (~50%)"~~ — the same adaptive mechanic
+  applies to all combat types; there is no separate elite/boss rate
 
 **Changes needed (`slay-core/src/run.rs`):**
-- Add `rng.next_f32() < 0.40` (or equivalent) gate in `award_potion()` calls
-  after normal combat
-- Keep potion award unconditional after elite/boss for now (or use 50% —
-  low priority)
+- Track `potion_chance: f64` on the player or run state (starts at 0.40)
+- After each combat, adjust ±0.10 based on whether a potion dropped
 
 ---
 
 ## 3. Elites drop uncommon relics (not common)
 
-**Current:** Elite victories call `random_common_relic(rng)` — they award
-common-tier relics (`run.rs` lines ~519, ~600, ~669).
+**Current:** Implemented — elite victories now call `random_uncommon_relic()`. ✅
 
-**Real game:** Elites award **uncommon** relics. Common relics come from
-shops and events; uncommon relics are the elite reward.
+**Note:** The wiki describes the elite relic as coming from "common/uncommon/rare
+pool" but this appears to be imprecise wiki wording. The accepted community
+understanding is that Act 1 elites drop uncommon relics. Leaving as uncommon.
 
-**Changes needed (`slay-core/src/relics/mod.rs` + `run.rs`):**
-- Confirm `Relic::uncommon_pool()` exists (or add it) with the uncommon-tier relics
-- Replace `random_common_relic` calls in elite victory blocks with
-  `random_uncommon_relic`
+---
+
+## 4. Gold ranges
+
+**Current:** Flat values — need to audit (`GOLD_PER_COMBAT`, `GOLD_PER_ELITE`).
+
+**Real game ranges:**
+- Normal combat: 10–20 gold
+- Elite combat: 25–35 gold
+- Boss: 95–105 gold
+
+**Changes needed (`slay-core/src/run.rs`):**
+- Replace flat constants with `rng`-based ranges
 
 ---
 
 ## Future items (not yet scoped)
 
-- **Gold scaling:** real game gives 10–20 gold for easy combats, 15–25 for hard,
-  100 for elites, 300 for boss — current values need audit
+- **Unknown rooms resolving:** Unknown/? nodes randomly resolve to event, combat,
+  shop, or treasure on entry — currently they are placed as static Event nodes
 - **Card reward pool:** rewards should draw from the full Ironclad card set,
   weighted by rarity; currently draws from `reward_pool()` which may not match
-- **Event rooms:** events are placed on the map but no event logic is implemented
-- **Burning Elite:** an elite room the player is forced into (marked with a flame)
-  once per act
+- **Boss card rewards:** boss victories should offer rare cards (currently same as normal)
+- **Burning Elite:** a forced elite room (marked with a flame) once per act
 - **Campfire actions:** smith (upgrade) and rest (heal 30%) are implemented;
   "Recall" (Spire's Key) and "Lift" (Girya) are not
-- **Boss relic choice:** after the boss, the player picks 1 of 3 boss relics —
+- **Boss relic choice:** after the boss, player picks 1 of 3 boss relics —
   currently not implemented
 - **Multiple acts:** Act 2 and Act 3 are entirely absent
