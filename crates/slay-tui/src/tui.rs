@@ -438,7 +438,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
     let mut lines: Vec<Line> = Vec::new();
 
     if view_top < max_floor {
-        lines.push(Line::raw(format!("{margin}  ↑ more floors")));
+        lines.push(Line::raw(format!("{margin}  ↑ more floors (↑ / W)")));
     }
 
     for floor in (view_bottom..=view_top).rev() {
@@ -493,7 +493,7 @@ fn render_map(f: &mut Frame, area: Rect, map: &MapState, map_scroll: usize) {
     }
 
     if view_bottom > 0 {
-        lines.push(Line::raw(format!("{margin}  ↓ more floors")));
+        lines.push(Line::raw(format!("{margin}  ↓ more floors (↓ / S)")));
     }
 
     let block = Block::default().borders(Borders::ALL).title(" 🗺️  Map ");
