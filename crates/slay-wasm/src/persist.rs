@@ -1,5 +1,7 @@
 use slay_core::{AnyRng, GameState, NeowContext};
+#[cfg(test)]
 use std::cell::RefCell;
+#[cfg(test)]
 use std::collections::HashMap;
 
 const SCHEMA_VERSION: u32 = 1;
@@ -34,14 +36,17 @@ pub trait Storage {
     fn remove(&self, key: &str);
 }
 
+#[cfg(test)]
 pub struct MemoryStorage(RefCell<HashMap<String, String>>);
 
+#[cfg(test)]
 impl MemoryStorage {
     pub fn new() -> Self {
         MemoryStorage(RefCell::new(HashMap::new()))
     }
 }
 
+#[cfg(test)]
 impl Storage for MemoryStorage {
     fn get(&self, key: &str) -> Option<String> {
         self.0.borrow().get(key).cloned()

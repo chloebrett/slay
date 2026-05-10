@@ -7,8 +7,10 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::Line,
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
-    Frame, Terminal,
+    Frame,
 };
+#[cfg(any(feature = "terminal", test))]
+use ratatui::Terminal;
 use slay_core::{
     AnyRng, CardRewardState, CombatPhase, CombatState, EventKind, EventRoomState, GameState,
     MapState, Relic, RestSiteState, ShopState, TreasureRoomState, StatusMap,
