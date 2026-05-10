@@ -4,6 +4,7 @@ use slay_core::{AnyRng, GameState, NeowContext, NoOpRng, ThreadRng};
 
 mod command;
 mod engine;
+mod persist;
 mod render;
 mod wasm_backend;
 
@@ -105,20 +106,29 @@ impl WasmSession {
 /// A wasm-bindgen-exposed TUI session backed by ratatui + WasmBackend.
 /// Returns ANSI escape sequences; pass directly to `term.write()` in xterm.js.
 #[wasm_bindgen]
-pub struct WasmTuiSession(TuiSession);
+pub struct WasmTuiSession {
+    inner: TuiSession,
+    game_over_recorded: bool,
+}
 
 #[wasm_bindgen]
 impl WasmTuiSession {
     #[wasm_bindgen(constructor)]
     pub fn new() -> WasmTuiSession {
         let mut rng = AnyRng::Thread(ThreadRng::new());
-        let ctx = NeowContext { runs_completed: 0, prev_run_reached_boss: false };
-        let state = slay_core::new_run(&mut rng, &ctx);
-        WasmTuiSession(TuiSession::new(state, rng, false))
+        #[cfg(feature = "browser")]
+        let state = persist::start_or_resume(&persist::LocalStorage, &mut rng);
+        #[cfg(not(feature = "browser"))]
+        let state = {
+            let ctx = NeowContext { runs_completed: 0, prev_run_reached_boss: false };
+            slay_core::new_run(&mut rng, &ctx)
+        };
+        WasmTuiSession { inner: TuiSession::new(state, rng, false), game_over_recorded: false }
     }
 
     pub fn send(&mut self, input: &str) -> String {
-        self.0.send(input)
+        self.inner.process(input);
+        self.after_action()
     }
 
     pub fn send_key(&mut self, key: &str) -> String {
@@ -129,14 +139,36 @@ impl WasmTuiSession {
             "Esc"       => Key::Esc,
             "Up"        => Key::Up,
             "Down"      => Key::Down,
-            _           => return self.0.render(),
+            _           => return self.inner.render(),
         };
-        slay_tui::tui::handle_key(&mut self.0.tui, &mut self.0.rng, k);
-        self.0.render()
+        slay_tui::tui::handle_key(&mut self.inner.tui, &mut self.inner.rng, k);
+        self.after_action()
     }
 
     pub fn is_over(&self) -> bool {
-        self.0.is_over()
+        self.inner.is_over()
+    }
+}
+
+impl WasmTuiSession {
+    fn after_action(&mut self) -> String {
+        #[cfg(feature = "browser")]
+        self.persist();
+        self.inner.render()
+    }
+
+    #[cfg(feature = "browser")]
+    fn persist(&mut self) {
+        let storage = &persist::LocalStorage;
+        if self.inner.is_over() {
+            if !self.game_over_recorded {
+                let victory = matches!(self.inner.tui.game, GameState::GameOver { victory } if victory);
+                persist::on_run_end(storage, victory);
+                self.game_over_recorded = true;
+            }
+        } else {
+            persist::save_run(storage, &self.inner.tui.game, 0);
+        }
     }
 }
 
@@ -160,7 +192,7 @@ impl TuiSession {
         TuiSession { tui, rng, terminal }
     }
 
-    pub fn send(&mut self, input: &str) -> String {
+    pub fn process(&mut self, input: &str) {
         use slay_tui::key::Key;
 
         for c in input.chars() {
@@ -172,7 +204,10 @@ impl TuiSession {
             };
             slay_tui::tui::handle_key(&mut self.tui, &mut self.rng, key);
         }
+    }
 
+    pub fn send(&mut self, input: &str) -> String {
+        self.process(input);
         self.render()
     }
 

@@ -62,6 +62,34 @@ Commands in the shop:
 - `p` to buy the potion
 - `l` to leave
 
+## Browser (WASM)
+
+The full game also runs in the browser. The ratatui TUI compiles to WASM via a custom `WasmBackend` that implements ratatui's `Backend` trait and accumulates ANSI escape sequences instead of writing to a real terminal. xterm.js in the browser consumes those sequences directly — full colour support, cursor positioning, all the visual formatting, no special browser UI needed.
+
+Run state and meta-progression (runs completed, wins, Neow blessing tier) are saved to `localStorage` after every keystroke using RON serialization. Closing the tab mid-run resumes right where you left off.
+
+**Prerequisites**
+
+```
+cargo install wasm-pack
+```
+
+**Build and serve**
+
+```
+make wasm                          # builds pkg into www/pkg/
+cd www && python3 -m http.server   # any static server works; file:// does not (ES module imports)
+```
+
+After code changes: `make wasm` then refresh the browser.
+
+**Limitations vs native**
+
+- Wipe/flash animations (room transition blackout, HP damage flashes) are disabled — `std::time::Instant::now()` is unavailable on `wasm32-unknown-unknown`
+- Terminal is hardcoded to 120x40 and doesn't resize to fit the window
+- No debug mode
+- No "new run" button after game over — refresh the page to start again
+
 ## What's next
 
 The big things that would make runs feel more like the real game:
