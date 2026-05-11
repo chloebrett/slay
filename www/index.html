@@ -20,14 +20,33 @@
       font-family: 'Courier Prime', 'Courier New', monospace;
       box-sizing: border-box;
     }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      flex-shrink: 0;
+      margin: 8px 0 4px;
+    }
     h1 {
       color: #ebdfca;
-      margin: 8px 0 4px;
+      margin: 0;
       font-size: 2rem;
       font-family: 'Imperial Script', cursive;
       font-weight: normal;
       letter-spacing: 0.05em;
-      flex-shrink: 0;
+    }
+    #github-link {
+      color: #ebdfca88;
+      font-size: 0.75rem;
+      text-decoration: none;
+      font-family: 'Courier Prime', 'Courier New', monospace;
+      transition: color 0.15s;
+      white-space: nowrap;
+      padding-left: 1rem;
+    }
+    #github-link:hover {
+      color: #ebdfca;
     }
     #terminal {
       flex: 1;
@@ -36,25 +55,13 @@
       overflow: hidden;
       visibility: hidden;
     }
-    #github-link {
-      position: fixed;
-      top: 12px;
-      right: 16px;
-      color: #ebdfca88;
-      font-size: 0.75rem;
-      text-decoration: none;
-      font-family: 'Courier Prime', 'Courier New', monospace;
-      transition: color 0.15s;
-      z-index: 10;
-    }
-    #github-link:hover {
-      color: #ebdfca;
-    }
   </style>
 </head>
 <body>
-  <a id="github-link" href="https://github.com/chloebrett/slay" target="_blank" rel="noopener">github.com/chloebrett/slay</a>
-  <h1>⚔️ Slay</h1>
+  <header>
+    <h1>⚔️ Slay</h1>
+    <a id="github-link" href="https://github.com/chloebrett/slay" target="_blank" rel="noopener">github.com/chloebrett/slay</a>
+  </header>
   <div id="terminal"></div>
   <script src="xterm/xterm.js"></script>
   <script type="module" src="main.js"></script>

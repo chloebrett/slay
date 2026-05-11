@@ -43,6 +43,7 @@ pub struct TuiState {
     pub last_error: Option<String>,
     pub show_pile: Option<PileView>,
     pub show_splash: bool,
+    pub needs_clear: bool,
     pub show_help: bool,
     pub show_relics: bool,
     pub wipe_start: Option<std::time::Instant>,
@@ -95,6 +96,7 @@ impl TuiState {
             last_error: None,
             show_pile: None,
             show_splash: false,
+            needs_clear: false,
             show_help: false,
             show_relics: false,
             wipe_start: None,
@@ -1257,7 +1259,7 @@ pub fn handle_key(tui: &mut TuiState, rng: &mut AnyRng, key: crate::key::Key) ->
     if tui.show_splash {
         match key {
             Key::Esc | Key::CtrlC => { tui.should_quit = true; return false; }
-            _ => { tui.show_splash = false; return true; }
+            _ => { tui.show_splash = false; tui.needs_clear = true; return true; }
         }
     }
     if tui.wipe_start.is_some() {
@@ -1365,6 +1367,10 @@ pub fn run_tui(
 
     let result = (|| -> std::io::Result<()> {
         loop {
+            if tui.needs_clear {
+                tui.needs_clear = false;
+                terminal.clear()?;
+            }
             terminal.draw(|f| render_frame(f, &mut tui))?;
 
             if tui.should_quit {

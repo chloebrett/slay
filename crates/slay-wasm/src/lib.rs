@@ -314,6 +314,10 @@ impl TuiSession {
     }
 
     pub fn render(&mut self) -> String {
+        if self.tui.needs_clear {
+            self.tui.needs_clear = false;
+            let _ = self.terminal.clear();
+        }
         self.terminal.draw(|f| slay_tui::tui::render_frame(f, &mut self.tui)).ok();
         self.terminal.backend_mut().take_output()
     }
